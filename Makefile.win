@@ -1,0 +1,60 @@
+#OPENSSL_PATH=c:\src\openssl\openssl-1.1.0e-vs2015
+OPENSSL_PATH="c:\Program Files (x86)\OpenSSL-Win32"
+CURL_PATH=c:\src\curl32
+
+CFLAGS=-I $(OPENSSL_PATH)\\include \
+-I $(CURL_PATH)\\include \
+-I lib
+
+LDFLAGS=$(OPENSSL_PATH)\\lib\\VC\\libcrypto32MD.lib \
+$(CURL_PATH)\\lib\\libcurl.dll.a
+
+AR=lib
+LD=link
+
+LIBVES_LIB=lib\\libVES.lib
+VESUTIL_EXE=ves.exe
+
+LIBVES_OBJS=lib\\libVES.obj \
+lib\\libVES\\Util.obj \
+lib\\libVES\\List.obj \
+lib\\libVES\\Cipher.obj \
+lib\\libVES\\CiAlgo_AES.obj \
+lib\\libVES\\VaultKey.obj \
+lib\\libVES\\KeyAlgo_EVP.obj \
+lib\\libVES\\VaultItem.obj \
+lib\\libVES\\Ref.obj \
+lib\\libVES\\User.obj \
+lib\\libVES\\File.obj \
+lib\\libVES\\REST.obj
+
+JVAR_OBJS=lib\\jVar.obj
+
+VESUTIL_OBJS=src\\ves-util.obj \
+src\\ves-util\\put.obj \
+src\\ves-util\\get.obj \
+src\\ves-util\\set.obj \
+src\\ves-util\\out.obj \
+src\\ves-util\\ci.obj \
+src\\ves-util\\help.obj \
+src\\ves-util\\hook.obj \
+src\\ves-util\\tty.obj
+
+EXTRA_OBJS=applink.obj
+
+all:	ves.exe
+
+.c.obj:
+	$(CC) $(CFLAGS) -Fo:$@ -c $<
+
+applink.obj:
+	$(CC) $(CFLAGS) -Fo:$@ -c $(OPENSSL_PATH)\\include\\openssl\\applink.c
+
+libVES.lib:	$(LIBVES_OBJS) $(JVAR_OBJS)
+	$(AR) /OUT:$(LIBVES_LIB) $(LIBVES_OBJS) $(JVAR_OBJS)
+
+ves.exe:	$(VESUTIL_OBJS) libVES.lib $(EXTRA_OBJS)
+	$(LD) /OUT:$(VESUTIL_EXE) $(LDFLAGS) $(VESUTIL_OBJS) $(EXTRA_OBJS) $(LIBVES_LIB)
+
+clean:
+	del $(LIBVES_OBJS) $(JVAR_OBJS) $(VESUTIL_OBJS) $(LIBVES_LIB) $(VESUTIL_EXE)
