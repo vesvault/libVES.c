@@ -37,6 +37,7 @@
 #include <openssl/bio.h>
 #include <openssl/pem.h>
 #include <openssl/engine.h>
+#include <openssl/crypto.h>
 #include "Cipher.h"
 #include "CiAlgo_AES.h"
 #include "Util.h"
@@ -50,7 +51,7 @@
 		memcpy(ci->alg.key, key, sizeof(ci->alg.key)); \
 		memcpy(ci->alg.seed, key + (keylen <= sizeof(ci->alg.key) + sizeof(ci->alg.seed) ? keylen - sizeof(ci->alg.seed) : sizeof(ci->alg.key)), sizeof(ci->alg.seed)); \
 	    } else { \
-		RAND_bytes(ci->alg.key, sizeof(ci->alg.key) + sizeof(ci->alg.seed)); \
+		if (RAND_bytes(ci->alg.key, sizeof(ci->alg.key) + sizeof(ci->alg.seed)) <= 0) libVES_throwEVP(ves, LIBVES_E_CRYPTO, "RAND_bytes", NULL); \
 	    }
 
 #define libVES_CiAlgo_LEN_1K	1024
@@ -218,7 +219,7 @@ int libVES_CiAlgo_e_AES256GCMp(libVES_Cipher *ci, int final, const char *plainte
 	if (ci->gcm.offs) {
 	    l = libVES_CiAlgo_e_AES256GCM(ci, 0, ci->gcm.pbuf, ci->gcm.offs, ctext);
 	    if (l < 0) return -1;
-	    memset(ci->gcm.pbuf, 0, ci->gcm.offs);
+	    OPENSSL_cleanse(ci->gcm.pbuf, ci->gcm.offs);
 	    ctext += l;
 	}
 	l = libVES_CiAlgo_e_AES256GCM(ci, 0, plaintext, ptlen, ctext);
@@ -327,7 +328,7 @@ int libVES_CiAlgo_e_AES256GCM1K(libVES_Cipher *ci, int final, const char *plaint
     while (ptext < ptail || ff) {
 	ff = 0;
 	if (!ci->gcm.offs) {
-	    RAND_bytes((unsigned char *) ctext, sizeof(ci->gcm.gbuf));
+	    if (RAND_bytes((unsigned char *) ctext, sizeof(ci->gcm.gbuf)) <= 0) libVES_throwEVP(ci->ves, LIBVES_E_CRYPTO, "RAND_bytes", -1);
 	    if (!libVES_CiAlgo_setiv_AES256GCM1K(ci, ctext)) return -1;
 	    ctext += sizeof(ci->gcm.gbuf);
 	    ci->gcm.offs = sizeof(ci->gcm.gbuf);
@@ -352,7 +353,7 @@ int libVES_CiAlgo_e_AES256GCM1K(libVES_Cipher *ci, int final, const char *plaint
 
 void libVES_CiAlgo_r_AES256GCMp(libVES_Cipher *ci) {
     if (ci->gcm.pbuf) {
-	memset(ci->gcm.pbuf, 0, ci->gcm.offs);
+	OPENSSL_cleanse(ci->gcm.pbuf, ci->gcm.offs);
 	free(ci->gcm.pbuf);
 	ci->gcm.pbuf = NULL;
     }
@@ -460,7 +461,7 @@ int libVES_CiAlgo_l_AES256CFB(libVES_Cipher *ci) {
 }
 
 void libVES_CiAlgo_f_AES256(libVES_Cipher *ci) {
-    memset(ci->gcm.key, 0, sizeof(ci->gcm.key));
+    OPENSSL_cleanse(ci->gcm.key, sizeof(ci->gcm.key));
 }
 
 

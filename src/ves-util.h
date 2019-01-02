@@ -28,7 +28,7 @@
  * ves-util.h                 VES Utility Main Header
  *
  ***************************************************************************/
-#define VESUTIL_VERSION_CODE	"0.9b"
+#define VESUTIL_VERSION_CODE	"0.901b"
 #define VESUTIL_VERSION_STR	"VES util " VESUTIL_VERSION_CODE " (c) 2018 VESvault Corp"
 #define VESUTIL_VERSION_SHORT	"ves/" VESUTIL_VERSION_CODE
 #define	E_PARAM		64

@@ -33,6 +33,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <openssl/crypto.h>
 #include "../jVar.h"
 #include "../libVES.h"
 #include "VaultItem.h"
@@ -369,7 +370,7 @@ void libVES_VaultItem_free(libVES_VaultItem *vitem) {
     if (!vitem) return;
     jVar_free(vitem->meta);
     if (vitem->value) {
-	memset(vitem->value, 0, vitem->len);
+	OPENSSL_cleanse(vitem->value, vitem->len);
 	free(vitem->value);
 	vitem->len = 0;
     }

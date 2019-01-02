@@ -36,6 +36,7 @@
 #include <openssl/bio.h>
 #include <openssl/pem.h>
 #include <openssl/engine.h>
+#include <openssl/crypto.h>
 #include "../jVar.h"
 #include "../libVES.h"
 #include "VaultKey.h"
@@ -382,7 +383,7 @@ int libVES_VaultKey_decrypt(libVES_VaultKey *vkey, const char *ciphertext, char 
 	else pl = -1;
     }
     free(ctext);
-    memset(cikey, 0, sizeof(cikey));
+    OPENSSL_cleanse(cikey, sizeof(cikey));
     return pl;
 }
 
@@ -410,7 +411,7 @@ char *libVES_VaultKey_encrypt(libVES_VaultKey *vkey, const char *plaintext, size
 	if (l >= 0) cl += l;
 	else cl = -1;
     }
-    memset(cikey, 0, sizeof(cikey));
+    OPENSSL_cleanse(cikey, sizeof(cikey));
     if (cl >= 0) return libVES_b64encode(ctext, cl, ctbuf);
     free(ctbuf);
     return NULL;
@@ -564,7 +565,7 @@ libVES_veskey *libVES_veskey_new(size_t keylen, const char *veskey) {
     libVES_veskey *vk = malloc(offsetof(libVES_veskey, veskey) + keylen);
     if (veskey) memcpy(vk->veskey, veskey, keylen);
     else {
-	RAND_bytes((unsigned char *) vk->veskey, keylen);
+	if (RAND_bytes((unsigned char *) vk->veskey, keylen) <= 0) return NULL;
 	char *p;
 	for (p = vk->veskey; p < vk->veskey + keylen; p++) {
 	    unsigned char c = *p;
@@ -577,6 +578,6 @@ libVES_veskey *libVES_veskey_new(size_t keylen, const char *veskey) {
 
 void libVES_veskey_free(libVES_veskey *veskey) {
     if (!veskey) return;
-    memset(veskey, 0, veskey->keylen + sizeof(veskey->keylen));
+    OPENSSL_cleanse(veskey, veskey->keylen + sizeof(veskey->keylen));
     free(veskey);
 }

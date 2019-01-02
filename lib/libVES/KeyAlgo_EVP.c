@@ -37,6 +37,7 @@
 #include <openssl/bio.h>
 #include <openssl/pem.h>
 #include <openssl/engine.h>
+#include <openssl/crypto.h>
 #include "../jVar.h"
 #include "../libVES.h"
 #include "VaultKey.h"
@@ -197,7 +198,7 @@ int libVES_KeyAlgo_RSA_decrypt(libVES_VaultKey *vkey, const char *ciphertext, si
 	    res = 0;
 	} else res = dlen;
     }
-    if (keybuf) memset(keybuf, 0, len);
+    if (keybuf) OPENSSL_cleanse(keybuf, len);
     free(keybuf);
     EVP_PKEY_CTX_free(ctx);
     return res;
@@ -212,7 +213,7 @@ int libVES_KeyAlgo_RSA_encrypt(libVES_VaultKey *vkey, const char *plaintext, siz
     if (*ptlen + libVES_KeyAlgo_RSA_LENpad > len && *ptlen > *keylen) {
 	*ptlen = 0;
 	if (!ciphertext) return len;
-	RAND_bytes((unsigned char *) key, *keylen);
+	if (RAND_bytes((unsigned char *) key, *keylen) <= 0) libVES_throwEVP(vkey->ves, LIBVES_E_CRYPTO, "RAND_bytes", -1);
 	s = key;
 	sl = *keylen;
     } else {
@@ -284,7 +285,7 @@ int libVES_KeyAlgo_ECDH_derive(EVP_PKEY *pub, EVP_PKEY *priv, char *buf, size_t 
 	}
 	if (mdctx) EVP_MD_CTX_destroy(mdctx);
     }
-    memset(dh, 0, sizeof(dh));
+    OPENSSL_cleanse(dh, sizeof(dh));
     EVP_PKEY_CTX_free(ctx);
     return res;
 }

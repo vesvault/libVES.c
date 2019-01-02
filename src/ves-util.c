@@ -49,6 +49,7 @@
 #include <libVES/Ref.h>
 #include <libVES/Cipher.h>
 #include <libVES/User.h>
+#include <openssl/crypto.h>
 #include "ves-util.h"
 #include "ves-util/put.h"
 #include "ves-util/get.h"
@@ -515,7 +516,7 @@ int main(int argc, char **argv) {
 		char *passwd = get_noecho(msg, &gl, NULL);
 		if (!passwd) break;
 		pvkey = libVES_primary(ctx.ves, pri, passwd);
-		memset(passwd, 0, strlen(passwd));
+		OPENSSL_cleanse(passwd, strlen(passwd));
 		free(passwd);
 		if (pvkey) break;
 		if (--retry <= 0 || !libVES_checkError(ctx.ves, LIBVES_E_DENIED)) break;
@@ -530,7 +531,7 @@ int main(int argc, char **argv) {
 		char *vk = get_noecho(msg, &gl, NULL);
 		if (!vk) break;
 		libVES_veskey *veskey = libVES_veskey_new(strlen(vk), vk);
-		memset(vk, 0, gl);
+		OPENSSL_cleanse(vk, gl);
 		free(vk);
 		unlk = libVES_VaultKey_unlock(pvkey, veskey);
 		libVES_veskey_free(veskey);

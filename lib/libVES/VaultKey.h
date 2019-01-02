@@ -210,11 +210,16 @@ extern const struct libVES_ListCtl libVES_VaultKey_ListCtlU;
 
 /***************************************************************************
  * VESkey, a binary with length
+ * Generate a random one if veskey == NULL, see libVES_veskey_generate()
  ***************************************************************************/
 libVES_veskey *libVES_veskey_new(size_t keylen, const char *veskey);
 
 /***************************************************************************
  * Generate a random ascii VESkey
+ * The character frequency is biased to improve human readability,
+ * the entropy is ~ 203 bit for keylen == 32 (vs 256 bit for a random binary)
+ * Character frequency graph:
+ * https://i.imgur.com/o2oTDLz.png (credits: https://reddit.com/u/skeeto)
  ***************************************************************************/
 #define libVES_veskey_generate(keylen)		libVES_veskey_new(keylen, NULL)
 
