@@ -27,8 +27,8 @@
  *
  ***************************************************************************/
 
-lib/: libVES 0.90 beta
-src/: VES utility 0.90 beta
+lib/: libVES 0.901 beta
+src/: VES utility 0.901 beta
 
 DOCUMENTATION:
   https://ves.host
@@ -44,7 +44,7 @@ REQUIREMENTS:
 
 See INSTALL for complete build instructions.
 
-Quick build on *nix:
+Quick build on *nix (from a dist tar.gz):
 
   ./confugure
   make
