@@ -131,10 +131,10 @@ void *libVES_REST_hdrs(libVES *ves, const char *uri, jVar *body, struct curl_sli
 		const char *rtype = jVar_getString0(jVar_get(rerr, "type"));
 		const char *rmsg = jVar_getString0(jVar_get(rerr, "message"));
 		errstr = malloc(128 + (rtype ? strlen(rtype) : 0) + (rmsg ? strlen(rmsg) : 0));
-		sprintf(errstr, "API: HTTP %ld - %s: %s", code, rtype, rmsg);
+		if (errstr) sprintf(errstr, "API: HTTP %ld - %s: %s", code, rtype, rmsg);
 	    } else {
 		errstr = malloc(128);
-		sprintf(errstr, "API: HTTP %ld", code);
+		if (errstr) sprintf(errstr, "API: HTTP %ld", code);
 	    }
 	    libVES_setError0(ves, err, errstr);
 	}
@@ -143,7 +143,7 @@ void *libVES_REST_hdrs(libVES *ves, const char *uri, jVar *body, struct curl_sli
     } else {
 	const char *curlstr = curl_easy_strerror(curlerr);
 	errstr = malloc(128 + (curlstr ? strlen(curlstr) : 0));
-	sprintf(errstr, "cURL error %d: %s", curlerr, curlstr);
+	if (errstr) sprintf(errstr, "cURL error %d: %s", curlerr, curlstr);
 	err = LIBVES_E_CONN;
     }
     if (err != LIBVES_E_OK) libVES_setError0(ves, err, errstr);

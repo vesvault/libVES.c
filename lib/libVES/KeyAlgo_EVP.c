@@ -77,9 +77,10 @@ char *libVES_KeyAlgo_EVP_pub2str(libVES_VaultKey *vkey, void *pkey) {
     BIO *mem = BIO_new(BIO_s_mem());
     if (PEM_write_bio_PUBKEY(mem, (EVP_PKEY *) pkey) > 0) {
 	len = BIO_get_mem_data(mem, &buf);
-	str = malloc(len + 1);
-	memcpy(str, buf, len);
-	str[len] = 0;
+	if ((str = malloc(len + 1))) {
+	    memcpy(str, buf, len);
+	    str[len] = 0;
+	}
     } else str = NULL;
     BIO_free(mem);
     return str;
@@ -138,9 +139,10 @@ char *libVES_KeyAlgo_EVP_toPEM(libVES_veskey *veskey, struct evp_pkey_st *pkey) 
     if (PEM_write_bio_PKCS8PrivateKey(mem, pkey, (veskey ? EVP_aes_256_cbc() : NULL), (veskey ? veskey->veskey : NULL), (veskey ? veskey->keylen : 0), NULL, NULL) > 0) {
 	char *buf;
 	int len = BIO_get_mem_data(mem, &buf);
-	res = malloc(len + 1);
-	memcpy(res, buf, len);
-	res[len] = 0;
+	if ((res = malloc(len + 1))) {
+	    memcpy(res, buf, len);
+	    res[len] = 0;
+	}
     } else res = NULL;
     BIO_free(mem);
     return res;
@@ -165,6 +167,7 @@ libVES_VaultKey *libVES_KeyAlgo_RSA_new(const libVES_KeyAlgo *algo, void *pkey, 
 	return NULL;
     }
     libVES_VaultKey *vkey = malloc(sizeof(libVES_VaultKey));
+    if (!vkey) return NULL;
     vkey->algo = algo;
     vkey->pPriv = pkey;
     vkey->pPub = NULL;
@@ -179,6 +182,7 @@ int libVES_KeyAlgo_RSA_decrypt(libVES_VaultKey *vkey, const char *ciphertext, si
     if (*ctlen > len) {
 	*ctlen = len;
 	d = keybuf = malloc(len);
+	libVES_assert(vkey->ves, d, -1);
     } else {
 	if (!plaintext) return len;
 	d = (unsigned char *) plaintext;
@@ -257,6 +261,7 @@ libVES_VaultKey *libVES_KeyAlgo_ECDH_new(const libVES_KeyAlgo *algo, void *pkey,
 	return NULL;
     }
     libVES_VaultKey *vkey = malloc(sizeof(libVES_VaultKey));
+    if (!vkey) return NULL;
     vkey->algo = algo;
     vkey->pPriv = pkey;
     vkey->pPub = NULL;

@@ -97,7 +97,7 @@ int libVES_Cipher_proceed(libVES_Cipher *ci, int final, const char *srctext, siz
 	int len = func(ci, final, srctext, srclen, NULL);
 	if (len < 0) libVES_throw(ci->ves, LIBVES_E_CRYPTO, "Cannot determine the cipher buffer size", -1);
 	if (!dsttext) return len;
-	*dsttext = malloc(len);
+	libVES_assert(ci->ves, (*dsttext = malloc(len)), -1);
     }
     int res = func(ci, final, srctext, srclen, *dsttext);
     if (res < 0) libVES_throw(ci->ves, LIBVES_E_CRYPTO, "Cipher error", -1);
@@ -115,6 +115,7 @@ int libVES_Cipher_encrypt(libVES_Cipher *ci, int final, const char *plaintext, s
 libVES_Seek *libVES_Cipher_seek(libVES_Cipher *ci, libVES_Seek *sk) {
     if (!sk) {
 	sk = malloc(sizeof(*sk));
+	if (!sk) return NULL;
 	sk->plainPos = sk->cipherPos = sk->cipherFbPos = -1;
 	sk->cipherFbLen = 0;
 	sk->cipherFb = NULL;

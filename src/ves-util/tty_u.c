@@ -53,6 +53,7 @@ char *tty_getpass(const char *prompt, size_t maxlen) {
     t.c_lflag &= ~ECHO;
     if (tcsetattr(fd, TCSANOW, &t) < 0) return NULL;
     char *buf = malloc(maxlen + 1);
+    if (!buf) return NULL;
     char *bufp = buf;
     char *tail = buf + maxlen;
     int r = -1;

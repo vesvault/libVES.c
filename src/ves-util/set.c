@@ -39,12 +39,12 @@
 
 int set_file(void *data, int mode) {
     int fd = open(data, (mode & SF_WR ? O_WRONLY | O_CREAT | O_TRUNC : O_RDONLY), 0600);
-    if (fd < 0) IO_throw("[open]", data, -1);
+    if (fd < 0) IO_throw("[open]", (char *) data, -1);
     return fd;
 }
 
 int set_fd(void *data, int mode) {
     int fd;
-    if (sscanf(data, "%d", &fd) != 1) VES_throw("[set_fd]", "Numeric file descriptor expected", data, -1);
+    if (sscanf(data, "%d", &fd) != 1) VES_throw("[set_fd]", "Numeric file descriptor expected", (char *) data, -1);
     return fd;
 }

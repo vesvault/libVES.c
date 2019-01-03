@@ -55,9 +55,16 @@ libVES_List_STATIC(libVES_VaultKey_algos, &libVES_algoListCtl, 2, &libVES_KeyAlg
 libVES_VaultKey *libVES_VaultKey_new(int type, const libVES_KeyAlgo *algo, void *pkey, libVES_veskey *veskey, libVES *ves) {
     if (!ves) return NULL;
     if (!algo || !algo->newfn) libVES_throw(ves, LIBVES_E_PARAM, "Invalid key algo", NULL);
-    if (!veskey) veskey = libVES_veskey_generate(ves->veskeyLen);
-    libVES_VaultKey *vkey = algo->newfn(algo, pkey, veskey, ves);
-    if (!vkey) return NULL;
+    libVES_veskey *vknew = veskey ? NULL : (veskey = libVES_veskey_generate(ves->veskeyLen));
+    if (!veskey) return NULL;
+    char *vkcpy = malloc(veskey->keylen);
+    libVES_VaultKey *vkey = vkcpy ? algo->newfn(algo, pkey, veskey, ves) : NULL;
+    if (!vkey) {
+	libVES_veskey_free(vknew);
+	free(vkcpy);
+	return NULL;
+    }
+    memcpy(vkcpy, veskey->veskey, veskey->keylen);
     vkey->id = 0;
     vkey->type = type;
     vkey->ves = ves;
@@ -65,24 +72,26 @@ libVES_VaultKey *libVES_VaultKey_new(int type, const libVES_KeyAlgo *algo, void 
     vkey->external = NULL;
     vkey->vitem = libVES_VaultItem_new();
     vkey->vitem->type = LIBVES_VI_PASSWORD;
-    vkey->vitem->value = malloc(veskey->keylen);
-    memcpy(vkey->vitem->value, veskey->veskey, veskey->keylen);
+    vkey->vitem->value = vkcpy;
     vkey->vitem->len = veskey->keylen;
     vkey->entries = NULL;
     if (!vkey->algo || !vkey->pPriv) {
 	libVES_setError(ves, LIBVES_E_PARAM, "Key algo and pPriv must be set by newfn");
 	libVES_VaultKey_free(vkey);
-	return NULL;
+	vkey = NULL;
+    } else {
+	if (!vkey->pPub && vkey->algo->priv2pubfn) vkey->pPub = vkey->algo->priv2pubfn(vkey, vkey->pPriv);
+	if (vkey->algo->pub2strfn) vkey->publicKey = vkey->algo->pub2strfn(vkey, vkey->pPub ? vkey->pPub : vkey->pPriv);
+	if (vkey->algo->priv2strfn) vkey->privateKey = vkey->algo->priv2strfn(vkey, vkey->pPriv, veskey);
     }
-    if (!vkey->pPub && vkey->algo->priv2pubfn) vkey->pPub = vkey->algo->priv2pubfn(vkey, vkey->pPriv);
-    if (vkey->algo->pub2strfn) vkey->publicKey = vkey->algo->pub2strfn(vkey, vkey->pPub ? vkey->pPub : vkey->pPriv);
-    if (vkey->algo->priv2strfn) vkey->privateKey = vkey->algo->priv2strfn(vkey, vkey->pPriv, veskey);
+    libVES_veskey_free(vknew);
     return vkey;
 }
 
 libVES_VaultKey *libVES_VaultKey_fromJVar(jVar *j_vkey, libVES *ves) {
     if (!j_vkey) return NULL;
     libVES_VaultKey *vkey = malloc(sizeof(libVES_VaultKey));
+    if (!vkey) return NULL;
     vkey->id = jVar_getInt(jVar_get(j_vkey, "id"));
     vkey->type = jVar_getEnum(jVar_get(j_vkey, "type"), libVES_VaultKey_types);
     vkey->algo = libVES_VaultKey_algoFromStr(jVar_getStringP(jVar_get(j_vkey, "algo")));
@@ -367,7 +376,7 @@ int libVES_VaultKey_decrypt(libVES_VaultKey *vkey, const char *ciphertext, char 
 	    ptlen = pl;
 	    if (cl < ctlen) ptlen += ctlen - cl;
 	    if (!plaintext) return ptlen;
-	    *plaintext = malloc(ptlen);
+	    libVES_assert(vkey->ves, (*plaintext = malloc(ptlen)), -1);
 	}
     }
     if (pl > 0) {
@@ -400,6 +409,7 @@ char *libVES_VaultKey_encrypt(libVES_VaultKey *vkey, const char *plaintext, size
     if (ptlen > pl) ctlen += ptlen - pl + libVES_Cipher_PADLENforVEntry;
     size_t buflen = libVES_b64encsize(ctlen) + 1;
     char *ctbuf = malloc(buflen);
+    libVES_assert(vkey->ves, ctbuf, NULL);
     char *ctext = ctbuf + buflen - ctlen;
     pl = ptlen;
     cl = vkey->algo->encfn(vkey, plaintext, &pl, ctext, cikey, &keylen);
@@ -563,6 +573,7 @@ const libVES_ListCtl libVES_VaultKey_ListCtlU = { .cmpfn = &libVES_VaultKey_cmpL
 
 libVES_veskey *libVES_veskey_new(size_t keylen, const char *veskey) {
     libVES_veskey *vk = malloc(offsetof(libVES_veskey, veskey) + keylen);
+    if (!vk) return NULL;
     if (veskey) memcpy(vk->veskey, veskey, keylen);
     else {
 	if (RAND_bytes((unsigned char *) vk->veskey, keylen) <= 0) return NULL;

@@ -38,6 +38,7 @@ const libVES_ListCtl libVES_ListCtl_NULL = { .cmpfn = NULL, .freefn = NULL };
 
 libVES_List *libVES_List_new(const struct libVES_ListCtl *ctl) {
     libVES_List *lst = malloc(sizeof(libVES_List));
+    if (!lst) return NULL;
     lst->max = lst->len = 0;
     lst->list = NULL;
     lst->ctl = ctl;
@@ -67,6 +68,7 @@ void *libVES_List_add(libVES_List *lst, void *entry, int pos) {
 	    if (lst->len) memcpy(newlst, lst->list, lst->len * sizeof(lst->list[0]));
 	    lst->list = newlst;
 	}
+	if (!lst->list) return NULL;
     }
     if (pos < 0) {
 	pos += lst->len + 1;

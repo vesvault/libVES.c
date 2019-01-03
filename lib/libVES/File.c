@@ -41,6 +41,7 @@
 
 libVES_File *libVES_File_new(libVES_Ref *ref) {
     libVES_File *file = malloc(sizeof(libVES_File));
+    if (!file) return NULL;
     file->id = 0;
     file->name = file->path = file->mime = NULL;
     file->external = ref;
@@ -51,6 +52,7 @@ libVES_File *libVES_File_new(libVES_Ref *ref) {
 libVES_File *libVES_File_fromJVar(jVar *data) {
     if (!data) return NULL;
     libVES_File *file = malloc(sizeof(libVES_File));
+    if (!file) return NULL;
     file->id = jVar_getInt(jVar_get(data, "id"));
     file->name = jVar_getString0(jVar_get(data, "name"));
     file->path = jVar_getString0(jVar_get(data, "path"));

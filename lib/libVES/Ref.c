@@ -39,30 +39,43 @@
 #include "User.h"
 #include "VaultKey.h"
 #include "VaultItem.h"
-
+#include "List.h"
 
 libVES_Ref *libVES_Ref_new(long long int intId) {
     if (!intId) return NULL;
     libVES_Ref *ref = malloc(offsetof(libVES_Ref, internalId) + sizeof(ref->internalId));
+    if (!ref) return NULL;
     ref->domain = NULL;
     ref->internalId = intId;
     return ref;
 }
 
+// * Domain list control callbacks *******
+int libVES_External_cmpDomLST(void *a, void *b) {
+    return strcmp((char *) a, (char *) b);
+}
+
+void libVES_External_freeDomLST(void *a) {
+    free(a);
+}
+// ***************************************
+
 libVES_Ref *libVES_External_new(const char *domain, const char *extId) {
-    static char **domlist = NULL;
-    static size_t domlistlen = 0;
+    static libVES_ListCtl domListCtl = {.cmpfn = &libVES_External_cmpDomLST, .freefn = &libVES_External_freeDomLST};
+    static libVES_List_STATIC0(domlist, &domListCtl);
     if (!domain || !extId) return NULL;
-    if (!domlist) *(domlist = malloc(sizeof(*domlist) * (domlistlen = 16))) = NULL;
     int l = strlen(extId);
     libVES_Ref *ext = malloc(offsetof(libVES_Ref, externalId) + l + 1);
-    char **d;
-    for (d = domlist; *d; d++) if (!strcmp(*d, domain)) break;
-    if (!*d) {
-	ext->domain = *d++ = strdup(domain);
-	*d++ = NULL;
-	if (d - domlist >= domlistlen) domlist = realloc(domlist, sizeof(*domlist) * (domlistlen = domlistlen * 2));
-    } else ext->domain = *d;
+    if (!ext) return NULL;
+    ext->domain = libVES_List_find(&domlist, (void *) domain);
+    if (!ext->domain) {
+	char *d = strdup(domain);
+	if (!(ext->domain = libVES_List_push(&domlist, d))) {
+	    free(d);
+	    free(ext);
+	    return NULL;
+	}
+    }
     strcpy(ext->externalId, extId);
     return ext;
 }
@@ -182,6 +195,6 @@ libVES_Ref *libVES_Ref_copy(libVES_Ref *ref) {
     if (!ref) return NULL;
     size_t len = ref->domain ? offsetof(libVES_Ref, externalId) + strlen(ref->externalId) + 1 : offsetof(libVES_Ref, internalId) + sizeof(ref->internalId);
     libVES_Ref *res = malloc(len);
-    memcpy(res, ref, len);
+    if (res) memcpy(res, ref, len);
     return res;
 }

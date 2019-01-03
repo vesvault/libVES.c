@@ -51,6 +51,7 @@ char *tty_getpass(const char *prompt, size_t maxlen) {
     mode &= ~ENABLE_ECHO_INPUT;
     if (!SetConsoleMode(hdl, mode)) return NULL;
     char *buf = malloc(maxlen + 1);
+    if (!buf) return NULL;
     char *bufp = buf;
     char *tail = buf + maxlen;
     int r = -1;

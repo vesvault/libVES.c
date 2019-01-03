@@ -47,7 +47,7 @@
 
 libVES_List_STATIC0(libVES_unlockedKeys, &libVES_VaultKey_ListCtlU);
 
-const char *libVES_errorMsgs[11] = {
+const char *libVES_errorMsgs[12] = {
     NULL,
     "Bad parameters",
     "Communication with the API server failed",
@@ -59,6 +59,7 @@ const char *libVES_errorMsgs[11] = {
     "API server error",
     "Unsupported algorithm",
     "Incorrect operation",
+    "Internal assertion failed",
 };
 
 const char *libVES_appName = "(unspecified app)";
@@ -77,6 +78,7 @@ libVES *libVES_new(const char *vaultURI) {
 libVES *libVES_fromRef(libVES_Ref *ref) {
     libVES_init(NULL);
     libVES *ves = malloc(sizeof(libVES));
+    if (!ves) return NULL;
     ves->external = ref;
     ves->apiUrl = LIBVES_API_URL;
     ves->appName = libVES_appName;

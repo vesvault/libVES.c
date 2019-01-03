@@ -141,6 +141,7 @@ libVES_User *libVES_User_fromPath(const char **path) {
     if (d) *d = 0;
     if (lastw) *(lastw - 1) = 0;
     libVES_User *user = malloc(sizeof(libVES_User));
+    if (!user) return NULL;
     user->id = 0;
     user->email = strdup(email);
     user->firstName = buf == email || !*buf ? NULL : strdup(buf);
@@ -157,6 +158,7 @@ void libVES_User_parseJVar(libVES_User *user, jVar *data) {
 libVES_User *libVES_User_fromJVar(jVar *data) {
     if (!data) return NULL;
     libVES_User *user = malloc(sizeof(libVES_User));
+    if (!user) return NULL;
     user->id = jVar_getInt(jVar_get(data, "id"));
     libVES_User_parseJVar(user, data);
     return user;
@@ -182,7 +184,6 @@ libVES_List *libVES_User_activeVaultKeys(libVES_User *user, libVES_List *lst, li
     jVar_free(req);
     if (!rsp) return NULL;
     jVar *jvks = jVar_get(rsp, "activeVaultKeys");
-    libVES_VaultKey *vkey;
     int len = jVar_count(jvks);
     if (len) {
 	libVES_List *newlst = NULL;
@@ -228,6 +229,7 @@ char *libVES_User_getName1(libVES_User *user) {
     int lf = user->firstName ? strlen(user->firstName) : 0;
     int ll = user->lastName ? strlen(user->lastName) : 0;
     char *res = malloc(lf + ll + 2);
+    if (!res) return NULL;
     if (lf) memcpy(res, user->firstName, lf);
     if (ll) {
 	res[lf] = ' ';
@@ -239,6 +241,7 @@ char *libVES_User_getName1(libVES_User *user) {
 libVES_User *libVES_User_copy(libVES_User *user) {
     if (!user || !user->id) return NULL;
     libVES_User *res = malloc(sizeof(libVES_User));
+    if (!res) return NULL;
     res->id = user->id;
     res->email = res->firstName = res->lastName = NULL;
     return res;

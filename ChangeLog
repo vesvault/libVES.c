@@ -1,3 +1,7 @@
 2019-01-01  Jim Zubov <jz@vesvault.com>
     * * Usage of RAND_bytes() and OPENSSL_cleanup()
     credits: https://reddit.com/u/skeeto
+2019-01-03  Jim Zubov <jz@vesvault.com>
+    * * Assertions for malloc() returning NULL
+    Compiler warnings cleaned up
+    credits: https://reddit.com/u/hillbull

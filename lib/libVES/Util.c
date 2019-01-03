@@ -35,6 +35,7 @@
 #include <openssl/evp.h>
 #include <openssl/err.h>
 #include <stdarg.h>
+#include <assert.h>
 #include "Util.h"
 #include "List.h"
 #include "../libVES.h"
@@ -53,6 +54,7 @@ size_t libVES_b64decode(const char *b64, char **dec) {
     unsigned char c;
     if (!*dec) *dec = malloc(libVES_b64decsize(strlen(b64)));
     char *d = *dec;
+    assert(d);
     int sh = 16;
     int a = 0;
     while ((c = *p++)) if (c >= 0x20 && c < 0x80) {
@@ -75,6 +77,7 @@ char *libVES_b64encode(const char *data, size_t len, char *b64) {
     const unsigned char *s = (const unsigned char *) data;
     size_t l = len;
     char *d = b64;
+    assert(d);
     unsigned char c, cc;
     while (l > 0) {
 	*d++ = map[(c = *s++) >> 2];
@@ -119,9 +122,11 @@ void libVES_setErrorEVP(libVES *ves, int err, const char *scope) {
     unsigned long int e = ERR_get_error();
     int bufl = 512;
     char *buf = malloc(bufl);
-    sprintf(buf, "[%s] ", scope);
-    int l = strlen(buf);
-    ERR_error_string_n(e, buf + l, bufl - l);
+    if (buf) {
+	sprintf(buf, "[%s] ", scope);
+	int l = strlen(buf);
+	ERR_error_string_n(e, buf + l, bufl - l);
+    }
     libVES_setError0(ves, err, buf);
 }
 

@@ -33,6 +33,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <assert.h>
 #include "jVar.h"
 
 
@@ -41,6 +42,7 @@ void jVar_chkMem(jVar *val, size_t len) {
 	if (val->memSize < 256) val->memSize = 256;
 	while (val->memSize < len) val->memSize <<= 1;
 	val->vBuf = val->vBuf ? realloc(val->vBuf, val->memSize) : malloc(val->memSize);
+	assert(val->vBuf);
     }
 }
 
@@ -98,6 +100,7 @@ jVar *jVar_detach(jVar *val) {
 	case JVAR_STRING:
 	case JVAR_JSON: {
 	    jVar *res = malloc(sizeof(jVar));
+	    if (!res) return NULL;
 	    memcpy(res, val, sizeof(jVar));
 	    val->vBuf = NULL;
 	    val->len = 0;
@@ -220,6 +223,7 @@ char *jVar_getString(jVar *val) {
     int len = jVar_cpString(val, NULL, -1);
     if (len < 0) return NULL;
     char *str = malloc(len + 1);
+    if (!str) return NULL;
     str[jVar_cpString(val, str, len)] = 0;
     return str;
 }
@@ -325,12 +329,13 @@ void jVar_setString0(jVar *val, char *str) {
 
 jVar *jVar_null() {
     jVar *val = malloc(offsetof(jVar,vInt));
-    val->type = JVAR_NULL;
+    if (val) val->type = JVAR_NULL;
     return val;
 }
 
 jVar *jVar_bool(jVar_TBool v) {
     jVar *val = malloc(offsetof(jVar,vBool) + sizeof(val->vBool));
+    if (!val) return NULL;
     val->type = JVAR_BOOL;
     val->vBool = v != 0;
     return val;
@@ -338,6 +343,7 @@ jVar *jVar_bool(jVar_TBool v) {
 
 jVar *jVar_int(jVar_TInt v) {
     jVar *val = malloc(offsetof(jVar,vInt) + sizeof(val->vInt));
+    if (!val) return NULL;
     val->type = JVAR_INT;
     val->vInt = v;
     return val;
@@ -345,6 +351,7 @@ jVar *jVar_int(jVar_TInt v) {
 
 jVar *jVar_float(jVar_TFloat v) {
     jVar *val = malloc(offsetof(jVar,vFloat) + sizeof(val->vFloat));
+    if (!val) return NULL;
     val->type = JVAR_FLOAT;
     val->vFloat = v;
     return val;
@@ -352,6 +359,7 @@ jVar *jVar_float(jVar_TFloat v) {
 
 jVar *jVar_stringl(const char *v, size_t len) {
     char *buf = malloc(len + 16);
+    if (!buf) return NULL;
     if (v) memcpy(buf, v, len);
     return jVar_stringl0(buf, len, 16);
 }
@@ -359,6 +367,7 @@ jVar *jVar_stringl(const char *v, size_t len) {
 jVar *jVar_stringl0(char *v, size_t len, size_t extra) {
     if (!v) return NULL;
     jVar *val = malloc(sizeof(jVar));
+    if (!val) return NULL;
     val->type = JVAR_STRING;
     val->len = len;
     val->vString = v;
@@ -378,6 +387,7 @@ jVar *jVar_string0(char *v) {
 
 jVar *jVar_JSON(const char *json) {
     jVar *val = jVar_string(json);
+    if (!val) return NULL;
     val->type = JVAR_JSON;
     jVar_chkMem(val, val->len + 1);
     val->vString[val->len] = 0;
@@ -386,6 +396,7 @@ jVar *jVar_JSON(const char *json) {
 
 jVar *jVar_array() {
     jVar *val = malloc(sizeof(jVar));
+    if (!val) return NULL;
     val->type = JVAR_ARRAY;
     val->len = 0;
     val->memSize = 0;
@@ -395,6 +406,7 @@ jVar *jVar_array() {
 
 jVar *jVar_object() {
     jVar *val = malloc(sizeof(jVar));
+    if (!val) return NULL;
     val->type = JVAR_OBJECT;
     val->len = 0;
     val->memSize = 0;
@@ -530,6 +542,7 @@ char *jVar_toJSON(jVar *val) {
 
 jVarParser *jVarParser_new(jVarParser *parent) {
     jVarParser *p = malloc(sizeof(jVarParser));
+    if (!p) return NULL;
     p->state = JVAR_PARSE_INITIAL;
     p->result = NULL;
     p->key = NULL;
@@ -645,7 +658,6 @@ jVarParser *jVarParser_proceed(jVarParser *p,jVarParser *child) {
 	    const char *h = p->head;
 	    const char *t = p->tail;
 	    char c;
-	    int expf = 0;
 	    if (p->state == JVAR_PARSE_INITIAL) p->state = JVAR_PARSE_INCOMPLETE;
 	    while (++h < t) {
 		switch (c = *h) {

@@ -51,6 +51,7 @@ const char *libVES_VaultItem_types[5] = { "string", "file", "password", "secret"
 
 libVES_VaultItem *libVES_VaultItem_new() {
     libVES_VaultItem *vitem = malloc(offsetof(libVES_VaultItem,share));
+    if (!vitem) return NULL;
     vitem->id = 0;
     vitem->flags = LIBVES_SH_ADD | LIBVES_SH_UPD;
     vitem->sharelen = 0;
@@ -95,6 +96,7 @@ libVES_VaultItem *libVES_VaultItem_fromJVar(jVar *data, libVES *ves) {
     jVar *entries = jVar_get(data, "vaultEntries");
     size_t entct = jVar_count(entries);
     libVES_VaultItem *vitem = malloc(offsetof(libVES_VaultItem,share) + sizeof(vitem->share[0]) * entct);
+    if (!vitem) return NULL;
     vitem->flags = jVar_getBool(jVar_get(data, "deleted")) ? LIBVES_SH_DEL : 0;
     vitem->id = jVar_getInt(jVar_get(data, "id"));
     vitem->type = jVar_getEnum(jVar_get(data, "type"), libVES_VaultItem_types);
@@ -114,9 +116,9 @@ libVES_VaultItem *libVES_VaultItem_fromJVar(jVar *data, libVES *ves) {
     if (ves) {
 	int i;
 	if (ves->debug > 1) {
-	    printf("(unlocking Vault Item %lld) unlocked keys:", vitem->id);
-	    for (i = 0; i < ves->unlockedKeys->len; i++) printf(" %lld", ((libVES_VaultKey *) ves->unlockedKeys->list[i])->id);
-	    printf("\n");
+	    fprintf(stderr, "(unlocking Vault Item %lld) unlocked keys:", vitem->id);
+	    for (i = 0; i < ves->unlockedKeys->len; i++) fprintf(stderr, " %lld", ((libVES_VaultKey *) ves->unlockedKeys->list[i])->id);
+	    fprintf(stderr, "\n");
 	}
 	libVES_VaultKey *ukey;
 	for (i = 0; i < entct; i++) {
@@ -229,8 +231,8 @@ jVar *libVES_VaultItem_entries(libVES_VaultItem *vitem, libVES_List *share, int 
     } else entries = jVar_array();
     int i, j;
     char *shflags = malloc(vitem->sharelen);
+    if (!shflags) return jVar_free(entries), NULL;
     memset(shflags, 0, vitem->sharelen);
-    int changed = 0;
     if (share) for (i = 0; i < share->len; i++) {
 	libVES_VaultKey *vkey = share->list[i];
 	char exists = 0;
@@ -341,6 +343,7 @@ char *libVES_VaultItem_toStringl(libVES_VaultItem *vitem, size_t *len, char *buf
     if (!vitem || !vitem->value) return NULL;
     if (!buf) buf = malloc(vitem->len + (len ? 0 : 1));
     else if (len && vitem->len > *len) return NULL;
+    if (!buf) return NULL;
     memcpy(buf, vitem->value, vitem->len);
     if (len) *len = vitem->len;
     else buf[vitem->len] = 0;

@@ -56,7 +56,7 @@
 int out_list(int fdi, struct ctx_st *ctx) {
     FILE *fd = fdopen(fdi, "a");
     libVES_List *lst = libVES_VaultItem_list(ctx->vkey);
-    if (!lst) VES_throw("[libVES_VaultItem_list]", NULL, NULL, E_PARAM);
+    if (!lst) return_VESerror2("[libVES_VaultItem_list]", ctx->ves);
     size_t i;
     for (i = 0; i < lst->len; i++) {
 	char *s;
@@ -256,20 +256,20 @@ int out_cipher(int fd, struct ctx_st *ctx) {
 }
 
 int out_token(int fd, struct ctx_st *ctx) {
-    if (!ctx->ves->sessionToken) VES_throw("[out_token]", NULL, "Session token is not set", E_PARAM);
+    if (!ctx->ves->sessionToken) VES_throw("[out_token]", "", "Session token is not set", E_PARAM);
     OUT_IO_assert("[out_assert]", write(fd, ctx->ves->sessionToken, strlen(ctx->ves->sessionToken)));
     return 0;
 }
 
 int out_pub(int fd, struct ctx_st *ctx) {
-    if (!ctx->vkey->publicKey) VES_throw("[out_pub]", NULL, "Public key is not available", E_PARAM);
+    if (!ctx->vkey->publicKey) VES_throw("[out_pub]", "", "Public key is not available", E_PARAM);
     OUT_IO_assert("[out_pub]", write(fd, ctx->vkey->publicKey, strlen(ctx->vkey->publicKey)));
     return 0;
 }
 
 int out_priv(int fd, struct ctx_st *ctx) {
     char *pk = libVES_VaultKey_getPrivateKey1(ctx->vkey);
-    if (!pk) VES_throw("[out_priv]", NULL, "Private key is not available", E_PARAM);
+    if (!pk) VES_throw("[out_priv]", "", "Private key is not available", E_PARAM);
     int e = write(fd, pk, strlen(pk));
     free(pk);
     OUT_IO_assert("[out_priv]", e);
@@ -278,14 +278,14 @@ int out_priv(int fd, struct ctx_st *ctx) {
 
 int out_email(int fd, struct ctx_st *ctx) {
     libVES_User *u = libVES_me(ctx->ves);
-    if (!u || !u->email) VES_throw("[out_email]", NULL, "User info is not available", E_PARAM);
+    if (!u || !u->email) VES_throw("[out_email]", "", "User info is not available", E_PARAM);
     OUT_IO_assert("[out_email]", write(fd, u->email, strlen(u->email)));
     return 0;
 }
 
 int out_veskey(int fd, struct ctx_st *ctx) {
     libVES_veskey *veskey = libVES_VaultKey_getVESkey(ctx->vkey);
-    if (!veskey) VES_throw("[out_veskey]", NULL, "VESkey is not available for this key", E_PARAM);
+    if (!veskey) return_VESerror2("[out_veskey]", ctx->ves);
     int e = write(fd, veskey->veskey, veskey->keylen);
     libVES_veskey_free(veskey);
     OUT_IO_assert("[out_veskey]", e);

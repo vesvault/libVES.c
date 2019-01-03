@@ -38,6 +38,7 @@
 #include <openssl/pem.h>
 #include <openssl/engine.h>
 #include <openssl/crypto.h>
+#include <assert.h>
 #include "Cipher.h"
 #include "CiAlgo_AES.h"
 #include "Util.h"
@@ -47,6 +48,7 @@
 #define libVES_CiAlgo_AESSETKEY(alg, algname) \
 	    if (key && keylen < sizeof(ci->alg.key)) libVES_throw(ves, LIBVES_E_PARAM, algname " cipher key is too short", NULL); \
 	    ci = malloc(offsetof(libVES_Cipher, alg.end)); \
+	    assert(ci); \
 	    if (key) { \
 		memcpy(ci->alg.key, key, sizeof(ci->alg.key)); \
 		memcpy(ci->alg.seed, key + (keylen <= sizeof(ci->alg.key) + sizeof(ci->alg.seed) ? keylen - sizeof(ci->alg.seed) : sizeof(ci->alg.key)), sizeof(ci->alg.seed)); \

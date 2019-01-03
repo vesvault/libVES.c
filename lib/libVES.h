@@ -28,8 +28,8 @@
  * libVES.h                   libVES: Main header
  *
  ***************************************************************************/
-#define LIBVES_VERSION_NUMBER	0x00090001L
-#define LIBVES_VERSION_CODE	"0.901b"
+#define LIBVES_VERSION_NUMBER	0x00090002L
+#define LIBVES_VERSION_CODE	"0.902b"
 #define LIBVES_VERSION_STR	"libVES.c " LIBVES_VERSION_CODE " (c) 2018 VESvault Corp"
 #define LIBVES_VERSION_SHORT	"libVES/" LIBVES_VERSION_CODE
 
@@ -69,6 +69,7 @@ typedef struct libVES {
 #define LIBVES_E_SERVER		8
 #define LIBVES_E_UNSUPPORTED	9
 #define LIBVES_E_INCORRECT	10
+#define LIBVES_E_ASSERT		11
 
 #define LIBVES_O_FILE		0x01
 #define LIBVES_O_VKEY		0x02
