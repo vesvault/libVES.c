@@ -27,8 +27,18 @@
  *
  ***************************************************************************/
 
-lib/: libVES 0.901 beta
-src/: VES utility 0.901 beta
+lib/: libVES (https://ves.host/docs/libVES-c)
+src/: VES utility (https://ves.host/docs/ves-util)
+
+
+libVES and VES utility interact with VESvault end-to-end encrypted repository
+through VESvault REST API.
+By using libVES or VES utility, you accept VES Integration Terms and Conditions
+https://ves.host/terms_conditions
+
+In summary - VES is always free, unless when it integrated with a service for
+the purpose of providing additional benefits to paying customers.
+
 
 DOCUMENTATION:
   https://ves.host
