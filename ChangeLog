@@ -5,3 +5,5 @@
     * * Assertions for malloc() returning NULL
     Compiler warnings cleaned up
     credits: https://reddit.com/u/hillbull
+2019-01-05  Jim Zubov <jz@vesvault.com>
+    * lib/libVES.c libVES_cleanseJVar(): wipe encrypted metadata

@@ -32,6 +32,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <openssl/crypto.h>
 #include "jVar.h"
 #include "libVES/Util.h"
 #include "libVES/List.h"
@@ -317,4 +318,56 @@ void libVES_free(libVES *ves) {
     if (ves->vaultKey) libVES_VaultKey_free(ves->vaultKey);
     else libVES_User_free(ves->me);
     free(ves);
+}
+
+
+void libVES_cleanseJVar(jVar *jvar) {
+    if (!jvar) return;
+    int i;
+    switch (jvar->type) {
+	case JVAR_STRING:
+	case JVAR_JSON:
+	    if (jvar->vString) {
+		OPENSSL_cleanse(jvar->vString, jvar->len);
+		free(jvar->vString);
+		jvar->vString = NULL;
+	    }
+	    jvar->len = 0;
+	    break;
+	case JVAR_OBJECT:
+	    if (jvar->vObject) {
+		for (i = 0; i < jvar->len; i++) {
+		    libVES_cleanseJVar(jvar->vObject[i].key);
+		    free(jvar->vObject[i].key);
+		    libVES_cleanseJVar(jvar->vObject[i].val);
+		    free(jvar->vObject[i].val);
+		}
+		OPENSSL_cleanse(jvar->vObject, jvar->len * sizeof(*(jvar->vObject)));
+		free(jvar->vObject);
+		jvar->vObject = NULL;
+	    }
+	    jvar->len = 0;
+	    break;
+	case JVAR_ARRAY:
+	    if (jvar->vArray) {
+		for (i = 0; i < jvar->len; i++) libVES_cleanseJVar(jvar->vArray[i]), jVar_free(jvar->vArray[i]);
+		OPENSSL_cleanse(jvar->vArray, jvar->len * sizeof(*(jvar->vArray)));
+		free(jvar->vArray);
+	    }
+	    jvar->vArray = NULL;
+	    jvar->len = 0;
+	    break;
+	case JVAR_INT:
+	    jvar->vInt = 0;
+	    break;
+	case JVAR_FLOAT:
+	    jvar->vFloat = 0.0;
+	    break;
+	case JVAR_BOOL:
+	    jvar->vBool = 0;
+	    break;
+	default:
+	    return;
+    }
+    jvar->type = JVAR_NULL;
 }

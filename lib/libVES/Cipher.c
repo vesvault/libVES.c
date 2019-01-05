@@ -38,8 +38,8 @@
 #include <openssl/engine.h>
 #include "Cipher.h"
 #include "CiAlgo_AES.h"
-#include "Util.h"
 #include "List.h"
+#include "Util.h"
 #include "../libVES.h"
 #include "../jVar.h"
 
@@ -159,8 +159,9 @@ void libVES_Cipher_reset(libVES_Cipher *ci) {
 void libVES_Cipher_free(libVES_Cipher *ci) {
     if (!ci) return;
     libVES_Cipher_reset(ci);
-    jVar_free(ci->meta);
     if (ci->algo->freefn) ci->algo->freefn(ci);
+    libVES_cleanseJVar(ci->meta);
+    jVar_free(ci->meta);
     free(ci);
 }
 

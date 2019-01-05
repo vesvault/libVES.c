@@ -28,8 +28,8 @@
  * libVES.h                   libVES: Main header
  *
  ***************************************************************************/
-#define LIBVES_VERSION_NUMBER	0x00090002L
-#define LIBVES_VERSION_CODE	"0.902b"
+#define LIBVES_VERSION_NUMBER	0x00090003L
+#define LIBVES_VERSION_CODE	"0.903b"
 #define LIBVES_VERSION_STR	"libVES.c " LIBVES_VERSION_CODE " (c) 2018 VESvault Corp"
 #define LIBVES_VERSION_SHORT	"libVES/" LIBVES_VERSION_CODE
 
@@ -211,3 +211,8 @@ int libVES_deleteFile(libVES *ves, const char *uri);
  * Deallocate libVES, wipe all private content from memory
  ***************************************************************************/
 void libVES_free(libVES *ves);
+
+/***************************************************************************
+ * Recursively erase any sensitive data from a jVar structure
+ ***************************************************************************/
+void libVES_cleanseJVar(struct jVar *jvar);

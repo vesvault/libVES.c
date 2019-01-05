@@ -3,7 +3,7 @@
 
 
 AC_PREREQ([2.69])
-AC_INIT([VES], [0.902b], [bugs@vesvault.com])
+AC_INIT([VES], [0.903b], [bugs@vesvault.com])
 AC_CONFIG_SRCDIR([src/ves-util.c])
 AC_CONFIG_HEADERS([src/config.h])
 

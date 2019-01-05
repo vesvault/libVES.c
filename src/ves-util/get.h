@@ -25,7 +25,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * ves-util/get.c             VES Utility: Header for input handlers
+ * ves-util/get.h             VES Utility: Header for input handlers
  *
  ***************************************************************************/
 void *get_file(const char *str, size_t *len, void **ptr);
