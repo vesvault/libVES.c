@@ -192,7 +192,7 @@ int libVES_KeyAlgo_RSA_decrypt(libVES_VaultKey *vkey, const char *ciphertext, si
     if (!ctx || EVP_PKEY_decrypt_init(ctx) <= 0 || EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING) <= 0) {
 	libVES_setErrorEVP(vkey->ves, LIBVES_E_CRYPTO, "RSA decrypt init");
     } else {
-	size_t dlen;
+	size_t dlen = len;
 	if (EVP_PKEY_decrypt(ctx, d, &dlen, (unsigned char *) ciphertext, *ctlen) <= 0) {
 	    libVES_setErrorEVP(vkey->ves, LIBVES_E_CRYPTO, "RSA decrypt");
 	} else if (keybuf) {
