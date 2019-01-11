@@ -30,6 +30,7 @@
 lib/: libVES (https://ves.host/docs/libVES-c)
 src/: VES utility (https://ves.host/docs/ves-util)
 
+[https://ci.appveyor.com/project/vesvault/libves-c]
 
 libVES and VES utility interact with VESvault end-to-end encrypted repository
 through VESvault REST API.
