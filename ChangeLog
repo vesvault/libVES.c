@@ -10,3 +10,6 @@
 2019-01-07  Jim Zubov <jz@vesvault.com>
     * lib/libVES/KeyAlgo_EVP.c uninitialized plaintext length
     may cause EVP_PKEY_decrypt() to fail
+2019-01-10  Jim Zubov <jz@vesvault.com>
+    * lib/libVES/VaultKey.c correct type for a new app vault key
+    * src/ves-util/hook.c '-u' supplies a VESkey for a new app vault
