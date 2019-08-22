@@ -316,7 +316,7 @@ int libVES_CiAlgo_d_AES256GCM1K(libVES_Cipher *ci, int final, const char *cipher
 		ci->gcm.offs = sizeof(ci->gcm.gbuf);
 	    } else ci->gcm.offs += len;
 	}
-	if (final && !len) break;
+	if (ctext >= ctail) break;
     }
     return ptext - plaintext;
 }
