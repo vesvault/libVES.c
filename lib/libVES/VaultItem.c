@@ -81,8 +81,7 @@ jVar *libVES_VaultItem_toJVar(libVES_VaultItem *vitem) {
 	case LIBVES_O_VKEY: if (vitem->vaultKey) jVar_put(data, "vaultKey", libVES_VaultKey_toJVar(vitem->vaultKey)); break;
     }
     if (vitem->meta && (vitem->flags & LIBVES_SH_META)) {
-	jVar_put(data, "meta", vitem->meta);
-	vitem->meta = NULL;
+	jVar_put(data, "meta", jVar_clone(vitem->meta));
     }
     if (vitem->entries && jVar_count(vitem->entries)) {
 	jVar_put(data, "vaultEntries", vitem->entries);

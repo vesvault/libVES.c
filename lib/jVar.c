@@ -86,7 +86,7 @@ jVar *jVar_clone(jVar *val) {
 	    return res;
 	case JVAR_OBJECT:
 	    res = jVar_object();
-	    for (i = 0; i < val->len; i++) jVar_put(res, val->vObject[i].key->vString, jVar_clone(val->vObject[i].val));
+	    for (i = 0; i < val->len; i++) jVar_putl(res, val->vObject[i].key->vString, val->vObject[i].key->len, jVar_clone(val->vObject[i].val));
 	    return res;
 	default: return NULL;
     }

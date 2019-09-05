@@ -13,3 +13,8 @@
 2019-01-10  Jim Zubov <jz@vesvault.com>
     * lib/libVES/VaultKey.c correct type for a new app vault key
     * src/ves-util/hook.c '-u' supplies a VESkey for a new app vault
+2019-08-22  Jim Zubov <jz@vesvault.com>
+    * lib/libVES/CiAlgo.c bug fix: AES256GCM1K HMAC validation was failing in some cases
+2019-09-05  Jim Zubov <jz@vesvault.com>
+    * lib/libVES/VaultItem.c bug fix: metadata was disappearing after saving a VaultItem
+    * lib/jVar.c bug fix: jVar_clone() was ignoring the length of JVAR_OBJECT key
