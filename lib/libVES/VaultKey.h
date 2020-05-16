@@ -42,6 +42,7 @@ typedef struct libVES_VaultKey {
     struct libVES_Ref *external;
     struct libVES_VaultItem *vitem;
     struct jVar *entries;
+    char *appUrl;
 } libVES_VaultKey;
 
 typedef struct libVES_veskey {
@@ -167,6 +168,15 @@ struct jVar *libVES_VaultKey_rekeyFrom(libVES_VaultKey *vkey, libVES_VaultKey *f
  ***************************************************************************/
 int libVES_VaultKey_rekey(libVES_VaultKey *vkey);
 
+/***************************************************************************
+ * Try to apply the unlocked vkey to the associated libVES instance,
+ * either by rekeying it, or by setting as the vaultKey on libVES.
+ * Intended for unlocked temp keys.
+ * If true - applied successfully, do NOT alter or deallocate vkey.
+ * Otherwise - vkey cannot be applied, deallocate as usual.
+ ***************************************************************************/
+int libVES_VaultKey_apply(libVES_VaultKey *vkey);
+
 int libVES_VaultKey_post(libVES_VaultKey *vkey);
 int libVES_VaultKey_typeFromStr(const char *str);
 const char *libVES_VaultKey_typeStr(int type);
@@ -196,6 +206,11 @@ struct libVES_User *libVES_VaultKey_getUser(libVES_VaultKey *vkey);
  * Output the algorithm specific human readable key info to fd.
  ***************************************************************************/
 int libVES_VaultKey_dump(libVES_VaultKey *vkey, int fd, int flags);
+
+/***************************************************************************
+ * App URL for a new temp key, to be sent in the notification email
+ ***************************************************************************/
+int libVES_VaultKey_setAppUrl(libVES_VaultKey *vkey, const char *url);
 
 void libVES_VaultKey_free(libVES_VaultKey *vkey);
 

@@ -93,19 +93,19 @@ jVar_TInt jVar_getInt(jVar *num);
 jVar_TFloat jVar_getFloat(jVar *num);
 jVar_TBool jVar_getBool(jVar *num);
 int jVar_count(jVar *val);
-char *jVar_toJSON();
+char *jVar_toJSON(jVar *val);
 jVar *jVar_parse(const char *json, size_t len);
 jVar *jVar_clone(jVar *val);
 jVar *jVar_detach(jVar *val);
 void jVar_free(jVar *val);
 
-#define jVar_isNull(val)	(val && val->type == JVAR_NULL)
-#define jVar_isObject(val)	(val && val->type == JVAR_OBJECT)
-#define jVar_isArray(val)	(val && val->type == JVAR_ARRAY)
-#define jVar_isInt(val)		(val && val->type == JVAR_INT)
-#define jVar_isFloat(val)	(val && val->type == JVAR_FLOAT)
-#define jVar_isBool(val)	(val && val->type == JVAR_BOOL)
-#define jVar_isString(val)	(val && val->type == JVAR_STRING)
+#define jVar_isNull(val)	((val) && (val)->type == JVAR_NULL)
+#define jVar_isObject(val)	((val) && (val)->type == JVAR_OBJECT)
+#define jVar_isArray(val)	((val) && (val)->type == JVAR_ARRAY)
+#define jVar_isInt(val)		((val) && (val)->type == JVAR_INT)
+#define jVar_isFloat(val)	((val) && (val)->type == JVAR_FLOAT)
+#define jVar_isBool(val)	((val) && (val)->type == JVAR_BOOL)
+#define jVar_isString(val)	((val) && (val)->type == JVAR_STRING)
 
 
 #define	JVAR_PARSE_INITIAL	0
@@ -125,9 +125,9 @@ typedef struct  jVarParser {
     struct jVar *carry;
 } jVarParser;
 
-#define jVarParser_length(p)		(p->tail - p->head)
-#define jVarParser_isComplete(p)	(p->state == JVAR_PARSE_COMPLETE)
-#define jVarParser_isError(p)		(p->state == JVAR_PARSE_ERROR)
+#define jVarParser_length(p)		((p)->tail - (p)->head)
+#define jVarParser_isComplete(p)	((p)->state == JVAR_PARSE_COMPLETE)
+#define jVarParser_isError(p)		((p)->state == JVAR_PARSE_ERROR)
 
 jVarParser *jVarParser_new(jVarParser *parent);
 void jVarParser_free(jVarParser *p);

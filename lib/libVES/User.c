@@ -175,15 +175,15 @@ jVar *libVES_User_toJVar(libVES_User *user) {
     } else return NULL;
 }
 
-libVES_List *libVES_User_activeVaultKeys(libVES_User *user, libVES_List *lst, libVES *ves) {
+libVES_List *libVES_User_vaultKeys2(libVES_User *user, libVES_List *lst, libVES *ves, const char *reqs, const char *rsps) {
     if (!user || !ves) return NULL;
     jVar *req = libVES_User_toJVar(user);
     if (!req) libVES_throw(ves, LIBVES_E_PARAM, "Bad user data", NULL);
     jVar_put(req, "$op", jVar_string("fetch"));
-    jVar *rsp = libVES_REST(ves, "users?fields=activeVaultKeys(id,type,algo,publicKey)", req);
+    jVar *rsp = libVES_REST(ves, reqs, req);
     jVar_free(req);
     if (!rsp) return NULL;
-    jVar *jvks = jVar_get(rsp, "activeVaultKeys");
+    jVar *jvks = jVar_get(rsp, rsps);
     int len = jVar_count(jvks);
     if (len) {
 	libVES_List *newlst = NULL;

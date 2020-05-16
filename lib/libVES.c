@@ -255,9 +255,32 @@ libVES_VaultKey *libVES_unlock(libVES *ves, size_t keylen, const char *key) {
 	}
 	if (!sesstkn) return NULL;
     }
-    if (!libVES_getVaultKey(ves)) return NULL;
+    void *res;
     libVES_veskey *veskey = key ? libVES_veskey_new(keylen, key) : NULL;
-    void *res = libVES_VaultKey_unlock(ves->vaultKey, veskey);
+    if (libVES_getVaultKey(ves)) {
+	res = libVES_VaultKey_unlock(ves->vaultKey, veskey);
+    } else {
+	libVES_User *me = libVES_me(ves);
+	res = NULL;
+	if (me) {
+	    libVES_List *lst = libVES_List_new(&libVES_VaultKey_ListCtlU);
+	    if (libVES_User_vaultKeys(me, lst, ves)) {
+		int i;
+		for (i = 0; i < lst->len; i++) {
+		    libVES_VaultKey *vk = lst->list[i];
+		    if (!res) {
+			res = libVES_VaultKey_unlock(vk, veskey);
+			if (res) {
+			    ves->vaultKey = vk;
+			    continue;
+			}
+		    }
+		    libVES_VaultKey_free(vk);
+		}
+	    }
+	    libVES_List_free(lst);
+	}
+    }
     if (sesstkn) {
 	if (res) {
 	    int l = libVES_VaultKey_decrypt(ves->vaultKey, sesstkn, &ves->sessionToken);
@@ -306,6 +329,11 @@ libVES_VaultKey *libVES_primary(libVES *ves, const char *email, const char *pass
 libVES_User *libVES_me(libVES *ves) {
     if (!ves) return NULL;
     if (!ves->me) ves->me = libVES_VaultKey_getUser(libVES_getVaultKey(ves));
+    if (!ves->me) {
+	jVar *rsp = libVES_REST(ves, "me", NULL);
+	ves->me = libVES_User_fromJVar(rsp);
+	jVar_free(rsp);
+    }
     libVES_User_loadFields(ves->me, ves);
     return ves->me;
 }

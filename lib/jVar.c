@@ -249,7 +249,7 @@ jVar *jVar_getl(jVar *obj, const char *key, size_t keyl) {
     if (!jVar_isObject(obj) || !key) return NULL;
     size_t i;
     for (i = 0; i < obj->len; i++) {
-	if (!strncmp(obj->vObject[i].key->vString, key, keyl)) return obj->vObject[i].val;
+	if (obj->vObject[i].key->len == keyl && !strncmp(obj->vObject[i].key->vString, key, keyl)) return obj->vObject[i].val;
     }
     return NULL;
 }
@@ -556,6 +556,7 @@ jVarParser *jVarParser_new(jVarParser *parent) {
 }
 
 void jVarParser_free(jVarParser *p) {
+    if (!p) return;
     jVar_free(p->key);
     jVar_free(p->carry);
     jVar_free(p->result);

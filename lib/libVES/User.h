@@ -45,12 +45,19 @@ libVES_User *libVES_User_fromPath(const char **path);
 
 libVES_User *libVES_User_fromJVar(struct jVar *data);
 struct jVar *libVES_User_toJVar(libVES_User *user);
+struct libVES_List *libVES_User_vaultKeys2(libVES_User *user, struct libVES_List *lst, struct libVES *ves, const char *reqs, const char *rsps);
 
 /***************************************************************************
  * Primary Vault Keys, current and shadow.
  * Push to lst, or to a new Vault Key list lst == NULL.
  ***************************************************************************/
-struct libVES_List *libVES_User_activeVaultKeys(libVES_User *user, struct libVES_List *lst, struct libVES *ves);
+#define libVES_User_activeVaultKeys(user, lst, ves)	libVES_User_vaultKeys2(user, lst, ves, "users?fields=activeVaultKeys(id,type,algo,publicKey)", "activeVaultKeys")
+
+/***************************************************************************
+ * Vault Keys for the user.
+ * Push to lst, or to a new Vault Key list lst == NULL.
+ ***************************************************************************/
+#define libVES_User_vaultKeys(user, lst, ves)	libVES_User_vaultKeys2(user, lst, ves, "users?fields=vaultKeys(id,type,algo,publicKey,privateKey)", "vaultKeys")
 
 /***************************************************************************
  * Authenticate using VESvault password, populate sesstkn,
