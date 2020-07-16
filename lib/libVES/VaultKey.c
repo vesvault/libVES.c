@@ -248,7 +248,11 @@ libVES_VaultKey *libVES_VaultKey_createFrom(libVES_VaultKey *vkey) {
 libVES_VaultItem *libVES_VaultKey_propagate(libVES_VaultKey *vkey) {
     if (!vkey) return NULL;
     if (!vkey->user) libVES_throw(vkey->ves, LIBVES_E_PARAM, "Cannot propagate a vault key to an unspecified user", NULL);
-    if (!vkey->vitem && !libVES_VaultKey_getPrivateKey(vkey)) libVES_getError(vkey->ves);
+    if (!vkey->vitem) {
+	free(vkey->privateKey);
+	vkey->privateKey = NULL;
+	if (!libVES_VaultKey_getPrivateKey(vkey)) libVES_getError(vkey->ves);
+    }
     if (!vkey->vitem) libVES_throw(vkey->ves, LIBVES_E_PARAM, "Cannot propagate a vault key without a password VaultItem", NULL);
     libVES_List *share = libVES_List_new(&libVES_VaultKey_ListCtl);
     if (vkey->type == LIBVES_VK_TEMP) libVES_List_push(share, vkey->ves->vaultKey);

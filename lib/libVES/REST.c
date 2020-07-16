@@ -66,7 +66,7 @@ void *libVES_REST_hdrs(libVES *ves, const char *uri, jVar *body, struct curl_sli
     if (ves->attnFn) {
 	char *p = buf + strlen(buf);
 	*p++ = strchr(buf, '?') ? '&' : '?';
-	strcpy(p, "attn=1");
+	strcpy(p, "attn=%2A");
     }
     curl_easy_setopt(ves->curl, CURLOPT_URL, buf);
     hdrs = curl_slist_append(hdrs, "Accept: application/json");
@@ -116,7 +116,13 @@ void *libVES_REST_hdrs(libVES *ves, const char *uri, jVar *body, struct curl_sli
 	    if (jVarParser_isComplete(cbuf.parser)) rsp = jVarParser_done(cbuf.parser);
 	    else jVarParser_free(cbuf.parser);
 	}
-	if (rsp && ves->attnFn) ves->attnFn(ves, jVar_get(rsp, "attn"));
+	if (ves->attnFn) {
+	    jVar *attn = jVar_get(rsp, "attn");
+	    if (attn) {
+		ves->attnFn(ves, attn);
+		ves->attnFn = NULL;
+	    }
+	}
 	if (err == LIBVES_E_OK) {
 	    if (rsp) {
 		res = jVar_get(rsp, "result");

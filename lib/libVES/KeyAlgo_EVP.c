@@ -156,7 +156,7 @@ libVES_VaultKey *libVES_KeyAlgo_RSA_new(const libVES_KeyAlgo *algo, void *pkey, 
 	BIGNUM *e = BN_new();
 	BN_set_word(e, 0x10001);
 	RSA *rsa = RSA_new();
-	if (RSA_generate_key_ex(rsa, 2048, e, NULL)) {
+	if (RSA_generate_key_ex(rsa, libVES_KeyAlgo_RSA_defaultBits, e, NULL)) {
 	    pkey = EVP_PKEY_new();
 	    EVP_PKEY_assign_RSA((EVP_PKEY *) pkey, rsa);
 	} else RSA_free(rsa);
@@ -247,7 +247,7 @@ libVES_VaultKey *libVES_KeyAlgo_ECDH_new(const libVES_KeyAlgo *algo, void *pkey,
 	if (EVP_PKEY_base_id((EVP_PKEY *) pkey) != EVP_PKEY_EC) libVES_throw(ves, LIBVES_E_PARAM, "Invalid pkey type, expected EC", NULL);
     } else {
 	EC_KEY *ec_priv = EC_KEY_new();
-	EC_GROUP *grp = EC_GROUP_new_by_curve_name(NID_secp521r1);
+	EC_GROUP *grp = EC_GROUP_new_by_curve_name(libVES_KeyAlgo_ECDH_defaultCurve);
 	EC_KEY_set_group(ec_priv, grp);
 	EC_GROUP_free(grp);
 	EC_KEY_set_asn1_flag(ec_priv, OPENSSL_EC_NAMED_CURVE);
@@ -344,6 +344,7 @@ const libVES_KeyAlgo libVES_KeyAlgo_RSA = {
     .pub2strfn = &libVES_KeyAlgo_EVP_pub2str,
     .str2privfn = &libVES_KeyAlgo_EVP_str2priv,
     .priv2strfn = &libVES_KeyAlgo_EVP_priv2str,
+    .priv2pubfn = NULL,
     .encfn = &libVES_KeyAlgo_RSA_encrypt,
     .decfn = &libVES_KeyAlgo_RSA_decrypt,
     .lockfn = &libVES_KeyAlgo_EVP_lock,
@@ -359,6 +360,7 @@ const libVES_KeyAlgo libVES_KeyAlgo_ECDH = {
     .pub2strfn = &libVES_KeyAlgo_EVP_pub2str,
     .str2privfn = &libVES_KeyAlgo_EVP_str2priv,
     .priv2strfn = &libVES_KeyAlgo_EVP_priv2str,
+    .priv2pubfn = NULL,
     .encfn = &libVES_KeyAlgo_ECDH_encrypt,
     .decfn = &libVES_KeyAlgo_ECDH_decrypt,
     .lockfn = &libVES_KeyAlgo_EVP_lock,

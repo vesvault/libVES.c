@@ -95,7 +95,7 @@ libVES *libVES_fromRef(libVES_Ref *ref) {
     ves->keyAlgo = &libVES_KeyAlgo_ECDH;
     ves->veskeyLen = 32;
     ves->genVaultKeyFn = &libVES_defaultGenVaultKey;
-    ves->attnFn = &libVES_defaultAttn;
+    ves->attnFn = NULL;
     ves->unlockedKeys = &libVES_unlockedKeys;
     return ves;
 }
@@ -174,7 +174,7 @@ void libVES_defaultAttn(libVES *ves, jVar *attn) {
 	libVES_User *u = libVES_VaultKey_getUser(vk);
 	if (u) {
 	    if (u->id == me->id) libVES_VaultKey_rekey(vk);
-	    else libVES_VaultKey_propagate(vk);
+	    else libVES_VaultItem_post(libVES_VaultKey_propagate(vk), ves);
 	}
 	libVES_VaultKey_free(vk);
 	libVES_getError(ves);
@@ -284,8 +284,10 @@ libVES_VaultKey *libVES_unlock(libVES *ves, size_t keylen, const char *key) {
     if (sesstkn) {
 	if (res) {
 	    int l = libVES_VaultKey_decrypt(ves->vaultKey, sesstkn, &ves->sessionToken);
-	    if (l > 0) ves->sessionToken[l] = 0;
-	    else {
+	    if (l > 0) {
+		ves->sessionToken[l] = 0;
+		ves->attnFn = &libVES_defaultAttn;
+	    } else {
 		free(ves->sessionToken);
 		ves->sessionToken = NULL;
 		res = NULL;
@@ -310,6 +312,12 @@ void libVES_setSessionToken(libVES *ves, const char *token) {
 
 void libVES_lock(libVES *ves) {
     if (!ves) return;
+    if (ves->attnFn) {
+	void (* attnFn)(libVES *, jVar *) = ves->attnFn;
+	ves->attnFn = NULL;
+	jVar *attn = libVES_REST(ves, "attn", NULL);
+	if (attn) attnFn(ves, attn);
+    }
     int i = 0;
     libVES_List *unl = ves->unlockedKeys;
     while (i < unl->len) {
@@ -340,6 +348,7 @@ libVES_User *libVES_me(libVES *ves) {
 
 void libVES_free(libVES *ves) {
     if (!ves) return;
+    libVES_lock(ves);
     libVES_REST_done(ves);
     free(ves->sessionToken);
     free(ves->errorBuf);
