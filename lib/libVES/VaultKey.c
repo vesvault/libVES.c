@@ -537,14 +537,8 @@ int libVES_VaultKey_rekey(libVES_VaultKey *vkey) {
 
 int libVES_VaultKey_apply(libVES_VaultKey *vkey) {
     if (!vkey) return 0;
-    int r = libVES_VaultKey_rekey(vkey);
-    if (r) {
-	libVES_VaultKey_free(vkey);
-	return r;
-    }
-    libVES_getVaultKey(vkey->ves);
-    if (vkey->ves->vaultKey) return 0;
-    if (!vkey->pPriv) return 0;
+    libVES_VaultKey_rekey(vkey);
+    if (libVES_getVaultKey(vkey->ves) || !vkey->pPriv) return 0;
     vkey->ves->vaultKey = vkey;
     return 1;
 }
