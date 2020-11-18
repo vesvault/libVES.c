@@ -55,7 +55,7 @@ libVES_User *libVES_User_fromPath(const char **path) {
     while (s) {
 	char c = *s++;
 	switch (c) {
-	    case ',': case ';':
+	    case ',': case ';': case '?': case '#':
 		if (quote) break;
 	    case 0:
 		*path = s - 1;
@@ -74,13 +74,13 @@ libVES_User *libVES_User_fromPath(const char **path) {
 		char c1 = *s;
 		if (c1 >= '0' && c1 <= '9') cc = c1 - '0';
 		else if (c1 >= 'A' && c1 <= 'F') cc = c1 - ('A' - 10);
-		else if (c1 >= 'a' && c1 <= 'a') cc = c1 - ('a' - 10);
+		else if (c1 >= 'a' && c1 <= 'f') cc = c1 - ('a' - 10);
 		else break;
 		cc <<= 4;
 		c1 = *(s + 1);
 		if (c1 >= '0' && c1 <= '9') cc += c1 - '0';
 		else if (c1 >= 'A' && c1 <= 'F') cc += c1 - ('A' - 10);
-		else if (c1 >= 'a' && c1 <= 'a') cc += c1 - ('a' - 10);
+		else if (c1 >= 'a' && c1 <= 'f') cc += c1 - ('a' - 10);
 		else break;
 		c = cc;
 		s += 2;

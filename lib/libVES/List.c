@@ -62,7 +62,7 @@ void *libVES_List_add(libVES_List *lst, void *entry, int pos) {
 	}
     }
     if (lst->len >= lst->max) {
-	if (lst->max) lst->list = realloc(lst->list, (lst->max = lst->max > 256 ? lst->max : 256) * 2 * sizeof(lst->list[0]));
+	if (lst->max) lst->list = realloc(lst->list, (lst->max = (lst->max > 256 ? lst->max : 256) * 2) * sizeof(lst->list[0]));
 	else {
 	    void **newlst = malloc((lst->max = lst->len + 8) * sizeof(lst->list[0]));
 	    if (lst->len) memcpy(newlst, lst->list, lst->len * sizeof(lst->list[0]));

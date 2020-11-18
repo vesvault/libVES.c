@@ -65,6 +65,7 @@ struct libVES_Ref;
 #define LIBVES_SH_META		0x0100
 
 extern const struct libVES_ListCtl libVES_VaultItem_ListCtl;
+extern const char *libVES_VaultItem_types[];
 
 libVES_VaultItem *libVES_VaultItem_new();
 #define libVES_VaultItem_isNew(vitem)	(vitem && (vitem->flags & LIBVES_SH_ADD))

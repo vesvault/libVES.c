@@ -28,7 +28,7 @@
  * jVar.h                     jVar: JSON object manipulation library header
  *
  ***************************************************************************/
-#define JVAR_VERSION_NUMBER	0x01000000L
+#define JVAR_VERSION_NUMBER	0x01000200L
 
 #define jVar_TInt	long long int
 #define jVar_TFloat	long double
@@ -93,6 +93,7 @@ jVar_TInt jVar_getInt(jVar *num);
 jVar_TFloat jVar_getFloat(jVar *num);
 jVar_TBool jVar_getBool(jVar *num);
 int jVar_count(jVar *val);
+int jVar_render(struct jVar *val, struct jVar *json, void (* buffn)(struct jVar *));
 char *jVar_toJSON(jVar *val);
 jVar *jVar_parse(const char *json, size_t len);
 jVar *jVar_clone(jVar *val);

@@ -132,13 +132,13 @@ libVES_Ref *libVES_Ref_fromURI(const char **path, libVES *ves) {
 	    char c1 = *p;
 	    if (c1 >= '0' && c1 <= '9') c = c1 - '0';
 	    else if (c1 >= 'A' && c1 <= 'F') c = c1 - ('A' - 10);
-	    else if (c1 >= 'a' && c1 <= 'a') c = c1 - ('a' - 10);
+	    else if (c1 >= 'a' && c1 <= 'f') c = c1 - ('a' - 10);
 	    else return NULL;
 	    c <<= 4;
 	    c1 = *(p + 1);
 	    if (c1 >= '0' && c1 <= '9') c += c1 - '0';
 	    else if (c1 >= 'A' && c1 <= 'F') c += c1 - ('A' - 10);
-	    else if (c1 >= 'a' && c1 <= 'a') c += c1 - ('a' - 10);
+	    else if (c1 >= 'a' && c1 <= 'f') c += c1 - ('a' - 10);
 	    else return NULL;
 	    p += 2;
 	}

@@ -148,7 +148,7 @@ jVar *libVES_VaultKey_toJVar(libVES_VaultKey *vkey) {
 	if (vkey->user) jVar_put(res, "user", libVES_User_toJVar(vkey->user));
 	if (vkey->vitem) jVar_put(res, "vaultItems", jVar_push(jVar_array(), libVES_VaultItem_toJVar(vkey->vitem)));
 	if (vkey->type == LIBVES_VK_TEMP) {
-	    jVar_put(res, "creator", libVES_User_toJVar(vkey->ves->vaultKey->user));
+	    jVar_put(res, "creator", libVES_User_toJVar(libVES_VaultKey_getUser(vkey->ves->vaultKey)));
 	    if (vkey->appUrl) jVar_put(res, "appUrl", jVar_string(vkey->appUrl));
 	}
 	if (vkey->external) libVES_Ref_toJVar(vkey->external, res);
@@ -186,7 +186,7 @@ libVES_VaultKey *libVES_VaultKey_get2(libVES_Ref *ref, libVES *ves, libVES_User 
     if (flags & LIBVES_O_GET) {
 	jVar *vkey_req = jVar_object();
 	libVES_Ref_toJVar(ref, vkey_req);
-	if (ves->vaultKey) jVar_put(vkey_req, "creator", libVES_User_toJVar(ves->vaultKey->user));
+	if (ves->vaultKey) jVar_put(vkey_req, "creator", libVES_User_toJVar(libVES_VaultKey_getUser(ves->vaultKey)));
 	if (user) jVar_put(vkey_req, "user", jVar_put(libVES_User_toJVar(user), "$op", jVar_string("fetch")));
 	jVar_put(vkey_req, "$op", jVar_string("fetch"));
 	jVar *vkey_res = libVES_REST(ves, (sesstkn ? "vaultKeys?fields=id,algo,type,publicKey,privateKey,encSessionToken" : "vaultKeys?fields=id,type,algo,publicKey"), vkey_req);

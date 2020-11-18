@@ -74,7 +74,7 @@ jVar *libVES_File_toJVar(libVES_File *file) {
 }
 
 char *libVES_File_toURI(libVES_File *file) {
-    if (!file) return NULL;
+    if (!file || !file->external) return NULL;
     return libVES_buildURI(2, file->external->domain, file->external->externalId);
 }
 

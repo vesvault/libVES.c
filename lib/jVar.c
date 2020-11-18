@@ -425,7 +425,7 @@ jVar *jVar_parse(const char *json, size_t l) {
     return NULL;
 }
 
-int jVar_render(jVar *val, jVar *json) {
+int jVar_render(jVar *val, jVar *json, void (* buffn)(jVar *)) {
     if (!val) return 0;
     size_t i;
     switch (val->type) {
@@ -502,18 +502,23 @@ int jVar_render(jVar *val, jVar *json) {
 	    jVar_concatl(json, "[", 1);
 	    for (i = 0; i < val->len; i++) {
 		if (i > 0) jVar_concatl(json, ",", 1);
-		if (!jVar_render(val->vArray[i], json)) return 0;
+		if (buffn) buffn(json);
+		if (!jVar_render(val->vArray[i], json, buffn)) return 0;
 	    }
+	    if (buffn) buffn(json);
 	    jVar_concatl(json, "]", 1);
 	    break;
 	case JVAR_OBJECT:
 	    jVar_concatl(json, "{", 1);
 	    for (i = 0; i < val->len; i++) {
 		if (i > 0) jVar_concatl(json, ",", 1);
-		if (!jVar_render(val->vObject[i].key, json)) return 0;
+		if (buffn) buffn(json);
+		if (!jVar_render(val->vObject[i].key, json, buffn)) return 0;
 		jVar_concatl(json, ":", 1);
-		if (!jVar_render(val->vObject[i].val, json)) return 0;
+		if (buffn) buffn(json);
+		if (!jVar_render(val->vObject[i].val, json, buffn)) return 0;
 	    }
+	    if (buffn) buffn(json);
 	    jVar_concatl(json, "}", 1);
 	    break;
 	case JVAR_JSON:
@@ -527,7 +532,7 @@ int jVar_render(jVar *val, jVar *json) {
 
 char *jVar_toJSON(jVar *val) {
     jVar *json = jVar_JSON(NULL);
-    if (!jVar_render(val, json)) {
+    if (!jVar_render(val, json, NULL)) {
 	jVar_free(json);
 	return NULL;
     }
@@ -660,6 +665,7 @@ jVarParser *jVarParser_proceed(jVarParser *p,jVarParser *child) {
 	    const char *t = p->tail;
 	    char c;
 	    if (p->state == JVAR_PARSE_INITIAL) p->state = JVAR_PARSE_INCOMPLETE;
+	    if (p->result) h--;
 	    while (++h < t) {
 		switch (c = *h) {
 		    case '+':
