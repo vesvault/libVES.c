@@ -3,7 +3,7 @@
 
 
 AC_PREREQ([2.69])
-AC_INIT([VES], [0.97b], [bugs@vesvault.com])
+AC_INIT([VES], [0.98b], [bugs@vesvault.com])
 AC_CONFIG_SRCDIR([src/ves-util.c])
 AC_CONFIG_HEADERS([src/config.h])
 
@@ -12,6 +12,7 @@ AM_INIT_AUTOMAKE([1.0 subdir-objects])
 # Checks for programs.
 AC_PROG_CC
 AM_PROG_CC_C_O
+AC_PROG_LIBTOOL
 AC_PROG_RANLIB
 
 # Checks for libraries.
@@ -27,6 +28,8 @@ AC_TYPE_OFF_T
 AC_FUNC_MALLOC
 AC_FUNC_REALLOC
 AC_CHECK_FUNCS([strdup strndup memmove memset strerror])
+
+AC_PREFIX_DEFAULT(/usr)
 
 AC_CONFIG_FILES([Makefile lib/Makefile src/Makefile])
 AC_OUTPUT

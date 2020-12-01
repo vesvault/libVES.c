@@ -23,4 +23,4 @@ bin_PROGRAMS = ves
 AM_CPPFLAGS = -I $(top_builddir)/lib
 
 ves_SOURCES = $(VESUTIL_CFILES) $(VESUTIL_HFILES)
-ves_LDADD = -lcrypto -lcurl $(top_builddir)/lib/libVES.a
+ves_LDADD = -lcrypto -lcurl $(top_builddir)/lib/libVES.la
