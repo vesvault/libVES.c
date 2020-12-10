@@ -70,6 +70,7 @@ typedef struct libVES {
 #define LIBVES_E_UNSUPPORTED	9
 #define LIBVES_E_INCORRECT	10
 #define LIBVES_E_ASSERT		11
+#define LIBVES_E_INTERNAL	31
 
 #define LIBVES_O_FILE		0x01
 #define LIBVES_O_VKEY		0x02

@@ -63,18 +63,27 @@ void libVES_External_freeDomLST(void *a) {
 libVES_Ref *libVES_External_new(const char *domain, const char *extId) {
     static libVES_ListCtl domListCtl = {.cmpfn = &libVES_External_cmpDomLST, .freefn = &libVES_External_freeDomLST};
     static libVES_List_STATIC0(domlist, &domListCtl);
+    static char lck = 0;
     if (!domain || !extId) return NULL;
     int l = strlen(extId);
     libVES_Ref *ext = malloc(offsetof(libVES_Ref, externalId) + l + 1);
     if (!ext) return NULL;
     ext->domain = libVES_List_find(&domlist, (void *) domain);
     if (!ext->domain) {
-	char *d = strdup(domain);
-	if (!(ext->domain = libVES_List_push(&domlist, d))) {
-	    free(d);
+	if (lck || (++lck > 1 && lck--)) {
 	    free(ext);
 	    return NULL;
 	}
+	if (!(ext->domain = libVES_List_find(&domlist, (void *) domain))) {
+	    char *d = strdup(domain);
+	    if (!(ext->domain = libVES_List_push(&domlist, d))) {
+		lck--;
+		free(d);
+		free(ext);
+		return NULL;
+	    }
+	}
+	lck--;
     }
     strcpy(ext->externalId, extId);
     return ext;

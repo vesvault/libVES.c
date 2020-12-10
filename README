@@ -55,12 +55,16 @@ REQUIREMENTS:
 
 See INSTALL for complete build instructions.
 
-Quick build on *nix (from a dist tar.gz):
+General GNU build:
 
-  ./confugure
-  make
-  make install
-  ## installs libVES.a, libVES.h, libVES/*.h, ves
+    aclocal
+    libtoolize
+    automake --add-missing
+    autoconf
+    ./configure
+    make
+    make install
+  ## installs libVES.so*, libVES.a, libVES.h, libVES/*.h, ves
 
 Quick build on Windows (tested on MS VS):
 

@@ -46,7 +46,6 @@
 #include "libVES/KeyAlgo_EVP.h"
 #include "libVES.h"
 
-libVES_List_STATIC0(libVES_unlockedKeys, &libVES_VaultKey_ListCtlU);
 
 const char *libVES_errorMsgs[12] = {
     NULL,
@@ -96,7 +95,7 @@ libVES *libVES_fromRef(libVES_Ref *ref) {
     ves->veskeyLen = 32;
     ves->genVaultKeyFn = &libVES_defaultGenVaultKey;
     ves->attnFn = NULL;
-    ves->unlockedKeys = &libVES_unlockedKeys;
+    ves->unlockedKeys = libVES_List_new(&libVES_VaultKey_ListCtlU);
     return ves;
 }
 
@@ -354,6 +353,7 @@ void libVES_free(libVES *ves) {
     free(ves->errorBuf);
     if (ves->vaultKey) libVES_VaultKey_free(ves->vaultKey);
     else libVES_User_free(ves->me);
+    libVES_List_free(ves->unlockedKeys);
     free(ves);
 }
 
