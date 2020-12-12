@@ -50,7 +50,7 @@
 const char *libVES_VaultItem_types[5] = { "string", "file", "password", "secret", NULL };
 
 libVES_VaultItem *libVES_VaultItem_new() {
-    libVES_VaultItem *vitem = malloc(offsetof(libVES_VaultItem,share));
+    libVES_VaultItem *vitem = malloc(offsetof(libVES_VaultItem, share));
     if (!vitem) return NULL;
     vitem->id = 0;
     vitem->flags = LIBVES_SH_ADD | LIBVES_SH_UPD;
@@ -86,6 +86,7 @@ jVar *libVES_VaultItem_toJVar(libVES_VaultItem *vitem) {
     if (vitem->entries && jVar_count(vitem->entries)) {
 	jVar_put(data, "vaultEntries", vitem->entries);
 	vitem->entries = NULL;
+	jVar_put(data, "$op", jVar_string(vitem->id ? "update" : "create"));
     }
     return data;
 }
@@ -229,9 +230,14 @@ jVar *libVES_VaultItem_entries(libVES_VaultItem *vitem, libVES_List *share, int 
 	vitem->entries = NULL;
     } else entries = jVar_array();
     int i, j;
-    char *shflags = malloc(vitem->sharelen);
-    if (!shflags) return jVar_free(entries), NULL;
-    memset(shflags, 0, vitem->sharelen);
+    char *shflags;
+    if (vitem->sharelen) {
+	shflags = malloc(vitem->sharelen);
+	if (!shflags) return jVar_free(entries), NULL;
+	memset(shflags, 0, vitem->sharelen);
+    } else {
+	shflags = NULL;
+    }
     if (share) for (i = 0; i < share->len; i++) {
 	libVES_VaultKey *vkey = share->list[i];
 	char exists = 0;
@@ -256,7 +262,7 @@ jVar *libVES_VaultItem_entries(libVES_VaultItem *vitem, libVES_List *share, int 
 	    break;
 	}
     }
-    if (!entries) return NULL;
+    if (!entries) return free(shflags), NULL;
     if (flags & (LIBVES_SH_CLN | LIBVES_SH_UPD)) for (j = 0; j < vitem->sharelen; j++) {
 	if ((flags & LIBVES_SH_CLN) && !(~(flags & LIBVES_SH_PRI) & shflags[j])) {
 	    jVar_push(entries, jVar_put(jVar_put(jVar_object(), "vaultKey", jVar_put(jVar_object(), "id", jVar_int(vitem->share[j]->id))), "$op", jVar_string("delete")));
@@ -277,6 +283,7 @@ jVar *libVES_VaultItem_entries(libVES_VaultItem *vitem, libVES_List *share, int 
 	vitem->flags |= LIBVES_SH_CLN;
     }
     jVar_free(vitem->entries);
+    free(shflags);
     return vitem->entries = entries;
 }
 
@@ -371,6 +378,7 @@ int libVES_VaultItem_typeFromStr(const char *str) {
 void libVES_VaultItem_free(libVES_VaultItem *vitem) {
     if (!vitem) return;
     jVar_free(vitem->meta);
+    jVar_free(vitem->entries);
     if (vitem->value) {
 	OPENSSL_cleanse(vitem->value, vitem->len);
 	free(vitem->value);

@@ -92,7 +92,7 @@ libVES_Ref *libVES_External_new(const char *domain, const char *extId) {
 libVES_Ref *libVES_External_fromJVar(jVar *data) {
     if (jVar_isArray(data)) data = jVar_index(data, 0);
     if (!jVar_isObject(data)) return NULL;
-    libVES_Ref *ext = libVES_External_new(jVar_getString0(jVar_get(data, "domain")), jVar_getString0(jVar_get(data, "externalId")));
+    libVES_Ref *ext = libVES_External_new(jVar_getStringP(jVar_get(data, "domain")), jVar_getStringP(jVar_get(data, "externalId")));
     return ext;
 }
 

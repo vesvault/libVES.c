@@ -135,6 +135,7 @@ void *libVES_objectFromURI(const char **uri, libVES *ves, int flags, int *type) 
 	    if ((res = libVES_VaultKey_get2(ref, ves, usr, NULL, flags))) {
 		if (type) *type = LIBVES_O_VKEY;
 		*uri = p;
+		if (ref && !ref->domain) libVES_Ref_free(ref);
 	    }
 	}
     } else {
@@ -143,6 +144,8 @@ void *libVES_objectFromURI(const char **uri, libVES *ves, int flags, int *type) 
 	    if ((!(flags & LIBVES_O_GET) && (flags & LIBVES_O_NEW))
 	    || (!(res = libVES_VaultItem_get(ref, ves)) && (flags & LIBVES_O_NEW) && libVES_checkError(ves, LIBVES_E_NOTFOUND))) {
 		res = libVES_VaultItem_create(ref);
+	    } else if (res) {
+		libVES_Ref_free(ref);
 	    }
 	    if (res) {
 		if (type) *type = LIBVES_O_VITEM;
@@ -150,7 +153,7 @@ void *libVES_objectFromURI(const char **uri, libVES *ves, int flags, int *type) 
 	    }
 	}
     }
-    if (!res || (ref && !ref->domain)) libVES_Ref_free(ref);
+    if (!res) libVES_Ref_free(ref);
     return res;
 }
 
@@ -316,6 +319,7 @@ void libVES_lock(libVES *ves) {
 	ves->attnFn = NULL;
 	jVar *attn = libVES_REST(ves, "attn", NULL);
 	if (attn) attnFn(ves, attn);
+	jVar_free(attn);
     }
     int i = 0;
     libVES_List *unl = ves->unlockedKeys;

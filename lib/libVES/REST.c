@@ -134,8 +134,8 @@ void *libVES_REST_hdrs(libVES *ves, const char *uri, jVar *body, struct curl_sli
 	} else {
 	    jVar *rerr = jVar_index(jVar_get(rsp, "errors"), 0);
 	    if (rerr) {
-		const char *rtype = jVar_getString0(jVar_get(rerr, "type"));
-		const char *rmsg = jVar_getString0(jVar_get(rerr, "message"));
+		const char *rtype = jVar_getStringP(jVar_get(rerr, "type"));
+		const char *rmsg = jVar_getStringP(jVar_get(rerr, "message"));
 		errstr = malloc(128 + (rtype ? strlen(rtype) : 0) + (rmsg ? strlen(rmsg) : 0));
 		if (errstr) sprintf(errstr, "API: HTTP %ld - %s: %s", code, rtype, rmsg);
 	    } else {

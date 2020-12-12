@@ -321,7 +321,7 @@ int libVES_KeyAlgo_ECDH_encrypt(libVES_VaultKey *vkey, const char *plaintext, si
     if (l < 0) libVES_setErrorEVP(vkey->ves, LIBVES_E_CRYPTO, "ECDH derive");
     else {
 	*keylen = l;
-	res = i2d_PUBKEY(epriv, (unsigned char **) &ciphertext);
+	res = i2d_PUBKEY(epriv, (ciphertext ? (unsigned char **) &ciphertext : NULL));
 	if (res < 0) libVES_setErrorEVP(vkey->ves, LIBVES_E_CRYPTO, "write ePub");
 	else *ptlen = 0;
     }
