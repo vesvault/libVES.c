@@ -189,7 +189,7 @@ libVES_VaultKey *libVES_VaultKey_get2(libVES_Ref *ref, libVES *ves, libVES_User 
 	if (ves->vaultKey) jVar_put(vkey_req, "creator", libVES_User_toJVar(libVES_VaultKey_getUser(ves->vaultKey)));
 	if (user) jVar_put(vkey_req, "user", jVar_put(libVES_User_toJVar(user), "$op", jVar_string("fetch")));
 	jVar_put(vkey_req, "$op", jVar_string("fetch"));
-	jVar *vkey_res = libVES_REST(ves, (sesstkn ? "vaultKeys?fields=id,algo,type,publicKey,privateKey,encSessionToken" : "vaultKeys?fields=id,type,algo,publicKey"), vkey_req);
+	jVar *vkey_res = libVES_REST(ves, (sesstkn ? "vaultKeys?fields=id,algo,type,publicKey,privateKey,encSessionToken" : "vaultKeys?fields=id,type,algo,publicKey,externals"), vkey_req);
 	jVar_free(vkey_req);
 	if (vkey_res) {
 	    vkey = libVES_VaultKey_fromJVar(vkey_res, ves);
