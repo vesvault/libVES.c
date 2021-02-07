@@ -356,7 +356,10 @@ void libVES_free(libVES *ves) {
     free(ves->sessionToken);
     free(ves->errorBuf);
     if (ves->vaultKey) libVES_VaultKey_free(ves->vaultKey);
-    else libVES_User_free(ves->me);
+    else {
+	libVES_User_free(ves->me);
+	libVES_Ref_free(ves->external);
+    }
     libVES_List_free(ves->unlockedKeys);
     free(ves);
 }
