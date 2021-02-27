@@ -109,23 +109,32 @@ libVES_VaultKey *libVES_VaultKey_fromJVar(jVar *j_vkey, libVES *ves) {
 }
 
 libVES_List *libVES_VaultKey_listFromURI(const char **path, struct libVES *ves, struct libVES_List *lst) {
-    if (!lst) lst = libVES_List_new(&libVES_VaultKey_ListCtl);
     const char *p = *path;
     libVES_Ref *ref = libVES_Ref_fromURI(&p, ves);
     libVES_List *res;
     if (*p == '/') {
 	p++;
 	libVES_User *user = libVES_User_fromPath(&p);
+	libVES_VaultKey *vkey;
 	if (ref) {
-	    if (libVES_List_push(lst, libVES_VaultKey_get(ref, ves, user))) res = lst;
-	    else {
-		libVES_User_free(user);
+	    vkey = libVES_VaultKey_get(ref, ves, user);
+	    if (!vkey) {
 		res = NULL;
 	    }
 	} else {
 	    res = libVES_User_activeVaultKeys(user, lst, ves);
-	    if (!res && libVES_checkError(ves, LIBVES_E_NOTFOUND) && libVES_List_push(lst, libVES_VaultKey_create(ref, ves, user))) res = lst;
-	    else libVES_User_free(user);
+	    if (!res && libVES_checkError(ves, LIBVES_E_NOTFOUND)) {
+		vkey = libVES_VaultKey_create(ref, ves, user);
+	    } else {
+		libVES_User_free(user);
+		vkey = NULL;
+	    }
+	}
+	if (vkey) {
+	    if (!lst) lst = libVES_List_new(&libVES_VaultKey_ListCtl);
+	    libVES_List_push(lst, vkey);
+	    res = lst;
+	    libVES_VaultKey_free_ref_user(vkey, ref, user);
 	}
     } else {
 	libVES_setError(ves, LIBVES_E_PARAM, "Vault URI expected (missing a trailing '/'?)");
@@ -206,6 +215,14 @@ libVES_VaultKey *libVES_VaultKey_get2(libVES_Ref *ref, libVES *ves, libVES_User 
 	if (!user || sesstkn) libVES_throw(ves, LIBVES_E_PARAM, "Inconsistent arguments for a new vault key", NULL);
 	vkey = libVES_VaultKey_create(ref, ves, user);
     } else libVES_throw(ves, LIBVES_E_PARAM, "No action requested", NULL);
+    return vkey;
+}
+
+libVES_VaultKey *libVES_VaultKey_free_ref_user(libVES_VaultKey *vkey, libVES_Ref *ref, libVES_User *user) {
+    if (vkey) {
+	if (ref && ref != vkey->external) libVES_Ref_free(ref);
+	if (user && user != vkey->user) libVES_User_free(user);
+    }
     return vkey;
 }
 

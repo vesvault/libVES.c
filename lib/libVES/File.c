@@ -45,7 +45,7 @@ libVES_File *libVES_File_new(libVES_Ref *ref) {
     file->id = 0;
     file->name = file->path = file->mime = NULL;
     file->external = ref;
-    file->owner = NULL;
+    file->creator = NULL;
     return file;
 }
 
@@ -58,7 +58,7 @@ libVES_File *libVES_File_fromJVar(jVar *data) {
     file->path = jVar_getString0(jVar_get(data, "path"));
     file->mime = jVar_getString0(jVar_get(data, "mime"));
     file->external = libVES_External_fromJVar(jVar_get(data, "externals"));
-    file->owner = libVES_User_fromJVar(jVar_get(data, "owner"));
+    file->creator = libVES_User_fromJVar(jVar_get(data, "creator"));
     return file;
 }
 
@@ -69,7 +69,7 @@ jVar *libVES_File_toJVar(libVES_File *file) {
     if (file->name) jVar_put(res, "name", jVar_string(file->name));
     if (file->mime) jVar_put(res, "mime", jVar_string(file->mime));
     if (file->path) jVar_put(res, "path", jVar_string(file->path));
-    if (file->owner) jVar_put(res, "owner", libVES_User_toJVar(file->owner));
+    if (file->creator) jVar_put(res, "creator", libVES_User_toJVar(file->creator));
     return res;
 }
 
@@ -83,7 +83,7 @@ void libVES_File_free(libVES_File *file) {
     free(file->name);
     free(file->path);
     free(file->mime);
-    libVES_User_free(file->owner);
+    libVES_User_free(file->creator);
     libVES_Ref_free(file->external);
     free(file);
 }

@@ -291,7 +291,7 @@ libVES_VaultItem *libVES_VaultItem_get(libVES_Ref *ref, libVES *ves) {
     jVar *req = libVES_VaultItem_Ref_toJVar(ref);
     if (!req) libVES_throw(ves, LIBVES_E_PARAM, "Vault reference is not valid", NULL);
     jVar_put(req, "$op", jVar_string("fetch"));
-    jVar *res = libVES_REST(ves, "vaultItems?fields=id,type,meta,file(externals),vaultKey(id,type,algo,user,externals),vaultEntries(encData,vaultKey(id,type,user(id),externals))", req);
+    jVar *res = libVES_REST(ves, "vaultItems?fields=id,type,meta,file(externals,creator(id,email,firstName,lastName)),vaultKey(id,type,algo,user,externals),vaultEntries(encData,vaultKey(id,type,user(id),externals))", req);
     jVar_free(req);
     if (!res) return NULL;
     libVES_VaultItem *vitem = libVES_VaultItem_fromJVar(res, ves);

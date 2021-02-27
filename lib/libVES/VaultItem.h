@@ -128,6 +128,16 @@ int libVES_VaultItem_delete(libVES_VaultItem *vitem, struct libVES *ves);
  ***************************************************************************/
 struct libVES_List *libVES_VaultItem_list(struct libVES_VaultKey *vkey);
 
+/***************************************************************************
+ * Get a Verify Token that can be used instead of libVES Session Token to
+ * allow retrieving vaultEntries/vaultKey/file on the vitem
+ * without granting any other permissions.
+ * free() the token when done.
+ * If the access needs to be restricted to creator and external only -
+ * use libVES_File_fetchVerifyToken(libVES_VaultItem_getFile(vitem), ves)
+ ***************************************************************************/
+#define libVES_VaultItem_fetchVerifyToken(vitem, ves)	((vitem) ? libVES_fetchVerifyToken("vaultItems", (vitem)->id, ves) : NULL)
+
 struct jVar *libVES_VaultItem_getMeta(libVES_VaultItem *vitem);
 int libVES_VaultItem_setMeta(libVES_VaultItem *vitem, struct jVar *meta);
 const char *libVES_VaultItem_typeStr(int type);

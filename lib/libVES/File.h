@@ -36,11 +36,23 @@ typedef struct libVES_File {
     char *mime;
     char *path;
     struct libVES_Ref *external;
-    struct libVES_User *owner;
+    struct libVES_User *creator;
 } libVES_File;
 
 libVES_File *libVES_File_new(struct libVES_Ref *ref);
 libVES_File *libVES_File_fromJVar(struct jVar *data);
 struct jVar *libVES_File_toJVar(libVES_File *file);
 char *libVES_File_toURI(libVES_File *file);
+
+/***************************************************************************
+ * Get a Verify Token that can be used instead of libVES Session Token to
+ * allow retrieving creator and external on the file
+ * without granting any other permissions.
+ * free() the token when done.
+ * See also libVES_VaultItem_fetchVerifyToken()
+ ***************************************************************************/
+#define libVES_File_fetchVerifyToken(file, ves)		((file) ? libVES_fetchVerifyToken("files", (file)->id, ves) : NULL)
+
+#define libVES_File_getCreator(file)	((file) ? (file)->creator : NULL)
+
 void libVES_File_free(libVES_File *file);

@@ -28,8 +28,8 @@
  * libVES.h                   libVES: Main header
  *
  ***************************************************************************/
-#define LIBVES_VERSION_NUMBER	0x01000000L
-#define LIBVES_VERSION_CODE	"1.00b"
+#define LIBVES_VERSION_NUMBER	0x01000100L
+#define LIBVES_VERSION_CODE	"1.01b"
 #define LIBVES_VERSION_STR	"libVES.c " LIBVES_VERSION_CODE " (c) 2018 - 2021 VESvault Corp"
 #define LIBVES_VERSION_SHORT	"libVES/" LIBVES_VERSION_CODE
 
@@ -130,6 +130,7 @@ void *libVES_objectFromURI(const char **uri, struct libVES *ves, int flags, int 
 
 struct libVES_VaultKey *libVES_defaultGenVaultKey(libVES *ves, int type, struct libVES_Ref *ref, struct libVES_User *user);
 void libVES_defaultAttn(libVES *ves, struct jVar *attn);
+char *libVES_fetchVerifyToken(const char *objuri, long long int objid, struct libVES *ves);
 
 /***************************************************************************
  * The App Vault Key associated with the instance of libVES, do not deallocate

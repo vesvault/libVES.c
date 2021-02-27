@@ -120,8 +120,20 @@ char *libVES_VaultKey_toURI(libVES_VaultKey *vkey);
  ***************************************************************************/
 char *libVES_VaultKey_toURIi(libVES_VaultKey *vkey);
 
-libVES_VaultKey *libVES_VaultKey_get2(struct libVES_Ref *ref, struct libVES *ves, struct libVES_User *user, char **sesstkn, int flags);
+/***************************************************************************
+ * Retrieve or create a Vault Key from ref and optional user
+ * ref and user may or may not be consumed by the resulting libVES_VaultKey,
+ * use libVES_VaultKey_free_ref_user() to free if not consumed
+ ***************************************************************************/
 #define libVES_VaultKey_get(ref, ves, user)	libVES_VaultKey_get2(ref, ves, user, NULL, LIBVES_O_GET | LIBVES_O_NEW)
+
+/***************************************************************************
+ * Call after libVES_VaultKey_get() or livBES_VaultKey_get2()
+ * to safely free ref and user if they were not consumed by vkey
+ ***************************************************************************/
+libVES_VaultKey *libVES_VaultKey_free_ref_user(libVES_VaultKey *vkey, struct libVES_Ref *ref, struct libVES_User *user);
+
+libVES_VaultKey *libVES_VaultKey_get2(struct libVES_Ref *ref, struct libVES *ves, struct libVES_User *user, char **sesstkn, int flags);
 libVES_VaultKey *libVES_VaultKey_create(struct libVES_Ref *ref, struct libVES *ves, struct libVES_User *user);
 libVES_VaultKey *libVES_VaultKey_createFrom(libVES_VaultKey *vkey);
 struct libVES_VaultItem *libVES_VaultKey_propagate(libVES_VaultKey *vkey);

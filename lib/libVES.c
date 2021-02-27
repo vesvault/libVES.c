@@ -135,7 +135,7 @@ void *libVES_objectFromURI(const char **uri, libVES *ves, int flags, int *type) 
 	    if ((res = libVES_VaultKey_get2(ref, ves, usr, NULL, flags))) {
 		if (type) *type = LIBVES_O_VKEY;
 		*uri = p;
-		if (ref && !ref->domain) libVES_Ref_free(ref);
+		libVES_VaultKey_free_ref_user(res, ref, usr);
 	    }
 	}
     } else {
@@ -347,6 +347,16 @@ libVES_User *libVES_me(libVES *ves) {
     }
     libVES_User_loadFields(ves->me, ves);
     return ves->me;
+}
+
+char *libVES_fetchVerifyToken(const char *objuri, long long int objid, libVES *ves) {
+    if (!objuri || !objid) return NULL;
+    char uri[64];
+    sprintf(uri, "%s/%lld?fields=verifyToken", objuri, objid);
+    jVar *rsp = libVES_REST(ves, uri, NULL);
+    char *token = jVar_getString0(jVar_get(rsp, "verifyToken"));
+    jVar_free(rsp);
+    return token;
 }
 
 void libVES_free(libVES *ves) {
