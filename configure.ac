@@ -7,6 +7,8 @@ AC_INIT([VES], [1.01b], [bugs@vesvault.com])
 AC_CONFIG_SRCDIR([src/ves-util.c])
 AC_CONFIG_HEADERS([src/config.h])
 
+AC_CONFIG_AUX_DIR([build-aux])
+
 AM_INIT_AUTOMAKE([1.0 subdir-objects])
 
 # Checks for programs.
