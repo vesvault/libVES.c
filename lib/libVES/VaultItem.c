@@ -86,7 +86,7 @@ jVar *libVES_VaultItem_toJVar(libVES_VaultItem *vitem) {
     if (vitem->entries && jVar_count(vitem->entries)) {
 	jVar_put(data, "vaultEntries", vitem->entries);
 	vitem->entries = NULL;
-	jVar_put(data, "$op", jVar_string(vitem->id ? "update" : "create"));
+	if (!vitem->id) jVar_put(data, "$op", jVar_string("create"));
     }
     return data;
 }
@@ -112,7 +112,10 @@ libVES_VaultItem *libVES_VaultItem_fromJVar(jVar *data, libVES *ves) {
     } else if ((obj = jVar_get(data, "vaultKey"))) {
 	vitem->objectType = LIBVES_O_VKEY;
 	vitem->vaultKey = libVES_VaultKey_fromJVar(obj, NULL);
-    } else vitem->objectType = -1;
+    } else {
+	vitem->objectType = -1;
+	vitem->object = NULL;
+    }
     if (ves) {
 	int i;
 	if (ves->debug > 1) {
@@ -374,6 +377,16 @@ const char *libVES_VaultItem_typeStr(int type) {
 int libVES_VaultItem_typeFromStr(const char *str) {
     return libVES_enumStr(str, libVES_VaultItem_types);
 }
+
+jVar *libVES_VaultItem_VESauthGET(libVES_VaultItem *vitem, libVES *ves, const char *url, long *pcode) {
+    if (!vitem || !ves || !url) return NULL;
+    char *vrfy = libVES_VaultItem_fetchVerifyToken(vitem, ves);
+    if (!vrfy) libVES_throw(ves, LIBVES_E_PARAM, "Verify Token is NULL", NULL);
+    jVar *rs = libVES_REST_VESauthGET(ves, url, pcode, "vaultItem.%lld.%s", vitem->id, vrfy);
+    free(vrfy);
+    return rs;
+}
+
 
 void libVES_VaultItem_free(libVES_VaultItem *vitem) {
     if (!vitem) return;

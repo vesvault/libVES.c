@@ -138,6 +138,14 @@ struct libVES_List *libVES_VaultItem_list(struct libVES_VaultKey *vkey);
  ***************************************************************************/
 #define libVES_VaultItem_fetchVerifyToken(vitem, ves)	((vitem) ? libVES_fetchVerifyToken("vaultItems", (vitem)->id, ves) : NULL)
 
+/***************************************************************************
+ * Send a GET request to the external url with VES authorization
+ * X-VES-Authorization: vaultItem.{vitem->id}.{verifyToken}
+ * Return jVar response on success, NULL on error, use libVES_getError(ves)
+ * assign the http status code to *pcode if not NULL
+ ***************************************************************************/
+struct jVar *libVES_VaultItem_VESauthGET(struct libVES_VaultItem *vitem, struct libVES *ves, const char *url, long *pcode);
+
 struct jVar *libVES_VaultItem_getMeta(libVES_VaultItem *vitem);
 int libVES_VaultItem_setMeta(libVES_VaultItem *vitem, struct jVar *meta);
 const char *libVES_VaultItem_typeStr(int type);

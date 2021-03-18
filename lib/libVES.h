@@ -28,8 +28,8 @@
  * libVES.h                   libVES: Main header
  *
  ***************************************************************************/
-#define LIBVES_VERSION_NUMBER	0x01000100L
-#define LIBVES_VERSION_CODE	"1.01b"
+#define LIBVES_VERSION_NUMBER	0x01000200L
+#define LIBVES_VERSION_CODE	"1.02b"
 #define LIBVES_VERSION_STR	"libVES.c " LIBVES_VERSION_CODE " (c) 2018 - 2021 VESvault Corp"
 #define LIBVES_VERSION_SHORT	"libVES/" LIBVES_VERSION_CODE
 
@@ -208,6 +208,14 @@ int libVES_shareFile(libVES *ves, const char *uri, size_t sharelen, const char *
  * Flag the Vault Item identified by uri as deleted.
  ***************************************************************************/
 int libVES_deleteFile(libVES *ves, const char *uri);
+
+/***************************************************************************
+ * Perform pending internal tasks, such as temp key propagation.
+ * Can be called periodically to sync the temp keys for the newly created
+ * recipients of the User's vault items who are in process of setting up
+ * their VES accounts.
+ ***************************************************************************/
+void libVES_attn(struct libVES *ves);
 
 /***************************************************************************
  * Deallocate libVES, wipe all private content from memory

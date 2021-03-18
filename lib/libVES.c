@@ -312,15 +312,24 @@ void libVES_setSessionToken(libVES *ves, const char *token) {
     }
 }
 
+void (*libVES_chkAttn(libVES *ves))(libVES *ves, jVar *attn) {
+    if (!ves->attnFn) return NULL;
+    void (* attnFn)(libVES *, jVar *) = ves->attnFn;
+    ves->attnFn = NULL;
+    jVar *attn = libVES_REST(ves, "attn", NULL);
+    if (attn) attnFn(ves, attn);
+    jVar_free(attn);
+    return attnFn;
+}
+
+void libVES_attn(libVES *ves) {
+    if (!ves->attnFn) ves->attnFn = &libVES_defaultAttn;
+    ves->attnFn = libVES_chkAttn(ves);
+}
+
 void libVES_lock(libVES *ves) {
     if (!ves) return;
-    if (ves->attnFn) {
-	void (* attnFn)(libVES *, jVar *) = ves->attnFn;
-	ves->attnFn = NULL;
-	jVar *attn = libVES_REST(ves, "attn", NULL);
-	if (attn) attnFn(ves, attn);
-	jVar_free(attn);
-    }
+    libVES_chkAttn(ves);
     int i = 0;
     libVES_List *unl = ves->unlockedKeys;
     while (i < unl->len) {
