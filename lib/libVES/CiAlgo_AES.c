@@ -91,21 +91,27 @@ int libVES_CiAlgo_d_AES256GCM(libVES_Cipher *ci, int final, const char *cipherte
     if (!ci->ctx) {
 	ci->ctx = EVP_CIPHER_CTX_new();
     }
-    if (ci->flags & LIBVES_CF_ENC) return -1;
+    if (ci->flags & LIBVES_CF_ENC) libVES_throw(ci->ves, LIBVES_E_CRYPTO, "AES256GCM dec conflict", -1);
     else if (!(ci->flags & LIBVES_CF_DEC)) {
 	if (EVP_DecryptInit_ex(ci->ctx, EVP_aes_256_gcm(), NULL, ci->gcm.key, ci->gcm.iv) > 0) ci->flags |= LIBVES_CF_DEC;
-	else return -1;
+	else libVES_throwEVP(ci->ves, LIBVES_E_CRYPTO, "AES256GCM dec init", -1);
     }
     if (final) {
-	if (ctlen < sizeof(ci->gcm.gbuf)) return -1;
+	if (ctlen < sizeof(ci->gcm.gbuf)) libVES_throw(ci->ves, LIBVES_E_CRYPTO, "AES256GCM dec: Unexpected end of stream", -1);
 	ctlen -= sizeof(ci->gcm.gbuf);
     }
     int ptlen = ctlen;
-    if (EVP_DecryptUpdate(ci->ctx, (unsigned char *) plaintext, &ptlen, (unsigned char *) ciphertext, ctlen) <= 0) return -1;
+    if (EVP_DecryptUpdate(ci->ctx, (unsigned char *) plaintext, &ptlen, (unsigned char *) ciphertext, ctlen) <= 0) {
+	libVES_throwEVP(ci->ves, LIBVES_E_CRYPTO, "AES256GCM dec update", -1);
+    }
     if (final) {
-	if (EVP_CIPHER_CTX_ctrl(ci->ctx, EVP_CTRL_GCM_SET_TAG, sizeof(ci->gcm.gbuf), (void *)(ciphertext + ctlen)) <= 0) return -1;
+	if (EVP_CIPHER_CTX_ctrl(ci->ctx, EVP_CTRL_GCM_SET_TAG, sizeof(ci->gcm.gbuf), (void *)(ciphertext + ctlen)) <= 0) {
+	    libVES_throwEVP(ci->ves, LIBVES_E_CRYPTO, "AES256GCM dec gcm", -1);
+	}
 	int ptlenf = ctlen - ptlen;
-	if (EVP_DecryptFinal_ex(ci->ctx, (unsigned char *) plaintext + ptlen, &ptlenf) <= 0) return -1;
+	if (EVP_DecryptFinal_ex(ci->ctx, (unsigned char *) plaintext + ptlen, &ptlenf) <= 0) {
+	    libVES_throwEVP(ci->ves, LIBVES_E_CRYPTO, "AES256GCM dec final", -1);
+	}
 	ci->flags &= !LIBVES_CF_DEC;
 	ptlen += ptlenf;
     }
@@ -117,18 +123,24 @@ int libVES_CiAlgo_e_AES256GCM(libVES_Cipher *ci, int final, const char *plaintex
     if (!ci->ctx) {
 	ci->ctx = EVP_CIPHER_CTX_new();
     }
-    if (ci->flags & LIBVES_CF_DEC) return -1;
+    if (ci->flags & LIBVES_CF_DEC) libVES_throw(ci->ves, LIBVES_E_CRYPTO, "AES256GCM enc conflict", -1);
     else if (!(ci->flags & LIBVES_CF_ENC)) {
 	if (EVP_EncryptInit_ex(ci->ctx, EVP_aes_256_gcm(), NULL, ci->gcm.key, ci->gcm.iv) > 0) ci->flags |= LIBVES_CF_ENC;
-	else return -1;
+	else libVES_throwEVP(ci->ves, LIBVES_E_CRYPTO, "AES256GCM enc init", -1);
     }
     int ctlen = ptlen + sizeof(ci->gcm.gbuf);
-    if (EVP_EncryptUpdate(ci->ctx, (unsigned char *) ciphertext, &ctlen, (unsigned char *) plaintext, ptlen) <= 0) return -1;
+    if (EVP_EncryptUpdate(ci->ctx, (unsigned char *) ciphertext, &ctlen, (unsigned char *) plaintext, ptlen) <= 0) {
+	libVES_throwEVP(ci->ves, LIBVES_E_CRYPTO, "AES256GCM enc update", -1);
+    }
     if (final) {
 	int ctlenf = ptlen - ctlen;
-	if (EVP_EncryptFinal_ex(ci->ctx, (unsigned char *) ciphertext + ctlen, &ctlenf) <= 0) return -1;
+	if (EVP_EncryptFinal_ex(ci->ctx, (unsigned char *) ciphertext + ctlen, &ctlenf) <= 0) {
+	    libVES_throwEVP(ci->ves, LIBVES_E_CRYPTO, "AES256GCM enc final", -1);
+	}
 	ctlen += ctlenf;
-	if (EVP_CIPHER_CTX_ctrl(ci->ctx, EVP_CTRL_GCM_GET_TAG, sizeof(ci->gcm.gbuf), (void *)(ciphertext + ctlen)) <= 0) return -1;
+	if (EVP_CIPHER_CTX_ctrl(ci->ctx, EVP_CTRL_GCM_GET_TAG, sizeof(ci->gcm.gbuf), (void *)(ciphertext + ctlen)) <= 0) {
+	    libVES_throwEVP(ci->ves, LIBVES_E_CRYPTO, "AES256GCM enc gcm", -1);
+	}
 	ci->flags &= !LIBVES_CF_ENC;
 	ctlen += sizeof(ci->gcm.gbuf);
     }
@@ -140,16 +152,20 @@ int libVES_CiAlgo_d_AES256CFB(libVES_Cipher *ci, int final, const char *cipherte
     if (!ci->ctx) {
 	ci->ctx = EVP_CIPHER_CTX_new();
     }
-    if (ci->flags & LIBVES_CF_ENC) return -1;
+    if (ci->flags & LIBVES_CF_ENC) libVES_throw(ci->ves, LIBVES_E_CRYPTO, "AES256CFB dec conflict", -1);
     else if (!(ci->flags & LIBVES_CF_DEC)) {
 	if (EVP_DecryptInit_ex(ci->ctx, EVP_aes_256_cfb(), NULL, ci->cfb.key, ci->cfb.iv) > 0) ci->flags |= LIBVES_CF_DEC;
-	else return -1;
+	else libVES_throwEVP(ci->ves, LIBVES_E_CRYPTO, "AES256CFB dec init", -1);
     }
     int ptlen = ctlen;
-    if (EVP_DecryptUpdate(ci->ctx, (unsigned char *) plaintext, &ptlen, (unsigned char *) ciphertext, ctlen) <= 0) return -1;
+    if (EVP_DecryptUpdate(ci->ctx, (unsigned char *) plaintext, &ptlen, (unsigned char *) ciphertext, ctlen) <= 0) {
+	libVES_throwEVP(ci->ves, LIBVES_E_CRYPTO, "AES256CFB dec update", -1);
+    }
     if (final) {
 	int ptlenf = ctlen - ptlen;
-	if (EVP_DecryptFinal_ex(ci->ctx, (unsigned char *) plaintext + ptlen, &ptlenf) <= 0) return -1;
+	if (EVP_DecryptFinal_ex(ci->ctx, (unsigned char *) plaintext + ptlen, &ptlenf) <= 0) {
+	    libVES_throwEVP(ci->ves, LIBVES_E_CRYPTO, "AES256CFB dec final", -1);
+	}
 	ci->flags &= !LIBVES_CF_DEC;
 	ptlen += ptlenf;
     }
@@ -161,16 +177,20 @@ int libVES_CiAlgo_e_AES256CFB(libVES_Cipher *ci, int final, const char *plaintex
     if (!ci->ctx) {
 	ci->ctx = EVP_CIPHER_CTX_new();
     }
-    if (ci->flags & LIBVES_CF_DEC) return -1;
+    if (ci->flags & LIBVES_CF_DEC) libVES_throw(ci->ves, LIBVES_E_CRYPTO, "AES256CFB enc conflict", -1);
     else if (!(ci->flags & LIBVES_CF_ENC)) {
 	if (EVP_EncryptInit_ex(ci->ctx, EVP_aes_256_cfb(), NULL, ci->cfb.key, ci->cfb.iv) > 0) ci->flags |= LIBVES_CF_ENC;
-	else return -1;
+	else libVES_throwEVP(ci->ves, LIBVES_E_CRYPTO, "AES256CFB enc init", -1);
     }
     int ctlen = ptlen;
-    if (EVP_EncryptUpdate(ci->ctx, (unsigned char *) ciphertext, &ctlen, (unsigned char *) plaintext, ptlen) <= 0) return -1;
+    if (EVP_EncryptUpdate(ci->ctx, (unsigned char *) ciphertext, &ctlen, (unsigned char *) plaintext, ptlen) <= 0) {
+	libVES_throwEVP(ci->ves, LIBVES_E_CRYPTO, "AES256CFB enc update", -1);
+    }
     if (final) {
 	int ctlenf = ptlen - ctlen;
-	if (EVP_EncryptFinal_ex(ci->ctx, (unsigned char *) ciphertext + ctlen, &ctlenf) <= 0) return -1;
+	if (EVP_EncryptFinal_ex(ci->ctx, (unsigned char *) ciphertext + ctlen, &ctlenf) <= 0) {
+	    libVES_throwEVP(ci->ves, LIBVES_E_CRYPTO, "AES256CFB enc final", -1);
+	}
 	ci->flags &= !LIBVES_CF_ENC;
 	ctlen += ctlenf;
     }
@@ -250,7 +270,7 @@ int libVES_CiAlgo_setiv_AES256GCM1K(libVES_Cipher *ci, const char *gbuf) {
 	memcpy(ci->gcm.iv, md, sizeof(ci->gcm.iv));
 	return 1;
     }
-    return 0;
+    libVES_throwEVP(ci->ves, LIBVES_E_CRYPTO, "AES256GCM1K setiv", 0);
 }
 
 int libVES_CiAlgo_d_AES256GCM1K(libVES_Cipher *ci, int final, const char *ciphertext, size_t ctlen, char *plaintext) {
@@ -261,7 +281,7 @@ int libVES_CiAlgo_d_AES256GCM1K(libVES_Cipher *ci, int final, const char *cipher
     while (ctext < ctail || final) {
 	size_t len = ctail - ctext;
 	if (ci->gcm.offs < sizeof(ci->gcm.gbuf)) {
-	    if (final && !len) return -1;
+	    if (final && !len) libVES_throw(ci->ves, LIBVES_E_CRYPTO, "AES256GCM1K dec: Unexpected end of stream", -1);
 	    int l = sizeof(ci->gcm.gbuf) - ci->gcm.offs;
 	    if (l > len) l = len;
 	    memcpy(ci->gcm.gbuf + ci->gcm.offs, ctext, l);
@@ -274,7 +294,7 @@ int libVES_CiAlgo_d_AES256GCM1K(libVES_Cipher *ci, int final, const char *cipher
 	    int bl = libVES_CiAlgo_LEN_1K + 2 * sizeof(ci->gcm.gbuf);
 	    if (final && bl > len + ci->gcm.offs) {
 		bl = len + ci->gcm.offs;
-		if (bl < sizeof(ci->gcm.gbuf)) return -1;
+		if (bl < sizeof(ci->gcm.gbuf)) libVES_throw(ci->ves, LIBVES_E_CRYPTO, "AES256GCM1K dec: Framing error", -1);
 	    }
 	    int bl2 = bl - ci->gcm.offs;
 	    if (len > bl2) len = bl2;

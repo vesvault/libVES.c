@@ -95,13 +95,10 @@ int libVES_Cipher_proceed(libVES_Cipher *ci, int final, const char *srctext, siz
     if (!((void *) func)) libVES_throw(ci->ves, LIBVES_E_UNSUPPORTED, "Cipher operation is not supported by algo", -1);
     if (!dsttext || !*dsttext) {
 	int len = func(ci, final, srctext, srclen, NULL);
-	if (len < 0) libVES_throw(ci->ves, LIBVES_E_CRYPTO, "Cannot determine the cipher buffer size", -1);
-	if (!dsttext) return len;
+	if (len < 0 || !dsttext) return len;
 	libVES_assert(ci->ves, (*dsttext = malloc(len)), -1);
     }
-    int res = func(ci, final, srctext, srclen, *dsttext);
-    if (res < 0) libVES_throw(ci->ves, LIBVES_E_CRYPTO, "Cipher error", -1);
-    return res;
+    return func(ci, final, srctext, srclen, *dsttext);
 }
 
 int libVES_Cipher_decrypt(libVES_Cipher *ci, int final, const char *ciphertext, size_t ctlen, char **plaintext) {

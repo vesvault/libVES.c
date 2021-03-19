@@ -46,8 +46,8 @@ void libVES_initEVP();
 void libVES_setError(struct libVES *ves, int err, const char *msg);
 void libVES_setError0(struct libVES *ves, int err, char *msg);
 void libVES_setErrorEVP(struct libVES *ves, int err, const char *scope);
-#define libVES_addUnlocked(ves, vkey)		libVES_List_unshift(ves->unlockedKeys, vkey)
-#define libVES_removeUnlocked(ves, vkey)	libVES_List_remove(ves->unlockedKeys, vkey)
+#define libVES_addUnlocked(ves, vkey)		libVES_List_unshift((ves)->unlockedKeys, vkey)
+#define libVES_removeUnlocked(ves, vkey)	libVES_List_remove((ves)->unlockedKeys, vkey)
 #define libVES_throw(ves, err, msg, ret)	return (libVES_setError((ves), (err), (msg)), (ret))
 #define libVES_throwEVP(ves, err, scope, ret)	return (libVES_setErrorEVP((ves), (err), (scope)), (ret))
 #define libVES_assert(ves, expr, ret)		if (!(expr)) libVES_throw(ves, LIBVES_E_ASSERT, #expr, ret)

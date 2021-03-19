@@ -66,7 +66,11 @@ int ci_process(int in, int out, libVES_Cipher *ci, int (*fn)(libVES_Cipher *, in
 	if (r <= 0 || w < 0 || cl < 0) break;
     }
     free(outbuf);
-    if (cl < 0) VES_throw("[ci_process]", "[libVES_Cipher]", libVES_errorStr(libVES_getError(ci->ves)), -1);
+    if (cl < 0) {
+	const char *err, *msg;
+	libVES_getErrorInfo(ci->ves, &err, &msg);
+	VES_throw("[ci_process]", err, msg, -1);
+    }
     if (r < 0) { IO_throw("[read]", "(in)", -1); }
     else if (w < 0) { IO_throw("[write]", "(out)", -1); }
     else return tl;

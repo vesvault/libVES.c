@@ -123,9 +123,16 @@ void libVES_setErrorEVP(libVES *ves, int err, const char *scope) {
     int bufl = 512;
     char *buf = malloc(bufl);
     if (buf) {
-	sprintf(buf, "[%s] ", scope);
-	int l = strlen(buf);
-	ERR_error_string_n(e, buf + l, bufl - l);
+	sprintf(buf, "[%s]", scope);
+	while (e) {
+	    int l = strlen(buf);
+	    if (l < bufl - 8) {
+		buf[l++] = ' ';
+		buf[l] = 0;
+		ERR_error_string_n(e, buf + l, bufl - l - 1);
+	    }
+	    e = ERR_get_error();
+	}
     }
     libVES_setError0(ves, err, buf);
 }

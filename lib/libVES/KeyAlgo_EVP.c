@@ -88,7 +88,7 @@ char *libVES_KeyAlgo_EVP_pub2str(libVES_VaultKey *vkey, void *pkey) {
 
 void *libVES_KeyAlgo_EVP_str2priv(libVES_VaultKey *vkey, const char *priv, libVES_veskey *veskey) {
     EVP_PKEY *pkey = libVES_KeyAlgo_EVP_fromPEM(veskey, priv);
-    if (!pkey) libVES_throw(vkey->ves, LIBVES_E_CRYPTO, "Incorrect VESkey?", NULL);
+    if (!pkey) libVES_setErrorEVP(vkey->ves, LIBVES_E_CRYPTO, "[str2priv] (Incorrect VESkey?)");
     return pkey;
 }
 
