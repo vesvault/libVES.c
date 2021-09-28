@@ -366,14 +366,14 @@ libVES_veskey *libVES_VaultKey_getVESkey(libVES_VaultKey *vkey) {
 
 char *libVES_VaultKey_getPrivateKey1(libVES_VaultKey *vkey) {
     if (!vkey) return NULL;
-    if (vkey->pPriv && vkey->algo->priv2strfn) return vkey->algo->priv2strfn(vkey, vkey->pPriv, NULL);
+    if (vkey->pPriv && vkey->algo && vkey->algo->priv2strfn) return vkey->algo->priv2strfn(vkey, vkey->pPriv, NULL);
     char *res = libVES_VaultKey_getPrivateKey(vkey);
     return res ? strdup(res) : NULL;
 }
 
 void *libVES_VaultKey_getPub(libVES_VaultKey *vkey) {
     if (!vkey->pPub) {
-	if (vkey->pPriv) {
+	if (vkey->pPriv && vkey->algo) {
 	    if (vkey->algo->priv2pubfn) vkey->pPub = vkey->algo->priv2pubfn(vkey, vkey->pPriv);
 	    else vkey->pPub = vkey->pPriv;
 	}
@@ -387,7 +387,7 @@ void *libVES_VaultKey_getPub(libVES_VaultKey *vkey) {
 		jVar_free(rsp);
 	    }
 	    if (vkey->publicKey) {
-		if (vkey->algo->str2pubfn) vkey->pPub = vkey->algo->str2pubfn(vkey, vkey->publicKey);
+		if (vkey->algo && vkey->algo->str2pubfn) vkey->pPub = vkey->algo->str2pubfn(vkey, vkey->publicKey);
 		else libVES_throw(vkey->ves, LIBVES_E_UNSUPPORTED, "Key algo cannot read the public key", NULL);
 	    }
 	}
@@ -399,7 +399,7 @@ int libVES_VaultKey_decrypt(libVES_VaultKey *vkey, const char *ciphertext, char 
     if (!vkey) return -1;
     if (!ciphertext) libVES_throw(vkey->ves, LIBVES_E_PARAM, "No ciphertext to decrypt", -1);
     if (!libVES_VaultKey_unlock(vkey, NULL)) libVES_throw(vkey->ves, LIBVES_E_UNLOCK, "Decrypt is called on a locked Vault Key", -1);
-    if (!vkey->algo->decfn) libVES_throw(vkey->ves, LIBVES_E_UNSUPPORTED, "Key algo doesn't support decryption", -1);
+    if (!vkey->algo || !vkey->algo->decfn) libVES_throw(vkey->ves, LIBVES_E_UNSUPPORTED, "Key algo doesn't support decryption", -1);
     char cikey[libVES_Cipher_KEYLENforVEntry];
     size_t keylen = libVES_Cipher_KEYLENforVEntry;
     char *ctext = NULL;
@@ -440,7 +440,7 @@ int libVES_VaultKey_decrypt(libVES_VaultKey *vkey, const char *ciphertext, char 
 char *libVES_VaultKey_encrypt(libVES_VaultKey *vkey, const char *plaintext, size_t ptlen) {
     if (!vkey || !libVES_VaultKey_getPub(vkey)) return NULL;
     if (!plaintext) libVES_throw(vkey->ves, LIBVES_E_PARAM, "No plaintext to encrypt", NULL);
-    if (!vkey->algo->encfn) libVES_throw(vkey->ves, LIBVES_E_UNSUPPORTED, "Key algo doesn't support encryption", NULL);
+    if (!vkey->algo || !vkey->algo->encfn) libVES_throw(vkey->ves, LIBVES_E_UNSUPPORTED, "Key algo doesn't support encryption", NULL);
     size_t pl = ptlen;
     char cikey[libVES_Cipher_KEYLENforVEntry];
     size_t keylen = libVES_Cipher_KEYLENforVEntry;
