@@ -28,9 +28,9 @@
  * libVES.h                   libVES: Main header
  *
  ***************************************************************************/
-#define LIBVES_VERSION_NUMBER	0x01000300L
-#define LIBVES_VERSION_CODE	"1.03b"
-#define LIBVES_VERSION_STR	"libVES.c " LIBVES_VERSION_CODE " (c) 2018 - 2021 VESvault Corp"
+#define LIBVES_VERSION_NUMBER	0x01000500L
+#define LIBVES_VERSION_CODE	"1.05"
+#define LIBVES_VERSION_STR	"libVES.c " LIBVES_VERSION_CODE " (c) 2018 - 2022 VESvault Corp"
 #define LIBVES_VERSION_SHORT	"libVES/" LIBVES_VERSION_CODE
 
 struct libVES_Ref;
