@@ -285,7 +285,7 @@ jVar *jVar_putl(jVar *obj, const char *key, size_t keyl, jVar *val) {
     if (!jVar_isObject(obj)) return NULL;
     size_t i;
     for (i = 0; i < obj->len; i++) {
-	if (!strncmp(obj->vObject[i].key->vString, key, keyl)) {
+	if (obj->vObject[i].key->len == keyl && !strncmp(obj->vObject[i].key->vString, key, keyl)) {
 	    jVar_free(obj->vObject[i].val);
 	    if (val) obj->vObject[i].val = val;
 	    else {

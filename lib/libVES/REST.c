@@ -60,6 +60,15 @@ void *libVES_REST_init(libVES *ves) {
 }
 
 jVar *libVES_REST_req(libVES *ves, const char *url, jVar *body, struct curl_slist *hdrs, long *pcode) {
+    char *json;
+    if (body) {
+	json = jVar_toJSON(body);
+	if (ves->debug > 1) fprintf(stderr, ">>>> %s\n", json);
+	if (!json) {
+	    curl_slist_free_all(hdrs);
+	    libVES_throw(ves, LIBVES_E_PARAM, "Bad request body", NULL);
+	}
+    } else json = NULL;
     if (ves->httpInitFn) ves->httpInitFn(ves);
     if (ves->debug > 0) curl_easy_setopt(ves->curl, CURLOPT_VERBOSE, 1);
     curl_easy_setopt(ves->curl, CURLOPT_URL, url);
@@ -67,14 +76,11 @@ jVar *libVES_REST_req(libVES *ves, const char *url, jVar *body, struct curl_slis
     char buf[1024];
     sprintf(buf, "User-Agent: %s (https://ves.host) %s (%s)", LIBVES_VERSION_SHORT, ves->appName, curl_version());
     hdrs = curl_slist_append(hdrs, buf);
-    char *json;
-    if (body) {
+    if (json) {
 	hdrs = curl_slist_append(hdrs, "Content-Type: application/json");
-	json = jVar_toJSON(body);
-	if (ves->debug > 1) fprintf(stderr, ">>>> %s\n", json);
 	curl_easy_setopt(ves->curl, CURLOPT_POSTFIELDS, json);
 	curl_easy_setopt(ves->curl, CURLOPT_POSTFIELDSIZE, strlen(json));
-    } else json = NULL;
+    }
     curl_easy_setopt(ves->curl, CURLOPT_HTTPHEADER, hdrs);
     struct libVES_curl_buf cbuf = {
 	.parser = NULL,
