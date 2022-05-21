@@ -28,13 +28,13 @@
  * ves-util.h                 VES Utility Main Header
  *
  ***************************************************************************/
-#define VESUTIL_VERSION_CODE	"0.96b"
-#define VESUTIL_VERSION_STR	"VES util " VESUTIL_VERSION_CODE " (c) 2018 - 2020 VESvault Corp"
+#define VESUTIL_VERSION_CODE	"0.97b"
+#define VESUTIL_VERSION_STR	"VES util " VESUTIL_VERSION_CODE " (c) 2018 - 2022 VESvault Corp"
 #define VESUTIL_VERSION_SHORT	"ves/" VESUTIL_VERSION_CODE
 #define	E_PARAM		64
 #define E_IO		65
 
-#define return_VESerror2(scope, ves)		{ const char *str, *msg; int e = libVES_getErrorInfo(ves, &str, &msg); if (params.debug >= 0) fprintf(stderr, "%s %s (%s)\n", (scope), (str ? str : "Unknown error"), (msg ? msg : "")); return e ? e : E_PARAM; }
+#define return_VESerror2(scope, ves)		{ const char *str, *msg; int e = libVES_getErrorInfo(ves, &str, &msg); if (params.debug >= 0) fprintf(stderr, "[%s:%d] %s %s (%s)\n", __FILE__, __LINE__, (scope), (str ? str : "Unknown error"), (msg ? msg : "")); return e ? e : E_PARAM; }
 #define return_VESerror(scope)			return_VESerror2(scope, ctx.ves)
 #define MEM_chk_list(st, list) { \
     size_t len = (st) ? (st)->len : 0; \

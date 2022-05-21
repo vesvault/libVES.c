@@ -228,10 +228,10 @@ libVES_VaultKey *libVES_VaultKey_free_ref_user(libVES_VaultKey *vkey, libVES_Ref
 
 libVES_VaultKey *libVES_VaultKey_create(libVES_Ref *ref, libVES *ves, libVES_User *user) {
     if (!ves) return NULL;
-    if (!user) libVES_throw(ves, LIBVES_E_PARAM, "Cannot generate a vault key for an unspecified user", NULL);
     int type;
     if (ves->external) type = (ref && (ref->domain && ref->domain == ves->external->domain && !strcmp(ref->externalId, ves->external->externalId))) ? LIBVES_VK_SECONDARY : LIBVES_VK_TEMP;
     else {
+	if (!user) libVES_throw(ves, LIBVES_E_PARAM, "Cannot generate a vault key for an unspecified user", NULL);
 	libVES_User *me = libVES_me(ves);
 	if (me && me->id == user->id) type = ref ? LIBVES_VK_SECONDARY : LIBVES_VK_CURRENT;
 	else type = LIBVES_VK_TEMP;
@@ -240,11 +240,14 @@ libVES_VaultKey *libVES_VaultKey_create(libVES_Ref *ref, libVES *ves, libVES_Use
     if (!vkey) return NULL;
     vkey->user = user;
     vkey->external = ref;
-    if (!libVES_VaultKey_propagate(vkey)) {
+    if (user && !libVES_VaultKey_propagate(vkey)) {
 	vkey->user = NULL;
 	vkey->external = NULL;
 	libVES_VaultKey_free(vkey);
 	vkey = NULL;
+    } else if (!user) {
+	libVES_VaultItem_free(vkey->vitem);
+	vkey->vitem = NULL;
     }
     return vkey;
 }

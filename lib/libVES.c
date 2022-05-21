@@ -33,6 +33,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <openssl/crypto.h>
+#include <time.h>
 #include "jVar.h"
 #include "libVES/Util.h"
 #include "libVES/List.h"
@@ -92,10 +93,11 @@ libVES *libVES_fromRef(libVES_Ref *ref) {
     ves->httpInitFn = NULL;
     ves->cipherAlgo = &libVES_CiAlgo_AES256GCM1K;
     ves->keyAlgo = &libVES_KeyAlgo_ECDH;
-    ves->veskeyLen = 32;
+    ves->veskeyLen = LIBVES_VESKEY_LEN;
     ves->genVaultKeyFn = &libVES_defaultGenVaultKey;
     ves->attnFn = NULL;
     ves->unlockedKeys = libVES_List_new(&libVES_VaultKey_ListCtlU);
+    ves->sessionTimeout = LIBVES_SESS_TMOUT;
     return ves;
 }
 
@@ -232,9 +234,12 @@ libVES_VaultKey *libVES_getVaultKey(libVES *ves) {
 libVES_VaultKey *libVES_createVaultKey(libVES *ves) {
     if (!ves) return NULL;
     if (ves->vaultKey) libVES_throw(ves, LIBVES_E_DENIED, "Vault key is already loaded", NULL);
-    if (!ves->me) libVES_throw(ves, LIBVES_E_DENIED, "Login to the primary account to proceed", NULL);
     ves->vaultKey = libVES_VaultKey_create(ves->external, ves, ves->me);
     return ves->vaultKey;
+}
+
+void libVES_setSessionExpire(libVES *ves) {
+    ves->sessionExpire = ves->sessionTimeout ? time(NULL) + ves->sessionTimeout : 0;
 }
 
 libVES_VaultKey *libVES_unlock(libVES *ves, size_t keylen, const char *key) {
@@ -288,6 +293,7 @@ libVES_VaultKey *libVES_unlock(libVES *ves, size_t keylen, const char *key) {
 	    int l = libVES_VaultKey_decrypt(ves->vaultKey, sesstkn, &ves->sessionToken);
 	    if (l > 0) {
 		ves->sessionToken[l] = 0;
+		libVES_setSessionExpire(ves);
 		ves->attnFn = &libVES_defaultAttn;
 	    } else {
 		free(ves->sessionToken);
@@ -301,8 +307,39 @@ libVES_VaultKey *libVES_unlock(libVES *ves, size_t keylen, const char *key) {
     return res ? ves->vaultKey : NULL;
 }
 
+int libVES_refreshSession(libVES *ves) {
+    if (!ves || !ves->vaultKey) return 0;
+    char uri[128];
+    sprintf(uri, "vaultKeys/%lld?fields=encSessionToken", ves->vaultKey->id);
+    jVar *vkey_res = libVES_REST_hdrs(ves, uri, NULL, NULL);
+    const char *sesstkn = jVar_getStringP(jVar_get(vkey_res, "encSessionToken"));
+    int ok = 0;
+    if (sesstkn) {
+	char *token;
+	int l = libVES_VaultKey_decrypt(ves->vaultKey, sesstkn, &token);
+	if (l > 0) {
+	    token[l] = 0;
+	    free(ves->sessionToken);
+	    ves->sessionToken = token;
+	    libVES_setSessionExpire(ves);
+	    ok = 1;
+	} else {
+	    free(token);
+	}
+    }
+    jVar_free(vkey_res);
+    return ok;
+}
+
+int libVES_checkSession(libVES *ves) {
+    if (!ves || !ves->sessionToken) return 0;
+    if (!ves->sessionExpire || ves->sessionExpire > time(NULL)) return 1;
+    return libVES_refreshSession(ves);
+}
+
 void libVES_setSessionToken(libVES *ves, const char *token) {
     if (!ves) return;
+    ves->sessionExpire = 0;
     if (token) {
 	ves->sessionToken = realloc(ves->sessionToken, strlen(token) + 1);
 	strcpy(ves->sessionToken, token);

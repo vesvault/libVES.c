@@ -177,6 +177,7 @@ jVar *libVES_REST(libVES *ves, const char *uri, jVar *body) {
     char buf[256];
     struct curl_slist *hdrs = NULL;
     if (ves->sessionToken) {
+	libVES_checkSession(ves);
 	sprintf(buf, "Authorization: Bearer %.80s", ves->sessionToken);
 	hdrs = curl_slist_append(hdrs, buf);
     }

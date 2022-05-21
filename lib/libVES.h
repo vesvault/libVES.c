@@ -28,8 +28,8 @@
  * libVES.h                   libVES: Main header
  *
  ***************************************************************************/
-#define LIBVES_VERSION_NUMBER	0x01000500L
-#define LIBVES_VERSION_CODE	"1.05"
+#define LIBVES_VERSION_NUMBER	0x01000600L
+#define LIBVES_VERSION_CODE	"1.06"
 #define LIBVES_VERSION_STR	"libVES.c " LIBVES_VERSION_CODE " (c) 2018 - 2022 VESvault Corp"
 #define LIBVES_VERSION_SHORT	"libVES/" LIBVES_VERSION_CODE
 
@@ -55,6 +55,8 @@ typedef struct libVES {
     short int veskeyLen;
     short int error;
     char debug;
+    unsigned short int sessionTimeout;
+    long long sessionExpire;
 } libVES;
 
 
@@ -79,7 +81,17 @@ typedef struct libVES {
 #define LIBVES_O_NEW		0x10
 #define LIBVES_O_GET		0x20
 
+#ifndef LIBVES_API_URL
 #define LIBVES_API_URL		"https://api.ves.host/v1/"
+#endif
+
+#ifndef LIBVES_VESKEY_LEN
+#define LIBVES_VESKEY_LEN	32
+#endif
+
+#ifndef LIBVES_SESS_TMOUT
+#define LIBVES_SESS_TMOUT	28800
+#endif
 
 /***************************************************************************
  * Global initialization. Optionally, call libVES_init() before creating any
@@ -152,6 +164,18 @@ struct libVES_VaultKey *libVES_unlock(libVES *ves, size_t keylen, const char *ve
  * Lock all Vault Keys previously unlocked on ves.
  ***************************************************************************/
 void libVES_lock(libVES *ves);
+
+/***************************************************************************
+ * Refresh the Session Token for the unlocked Vault Key,
+ * returns 1 on success, 0 on error.
+ ***************************************************************************/
+int libVES_refreshSession(libVES *ves);
+
+/***************************************************************************
+ * Refresh the Session Token for the unlocked Vault Key if the session is
+ * timing out, returns 1 on success, 0 on error.
+ ***************************************************************************/
+int libVES_checkSession(libVES *ves);
 
 /***************************************************************************
  * API session authorization token, an ascii string. Do not deallocate.
