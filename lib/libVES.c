@@ -315,7 +315,7 @@ int libVES_refreshSession(libVES *ves) {
     const char *sesstkn = jVar_getStringP(jVar_get(vkey_res, "encSessionToken"));
     int ok = 0;
     if (sesstkn) {
-	char *token;
+	char *token = NULL;
 	int l = libVES_VaultKey_decrypt(ves->vaultKey, sesstkn, &token);
 	if (l > 0) {
 	    token[l] = 0;
