@@ -73,6 +73,7 @@ typedef struct libVES_CiAlgo {
 
 #define LIBVES_CF_ENC	0x01
 #define LIBVES_CF_DEC	0x02
+#define LIBVES_CF_EXACT	0x10
 
 typedef struct libVES_Seek {
     off_t plainPos;
@@ -110,15 +111,29 @@ int libVES_Cipher_proceed(libVES_Cipher *ci, int final, const char *srctext, siz
 
 /***************************************************************************
  * Decrypt stream. Returns the decrypted length, -1 on error,
- * or max expected length if plaintext == NULL.
+ * If *plaintext == NULL - the buffer is allocated automatically.
  ***************************************************************************/
 int libVES_Cipher_decrypt(libVES_Cipher *ci, int final, const char *ciphertext, size_t ctlen, char **plaintext);
 
 /***************************************************************************
- * Encrypt stream. Returns the encrypted length, -1 on error,
- * or max expected length if ciphertext == NULL.
+ * Encrypt stream. Returns the encrypted length, -1 on error.
+ * If *ciphertext == NULL - the buffer is allocated automatically.
  ***************************************************************************/
 int libVES_Cipher_encrypt(libVES_Cipher *ci, int final, const char *plaintext, size_t ptlen, char **ciphertext);
+
+/***************************************************************************
+ * Calculate the max expected length of a plaintext.
+ * If (flags & LIBVES_CF_EXACT) is set after the call - the returned value
+ * is the exact length.
+ ***************************************************************************/
+#define libVES_Cipher_decsize(ci, final, ciphertext, ptlen)	libVES_Cipher_decrypt(ci, final, ciphertext, ptlen, NULL)
+
+/***************************************************************************
+ * Calculate the max expected length of a ciphertext.
+ * If (flags & LIBVES_CF_EXACT) is set after the call - the returned value
+ * is the exact length.
+ ***************************************************************************/
+#define libVES_Cipher_encsize(ci, final, plaintext, ptlen)	libVES_Cipher_encrypt(ci, final, plaintext, ptlen, NULL)
 
 /***************************************************************************
  * Seek to a specific position in plaintext & ciphertext.

@@ -148,7 +148,7 @@ int libVES_CiAlgo_e_AES256GCM(libVES_Cipher *ci, int final, const char *plaintex
 }
 
 int libVES_CiAlgo_d_AES256CFB(libVES_Cipher *ci, int final, const char *ciphertext, size_t ctlen, char *plaintext) {
-    if (!plaintext) return ctlen;
+    if (!plaintext) return (ci->flags |= LIBVES_CF_EXACT), ctlen;
     if (!ci->ctx) {
 	ci->ctx = EVP_CIPHER_CTX_new();
     }
@@ -173,7 +173,7 @@ int libVES_CiAlgo_d_AES256CFB(libVES_Cipher *ci, int final, const char *cipherte
 }
 
 int libVES_CiAlgo_e_AES256CFB(libVES_Cipher *ci, int final, const char *plaintext, size_t ptlen, char *ciphertext) {
-    if (!ciphertext) return ptlen;
+    if (!ciphertext) return (ci->flags |= LIBVES_CF_EXACT), ptlen;
     if (!ci->ctx) {
 	ci->ctx = EVP_CIPHER_CTX_new();
     }
@@ -229,7 +229,7 @@ int libVES_CiAlgo_d_AES256GCMp(libVES_Cipher *ci, int final, const char *ciphert
 
 int libVES_CiAlgo_e_AES256GCMp(libVES_Cipher *ci, int final, const char *plaintext, size_t ptlen, char *ciphertext) {
     size_t len = ci->gcm.offs + ptlen;
-    if (!ciphertext) return (len / libVES_CiAlgo_LEN_GCMP + 1) * libVES_CiAlgo_LEN_GCMP + sizeof(ci->gcm.gbuf);
+    if (!ciphertext) return (ci->flags |= LIBVES_CF_EXACT), (len / libVES_CiAlgo_LEN_GCMP + 1) * libVES_CiAlgo_LEN_GCMP + sizeof(ci->gcm.gbuf);
     if (final) {
 	char padl = libVES_CiAlgo_LEN_GCMP - 1 - len % libVES_CiAlgo_LEN_GCMP;
 	char pad[libVES_CiAlgo_LEN_GCMP - 1];
@@ -274,11 +274,23 @@ int libVES_CiAlgo_setiv_AES256GCM1K(libVES_Cipher *ci, const char *gbuf) {
 }
 
 int libVES_CiAlgo_d_AES256GCM1K(libVES_Cipher *ci, int final, const char *ciphertext, size_t ctlen, char *plaintext) {
-    if (!plaintext) return ctlen + (2 - ctlen / (libVES_CiAlgo_LEN_1K + sizeof(ci->gcm.gbuf))) * sizeof(ci->gcm.gbuf);
+    if (!plaintext) {
+	ci->flags |= LIBVES_CF_EXACT;
+	size_t al = ctlen + ci->gcm.offs;
+	if (al > sizeof(ci->gcm.gbuf)) al -= sizeof(ci->gcm.gbuf);
+	else al = 0;
+	size_t ad = al / (libVES_CiAlgo_LEN_1K + sizeof(ci->gcm.gbuf));
+	size_t am = al % (libVES_CiAlgo_LEN_1K + sizeof(ci->gcm.gbuf));
+	size_t dl = (ci->gcm.offs < 2 * sizeof(ci->gcm.gbuf)) ? 2 * sizeof(ci->gcm.gbuf) - ci->gcm.offs : 0;
+	dl += ad * sizeof(ci->gcm.gbuf);
+	if (am < sizeof(ci->gcm.gbuf) && ad) dl -= sizeof(ci->gcm.gbuf) - am;
+	return ctlen > dl ? ctlen - dl : 0;
+    }
     const char *ctext = ciphertext;
     const char *ctail = ctext + ctlen;
     char *ptext = plaintext;
-    while (ctext < ctail || final) {
+    int force = final;
+    while (ctext < ctail || force) {
 	size_t len = ctail - ctext;
 	if (ci->gcm.offs < sizeof(ci->gcm.gbuf)) {
 	    if (final && !len) libVES_throw(ci->ves, LIBVES_E_CRYPTO, "AES256GCM1K dec: Unexpected end of stream", -1);
@@ -295,6 +307,7 @@ int libVES_CiAlgo_d_AES256GCM1K(libVES_Cipher *ci, int final, const char *cipher
 	    if (final && bl > len + ci->gcm.offs) {
 		bl = len + ci->gcm.offs;
 		if (bl < sizeof(ci->gcm.gbuf)) libVES_throw(ci->ves, LIBVES_E_CRYPTO, "AES256GCM1K dec: Framing error", -1);
+		force = 0;
 	    }
 	    int bl2 = bl - ci->gcm.offs;
 	    if (len > bl2) len = bl2;
@@ -336,28 +349,31 @@ int libVES_CiAlgo_d_AES256GCM1K(libVES_Cipher *ci, int final, const char *cipher
 		ci->gcm.offs = sizeof(ci->gcm.gbuf);
 	    } else ci->gcm.offs += len;
 	}
-	if (ctext >= ctail) break;
     }
     return ptext - plaintext;
 }
 
 int libVES_CiAlgo_e_AES256GCM1K(libVES_Cipher *ci, int final, const char *plaintext, size_t ptlen, char *ciphertext) {
-    if (!ciphertext) return ptlen + (ptlen / libVES_CiAlgo_LEN_1K + 3) * sizeof(ci->gcm.gbuf);
+    if (!ciphertext) return (ci->flags |= LIBVES_CF_EXACT), ptlen + ((ptlen
+	+ (ci->gcm.offs > sizeof(ci->gcm.gbuf) ? ci->gcm.offs - sizeof(ci->gcm.gbuf) : 0)
+	) / libVES_CiAlgo_LEN_1K + (final ? 1 : 0) + (ci->gcm.offs ? 0 : 1)) * sizeof(ci->gcm.gbuf);
     char *ctext = ciphertext;
     const char *ptext = plaintext;
     const char *ptail = ptext + ptlen;
     int ff = final;
+    if (!ci->gcm.offs) {
+	if (RAND_bytes((unsigned char *) ctext, sizeof(ci->gcm.gbuf)) <= 0) libVES_throwEVP(ci->ves, LIBVES_E_CRYPTO, "RAND_bytes", -1);
+	if (!libVES_CiAlgo_setiv_AES256GCM1K(ci, ctext)) return -1;
+	ctext += sizeof(ci->gcm.gbuf);
+	ci->gcm.offs = sizeof(ci->gcm.gbuf);
+    }
     while (ptext < ptail || ff) {
-	ff = 0;
-	if (!ci->gcm.offs) {
-	    if (RAND_bytes((unsigned char *) ctext, sizeof(ci->gcm.gbuf)) <= 0) libVES_throwEVP(ci->ves, LIBVES_E_CRYPTO, "RAND_bytes", -1);
-	    if (!libVES_CiAlgo_setiv_AES256GCM1K(ci, ctext)) return -1;
-	    ctext += sizeof(ci->gcm.gbuf);
-	    ci->gcm.offs = sizeof(ci->gcm.gbuf);
-	}
 	int len = ptail - ptext;
 	int bl2 = libVES_CiAlgo_LEN_1K + sizeof(ci->gcm.gbuf) - ci->gcm.offs;
-	if (final && len < bl2) bl2 = len;
+	if (final && len < bl2) {
+	    bl2 = len;
+	    ff = 0;
+	}
 	if (len > bl2) len = bl2;
 	int l = libVES_CiAlgo_e_AES256GCM(ci, len >= bl2, ptext, len, ctext);
 	if (l < 0) return -1;
@@ -416,25 +432,17 @@ libVES_Seek *libVES_CiAlgo_s_AES256GCM1K(libVES_Cipher *ci, libVES_Seek *sk) {
     } else {
 	if (sk->plainPos >= 0) {
 	    sk->plainPos -= sk->plainPos % libVES_CiAlgo_LEN_1K;
-	    if (sk->plainPos > 0) {
-		sk->cipherFbPos = (sk->plainPos / libVES_CiAlgo_LEN_1K) * (libVES_CiAlgo_LEN_1K + sizeof(ci->gcm.gbuf));
-		sk->cipherPos = sk->cipherFbPos + sizeof(ci->gcm.gbuf);
-		sk->cipherFbLen = sizeof(ci->gcm.gbuf);
-		sk->flags |= LIBVES_SK_FBK;
-	    } else {
-		sk->cipherPos = 0;
-		sk->cipherFbPos = -1;
-		ci->gcm.offs = 0;
-		sk->flags |= LIBVES_SK_RDY;
-	    }
+	    sk->cipherFbPos = (sk->plainPos / libVES_CiAlgo_LEN_1K) * (libVES_CiAlgo_LEN_1K + sizeof(ci->gcm.gbuf));
+	    sk->cipherPos = sk->cipherFbPos + sizeof(ci->gcm.gbuf);
+	    sk->cipherFbLen = sizeof(ci->gcm.gbuf);
+	    sk->flags |= LIBVES_SK_FBK;
 	} else if (sk->cipherPos == 0) {
 	    sk->plainPos = 0;
 	    sk->cipherFbPos = -1;
 	    ci->gcm.offs = 0;
 	    sk->flags |= LIBVES_SK_RDY;
-	} else {
-	    int r = sk->cipherPos % (libVES_CiAlgo_LEN_1K + sizeof(ci->gcm.gbuf));
-	    if (r) sk->cipherPos += r;
+	} else if (sk->cipherPos > 0) {
+	    sk->cipherPos -= sk->cipherPos % (libVES_CiAlgo_LEN_1K + sizeof(ci->gcm.gbuf));
 	    sk->cipherFbPos = sk->cipherPos;
 	    sk->cipherPos += sizeof(ci->gcm.gbuf);
 	    sk->cipherFbLen = sizeof(ci->gcm.gbuf);
