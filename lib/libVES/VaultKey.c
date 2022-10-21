@@ -28,6 +28,9 @@
  * libVES/VaultKey.c          libVES: Vault Key object
  *
  ***************************************************************************/
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 #include <sys/types.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -48,9 +51,14 @@
 #include "VaultItem.h"
 #include "REST.h"
 #include "KeyAlgo_EVP.h"
+#include "KeyAlgo_OQS.h"
 
 const char *libVES_VaultKey_types[9] = {"current", "shadow", "temp", "lost", "secondary", "recovery", "pending", "deleted", NULL};
+#ifdef HAVE_LIBOQS
+libVES_List_STATIC(libVES_VaultKey_algos, &libVES_algoListCtl, 3, &libVES_KeyAlgo_RSA, &libVES_KeyAlgo_ECDH, &libVES_KeyAlgo_OQS);
+#else
 libVES_List_STATIC(libVES_VaultKey_algos, &libVES_algoListCtl, 2, &libVES_KeyAlgo_RSA, &libVES_KeyAlgo_ECDH);
+#endif
 
 libVES_VaultKey *libVES_VaultKey_new(int type, const libVES_KeyAlgo *algo, void *pkey, libVES_veskey *veskey, libVES *ves) {
     if (!ves) return NULL;

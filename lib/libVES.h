@@ -29,7 +29,7 @@
  *
  ***************************************************************************/
 #define LIBVES_VERSION_NUMBER	0x01000800L
-#define LIBVES_VERSION_CODE	"1.07"
+#define LIBVES_VERSION_CODE	"1.08"
 #define LIBVES_VERSION_STR	"libVES.c " LIBVES_VERSION_CODE " (c) 2018 - 2022 VESvault Corp"
 #define LIBVES_VERSION_SHORT	"libVES/" LIBVES_VERSION_CODE
 

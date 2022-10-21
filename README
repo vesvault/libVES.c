@@ -52,16 +52,15 @@ REQUIREMENTS:
     libcurl
     curl/*.h
 
+OPTIONAL:
+  libOQS (https://github.com/open-quantum-safe/liboqs)
+
 
 See INSTALL for complete build instructions.
 
 General GNU build:
 
-    aclocal
-    libtoolize
-    automake --add-missing
-    autoconf
-    ./configure
+    ./configure [--with-oqs]
     make
     make install
   ## installs libVES.so*, libVES.a, libVES.h, libVES/*.h, ves

@@ -47,7 +47,7 @@ libVES_VaultKey *hook_genVaultKey(libVES *ves, int type, libVES_Ref *ref, libVES
     libVES_veskey *v = params.veskey;
     if (!v && (params.flags & PF_NEW)) v = params.uveskey;
     libVES_veskey *vnew = v ? NULL : (v = libVES_veskey_generate(ves->veskeyLen));
-    libVES_VaultKey *vkey = libVES_VaultKey_new(type, (params.keyAlgo ? params.keyAlgo : (params.priv ? &libVES_KeyAlgo_autoPEM : ves->keyAlgo)), params.priv, v, ves);
+    libVES_VaultKey *vkey = libVES_VaultKey_new(type, (params.keyAlgo ? params.keyAlgo : (params.priv ? &libVES_KeyAlgo_autoPEM : ves->keyAlgo)), (params.keyAlgo && params.priv ? params.keyAlgo->str2privfn(((void *)&ves - offsetof(libVES_VaultKey, ves)), params.priv, params.uveskey): NULL), v, ves);
     libVES_veskey_free(vnew);
     return vkey;
 }

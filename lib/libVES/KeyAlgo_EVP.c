@@ -115,6 +115,7 @@ int libVES_KeyAlgo_EVP_dump(libVES_VaultKey *vkey, int fd, int flags) {
 	EVP_PKEY_print_private(out, vkey->pPriv, 8, NULL);
 	EVP_PKEY_print_params(out, vkey->pPriv, 8, NULL);
     }
+    BIO_free(out);
     return res;
 }
 

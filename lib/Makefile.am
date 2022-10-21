@@ -23,6 +23,11 @@ libVES/User.h \
 libVES/File.h \
 libVES/REST.h
 
+if HAVE_LIBOQS
+LIBVES_CFILES += libVES/KeyAlgo_OQS.c
+LIBVES_HFILES += libVES/KeyAlgo_OQS.h
+endif
+
 JVAR_CFILES = jVar.c
 
 JVAR_HFILES = jVar.h
@@ -31,3 +36,4 @@ lib_LTLIBRARIES = libVES.la
 nobase_include_HEADERS = $(LIBVES_HFILES) $(JVAR_HFILES)
 
 libVES_la_SOURCES = $(LIBVES_CFILES) $(JVAR_CFILES) $(LIBVES_HFILES) $(JVAR_HFILES)
+libVES_la_LIBADD = $(LIBOQS)

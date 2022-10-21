@@ -14,7 +14,7 @@
  *         \___/              - Stream Encryption
  *
  *
- * (c) 2018 VESvault Corp
+ * (c) 2022 VESvault Corp
  * Jim Zubov <jz@vesvault.com>
  *
  * GNU General Public License v3
@@ -25,15 +25,20 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * libVES/REST.h              libVES: REST API communications header
+ * libVES/KeyAlgo_OQS.h       libVES: Vault Key algo header, via libOQS
  *
  ***************************************************************************/
-struct libVES;
-struct jVar;
-struct curl_slist;
 
-struct jVar *libVES_REST(struct libVES *ves, const char *uri, struct jVar *body);
-struct jVar *libVES_REST_login(struct libVES *ves, const char *uri, struct jVar *body, const char *username, const char *passwd);
-struct jVar *libVES_REST_VESauthGET(struct libVES *ves, const char *url, long *pcode, const char *fmt, ...);
-struct jVar *libVES_REST_hdrs(struct libVES *ves, const char *uri, struct jVar *body, struct curl_slist *hdrs);
-void libVES_REST_done(struct libVES *ves);
+/***************************************************************************
+ * libOQS KEM Wrapper
+ ***************************************************************************/
+struct libVES_KeyAlgo_OQS {
+    struct OQS_KEM *kem;
+    void *pub;
+    void *priv;
+};
+
+extern const struct libVES_KeyAlgo libVES_KeyAlgo_OQS;
+#define libVES_KeyAlgo_OQS_defaultAlgo		"Kyber768"
+
+#define libVES_KeyAlgo_OQS_OID			"1.3.6.1.4.1.53675.3.5"

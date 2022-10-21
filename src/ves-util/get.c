@@ -46,8 +46,8 @@
 #include "tty.h"
 
 void *fd_get_contents(int fd, size_t *len) {
-    int bufl = 4096;
-    char *buf = malloc(bufl);
+    int bufl = 4095;
+    char *buf = malloc(bufl + 1);
     int offs = 0;
     int r;
     while ((r = read(fd, buf + offs, bufl - offs)) > 0) {
@@ -58,7 +58,8 @@ void *fd_get_contents(int fd, size_t *len) {
 	free(buf);
 	return NULL;
     }
-    return realloc(buf, *len = offs);
+    buf[offs] = 0;
+    return realloc(buf, (*len = offs) + 1);
 }
 
 void *get_file(const char *str, size_t *len, void **ptr) {

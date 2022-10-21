@@ -63,3 +63,6 @@ struct evp_pkey_st *libVES_KeyAlgo_EVP_fromPEM(struct libVES_veskey *veskey, con
  * Private EVP to PEM, encrypted if veskey != NULL
  ***************************************************************************/
 char *libVES_KeyAlgo_EVP_toPEM(struct libVES_veskey *veskey, struct evp_pkey_st *pkey);
+
+
+int libVES_KeyAlgo_EVP_veskey_cb(char *buf, int size, int rwflag, void *u);
