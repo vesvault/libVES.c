@@ -12145,6 +12145,8 @@ fi
 # Check whether --with-oqs was given.
 if test "${with_oqs+set}" = set; then :
   withval=$with_oqs;
+else
+  with_oqs=no
 fi
 
 LIBOQS=

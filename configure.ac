@@ -24,7 +24,7 @@ AC_ARG_WITH([oqs],
     [AS_HELP_STRING([--with-oqs],
           [enable experimental support for liboqs])],
     [],
-    [])
+    [with_oqs=no])
 LIBOQS=
     AS_IF([test "x$with_oqs" != xno],
         [AC_CHECK_LIB([oqs], [OQS_KEM_new],
