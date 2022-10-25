@@ -109,7 +109,7 @@ libVES_VaultKey *libVES_VaultKey_fromJVar(jVar *j_vkey, libVES *ves) {
     vkey->privateKey = jVar_getString0(jVar_get(j_vkey, "privateKey"));
     vkey->user = libVES_User_fromJVar(jVar_get(j_vkey, "user"));
     vkey->external = libVES_External_fromJVar(jVar_get(j_vkey, "externals"));
-    vkey->vitem = NULL;
+    vkey->vitem = libVES_VaultItem_fromJVar(jVar_index(jVar_get(j_vkey, "items"), 0), ves);
     vkey->pPriv = vkey->pPub = NULL;
     vkey->entries = NULL;
     vkey->appUrl = NULL;
@@ -302,6 +302,29 @@ libVES_VaultItem *libVES_VaultKey_propagate(libVES_VaultKey *vkey) {
     return ok ? vkey->vitem : NULL;
 }
 
+void libVES_VaultKey_parseJVar(libVES_VaultKey *vkey, jVar *jvar) {
+    jVar *jv = jVar_get(jvar, "privateKey");
+    int i;
+    if (jv) {
+	free(vkey->privateKey);
+	vkey->privateKey = jVar_getString0(jv);
+    }
+    jv = jVar_get(jvar, "algo");
+    if (jv) vkey->algo = libVES_VaultKey_algoFromStr(jVar_getStringP(jv));
+    jv = jVar_get(jvar, "vaultItems");
+    if (jv && !vkey->vitem) {
+	for (i = 0; i < jVar_count(jv); i++) {
+	    libVES_VaultItem *vitem = libVES_VaultItem_fromJVar(jVar_index(jv, i), vkey->ves);
+	    if (vitem && vitem->type == LIBVES_VI_PASSWORD) {
+		libVES_VaultItem_free(vkey->vitem);
+		vkey->vitem = vitem;
+		break;
+	    }
+	    libVES_VaultItem_free(vitem);
+	}
+    }
+}
+
 char *libVES_VaultKey_getPrivateKey(libVES_VaultKey *vkey) {
     if (!vkey) return NULL;
     if (!vkey->privateKey) {
@@ -310,18 +333,7 @@ char *libVES_VaultKey_getPrivateKey(libVES_VaultKey *vkey) {
 	sprintf(uri, "vaultKeys/%lld?fields=privateKey,vaultItems(id,type,vaultEntries(vaultKey(id),encData))", vkey->id);
 	jVar *rsp = libVES_REST(vkey->ves, uri, NULL);
 	if (!rsp) return NULL;
-	vkey->privateKey = jVar_getString0(jVar_get(rsp, "privateKey"));
-	jVar *jvitems = jVar_get(rsp, "vaultItems");
-	int i;
-	for (i = 0; i < jVar_count(jvitems); i++) {
-	    libVES_VaultItem *vitem = libVES_VaultItem_fromJVar(jVar_index(jvitems, i), vkey->ves);
-	    if (vitem && vitem->type == LIBVES_VI_PASSWORD) {
-		libVES_VaultItem_free(vkey->vitem);
-		vkey->vitem = vitem;
-		break;
-	    }
-	    libVES_VaultItem_free(vitem);
-	}
+	libVES_VaultKey_parseJVar(vkey, rsp);
 	jVar_free(rsp);
 	if (!vkey->privateKey) libVES_throw(vkey->ves, LIBVES_E_DENIED, "Cannot load encrypted private key", NULL);
     }

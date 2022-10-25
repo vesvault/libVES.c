@@ -72,6 +72,7 @@ libVES_VaultItem *libVES_VaultItem_new();
 struct jVar *libVES_VaultItem_Ref_toJVar(struct libVES_Ref *ref);
 struct jVar *libVES_VaultItem_toJVar(libVES_VaultItem *vitem);
 libVES_VaultItem *libVES_VaultItem_fromJVar(struct jVar *data, struct libVES *ves);
+void libVES_VaultItem_parseJVar(struct libVES_VaultItem *vitem, struct jVar *jvar);
 
 /***************************************************************************
  * Load and/or create a Vault Item from ves URI

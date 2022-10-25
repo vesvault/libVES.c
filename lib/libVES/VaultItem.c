@@ -142,6 +142,39 @@ libVES_VaultItem *libVES_VaultItem_fromJVar(jVar *data, libVES *ves) {
     return vitem;
 }
 
+void libVES_VaultItem_parseJVar(libVES_VaultItem *vitem, jVar *jvar) {
+    struct jVar *jv = jVar_get(jvar, "vaultEntries");
+    int entct = jVar_count(jv);
+    int i, j;
+    int lidx = -1;
+    for (i = 0; i < entct; i++) {
+	jVar *entry = jVar_index(jv, i);
+	jVar *jvkey = jVar_get(entry, "vaultKey");
+	long long id = jVar_getInt(jVar_get(jvkey, "id"));
+	if (!id) continue;
+	for (j = lidx + 1; j != lidx; ) {
+	    libVES_VaultKey *vk;
+	    if (j >= vitem->sharelen) {
+		if (lidx < 0) break;
+		j = 0;
+	    }
+	    vk = vitem->share[j];
+	    if (vk && vk->id == id) {
+		lidx = j;
+		libVES_VaultKey_parseJVar(vk, jvkey);
+		if (!vitem->value && vk->vitem && vk->vitem->value && libVES_VaultKey_unlock(vk, NULL)) {
+		    int len = libVES_VaultKey_decrypt(vk, jVar_getStringP(jVar_get(entry, "encData")), &vitem->value);
+		    if (len >= 0) vitem->len = len;
+		    else if (vitem->value) {
+			free(vitem->value);
+			vitem->value = NULL;
+		    }
+		}
+	    }
+	}
+    }
+}
+
 char *libVES_VaultItem_toURI(libVES_VaultItem *vitem) {
     if (!vitem) return NULL;
     switch (vitem->objectType) {
@@ -299,6 +332,13 @@ libVES_VaultItem *libVES_VaultItem_get(libVES_Ref *ref, libVES *ves) {
     if (!res) return NULL;
     libVES_VaultItem *vitem = libVES_VaultItem_fromJVar(res, ves);
     jVar_free(res);
+    if (!vitem->value) {
+	req = jVar_put(jVar_object(), "id", jVar_int(vitem->id));
+	res = libVES_REST(ves, "vaultItems?fields=vaultEntries(encData,vaultKey(id,algo,vaultItems(vaultEntries(encData,vaultKey(id))),privateKey))", req);
+	jVar_free(req);
+	if (res) libVES_VaultItem_parseJVar(vitem, res);
+	jVar_free(res);
+    }
     return vitem;
 }
 

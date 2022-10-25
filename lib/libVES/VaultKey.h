@@ -92,6 +92,7 @@ libVES_VaultKey *libVES_VaultKey_new(int type, const struct libVES_KeyAlgo *algo
 
 #define libVES_VaultKey_isNew(vkey)		(vkey && !vkey->id)
 libVES_VaultKey *libVES_VaultKey_fromJVar(struct jVar *j_vkey, struct libVES *ves);
+void libVES_VaultKey_parseJVar(struct libVES_VaultKey *vkey, struct jVar *jvar);
 
 /***************************************************************************
  * Parse a Vault Key from VES URI,
