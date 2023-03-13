@@ -93,7 +93,19 @@ void out_strings(int fdi, libVES_List *lst) {
 }
 
 int out_keyAlgos(int fdi, struct ctx_st *ctx) {
-    return out_strings(fdi, &libVES_VaultKey_algos), 0;
+    FILE *fd = fdopen(fdi, "a");
+    int i;
+    for (i = 0; i < libVES_VaultKey_algos.len; i++) {
+	char method[160];
+	libVES_KeyAlgo *a = libVES_VaultKey_algos.list[i];
+	fprintf(fd, "%s\n", a->str);
+	int j, l;
+	for (j = 0; (l = libVES_KeyAlgo_methodstr(a, method, sizeof(method), j)) >= 0; j++) {
+	    if (!l) continue;
+	    fprintf(fd, "\t%s:%s\n", a->str, method);
+	}
+    }
+    return 0;
 }
 
 int out_ciAlgos(int fdi, struct ctx_st *ctx) {

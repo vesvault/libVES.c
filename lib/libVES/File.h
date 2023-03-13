@@ -37,6 +37,7 @@ typedef struct libVES_File {
     char *path;
     struct libVES_Ref *external;
     struct libVES_User *creator;
+    int refct;
 } libVES_File;
 
 libVES_File *libVES_File_new(struct libVES_Ref *ref);

@@ -28,9 +28,9 @@
  * libVES.h                   libVES: Main header
  *
  ***************************************************************************/
-#define LIBVES_VERSION_NUMBER	0x01000900L
-#define LIBVES_VERSION_CODE	"1.09"
-#define LIBVES_VERSION_STR	"libVES.c " LIBVES_VERSION_CODE " (c) 2018 - 2022 VESvault Corp"
+#define LIBVES_VERSION_NUMBER	0x01020000L
+#define LIBVES_VERSION_CODE	"1.20"
+#define LIBVES_VERSION_STR	"libVES.c " LIBVES_VERSION_CODE " (c) 2018 - 2023 VESvault Corp"
 #define LIBVES_VERSION_SHORT	"libVES/" LIBVES_VERSION_CODE
 
 struct libVES_Ref;
@@ -107,6 +107,11 @@ void libVES_init(const char *appName);
  ***************************************************************************/
 libVES *libVES_new(const char *vaultURI);
 
+/***************************************************************************
+ * A new instance of libVES. ref is an app vaule reference.
+ * ref gets strong refcounted, call libVES_Ref_free(ref) before deallocating
+ * the libVES instance.
+ ***************************************************************************/
 libVES *libVES_fromRef(struct libVES_Ref *ref);
 
 /***************************************************************************
@@ -250,3 +255,25 @@ void libVES_free(libVES *ves);
  * Recursively erase any sensitive data from a jVar structure
  ***************************************************************************/
 void libVES_cleanseJVar(struct jVar *jvar);
+
+/***************************************************************************
+ * Base64 encoded len to binary size
+ ***************************************************************************/
+#define libVES_b64decsize(len)		((len) * 3 / 4)
+
+/***************************************************************************
+ * Binary len to base64 encoded size, including trailing NUL
+ ***************************************************************************/
+#define libVES_b64encsize(len)		(((len) + 2) / 3 * 4 + 1)
+
+/***************************************************************************
+ * Base64 decode, *dec is allocated if NULL, binary size is returned
+ ***************************************************************************/
+size_t libVES_b64decode(const char *b64, char **dec);
+
+/***************************************************************************
+ * Base64 encode, returns b64 or malloc'd string if b64==NULL, filled with
+ * NUL terminated encoded content
+ ***************************************************************************/
+char *libVES_b64encode(const char *data, size_t len, char *b64);
+

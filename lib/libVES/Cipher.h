@@ -34,34 +34,14 @@ typedef struct libVES_Cipher {
     void *ctx;
     struct jVar *meta;
     int flags;
-    union {
-	char key[0];
-	struct {
-	    unsigned char key[32];
-	    unsigned char seed[12];
-	    unsigned char iv[12];
-	    size_t offs;
-	    union {
-		char *pbuf;
-		struct {
-		    void *mdctx;
-		    char gbuf[16];
-		};
-	    };
-	    char end[0];
-	} gcm;
-	struct {
-	    unsigned char key[32];
-	    unsigned char seed[32];
-	    unsigned char iv[32];
-	    char end[0];
-	} cfb;
-    };
+    int refct;
+    char key[0];
 } libVES_Cipher;
 
 typedef struct libVES_CiAlgo {
     const char *str;
     const char *name;
+    int len;
     struct libVES_Cipher *(*newfn)(const struct libVES_CiAlgo *algo, struct libVES *ves, size_t, const char *);
     int (*keylenfn)(struct libVES_Cipher *ci);
     int (*decfn)(struct libVES_Cipher *, int, const char *, size_t, char *);
@@ -91,10 +71,9 @@ typedef struct libVES_Seek {
 #define LIBVES_SK_ERR	0x8000
 #define LIBVES_SK_NEW	0
 
-#define libVES_Cipher_KEYLENforVEntry	(sizeof(((libVES_Cipher *)0)->gcm.key) + sizeof(((libVES_Cipher *)0)->gcm.seed))
-#define libVES_Cipher_PADLENforVEntry	48
-
 extern struct libVES_List libVES_Cipher_algos;
+
+#define libVES_CiAlgo_callable(algo, func)		(algo->len >= offsetof(libVES_CiAlgo, func) + sizeof((algo)->func) && (algo)->func)
 
 /***************************************************************************
  * New cipher object. If key == NULL - generate a random key.

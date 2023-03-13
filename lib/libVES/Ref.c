@@ -40,6 +40,7 @@
 #include "VaultKey.h"
 #include "VaultItem.h"
 #include "List.h"
+#include "Util.h"
 
 libVES_Ref *libVES_Ref_new(long long int intId) {
     if (!intId) return NULL;
@@ -47,7 +48,7 @@ libVES_Ref *libVES_Ref_new(long long int intId) {
     if (!ref) return NULL;
     ref->domain = NULL;
     ref->internalId = intId;
-    return ref;
+    return libVES_REFINIT(ref);
 }
 
 // * Domain list control callbacks *******
@@ -86,14 +87,14 @@ libVES_Ref *libVES_External_new(const char *domain, const char *extId) {
 	lck--;
     }
     strcpy(ext->externalId, extId);
-    return ext;
+    return libVES_REFINIT(ext);
 }
 
 libVES_Ref *libVES_External_fromJVar(jVar *data) {
     if (jVar_isArray(data)) data = jVar_index(data, 0);
     if (!jVar_isObject(data)) return NULL;
     libVES_Ref *ext = libVES_External_new(jVar_getStringP(jVar_get(data, "domain")), jVar_getStringP(jVar_get(data, "externalId")));
-    return ext;
+    return libVES_REFINIT(ext);
 }
 
 libVES_Ref *libVES_Ref_fromURI(const char **path, libVES *ves) {
@@ -206,4 +207,9 @@ libVES_Ref *libVES_Ref_copy(libVES_Ref *ref) {
     libVES_Ref *res = malloc(len);
     if (res) memcpy(res, ref, len);
     return res;
+}
+
+void libVES_Ref_free(libVES_Ref *ref) {
+    if (libVES_REFBUSY(ref)) return;
+    free(ref);
 }

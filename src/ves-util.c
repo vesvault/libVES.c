@@ -252,7 +252,10 @@ int main(int argc, char **argv) {
 			else len = strlen(val = strdup(arg));
 			if (!val) return E_PARAM;
 			if (in.putfn) {
-			    if (!in.putfn(val, len, in.ptr)) return E_PARAM;
+			    if (!in.putfn(val, len, in.ptr)) {
+				fprintf(stderr, "Bad parameter value: %s\n", val);
+				return E_PARAM;
+			    }
 			} else *((char **) in.ptr) = val;
 			in.ptr = NULL;
 			in.putfn = NULL;
@@ -435,7 +438,7 @@ int main(int argc, char **argv) {
 			params.flags |= PF_DEL;
 			break;
 		    case o_ver:
-			printf("%s\n%s\n", VESUTIL_VERSION_STR, LIBVES_VERSION_STR);
+			printf("%s\n", VESUTIL_VERSION_STR);
 			return 0;
 		    case o_null:
 			break;
@@ -719,14 +722,18 @@ int main(int argc, char **argv) {
 	for (i = 0; i < params.out->len; i++) {
 	    int fd;
 	    if (params.out->out[i].set.setfn) {
-		if ((fd = params.out->out[i].set.setfn(params.out->out[i].set.data, params.out->out[i].set.mode)) < 0) return E_PARAM;
+		if ((fd = params.out->out[i].set.setfn(params.out->out[i].set.data, params.out->out[i].set.mode)) < 0) {
+		    if (params.debug >= 0) fprintf(stderr, "Invalid output option\n");
+		    return E_PARAM;
+		}
 	    } else fd = 1;
 	    int er = params.out->out[i].outfn(fd, &ctx);
 	    if (er) return er;
 	}
     }
 
-    libVES_VaultKey_free(pvkey);
+    if (pvkey != ctx.vkey) libVES_VaultKey_free(pvkey);
+    libVES_VaultKey_free(ctx.vkey);
     libVES_VaultItem_free(ctx.vitem);
     libVES_free(ctx.ves);
     return 0;

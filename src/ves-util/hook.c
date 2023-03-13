@@ -44,11 +44,19 @@
 
 
 libVES_VaultKey *hook_genVaultKey(libVES *ves, int type, libVES_Ref *ref, libVES_User *user) {
+    const libVES_KeyAlgo *algo = params.keyAlgo ? libVES_VaultKey_algoFromStr(params.keyAlgo) : NULL;
+    void *pkey;
+    if (algo) {
+	if (params.priv) pkey = algo->str2privfn(((void *)&ves - offsetof(libVES_VaultKey, ves)), params.priv, params.uveskey);
+	else pkey = libVES_KeyAlgo_pkeygen(algo, params.keyAlgo);
+	if (!pkey) return NULL;
+    } else pkey = NULL;
     libVES_veskey *v = params.veskey;
     if (!v && (params.flags & PF_NEW)) v = params.uveskey;
     libVES_veskey *vnew = v ? NULL : (v = libVES_veskey_generate(ves->veskeyLen));
-    libVES_VaultKey *vkey = libVES_VaultKey_new(type, (params.keyAlgo ? params.keyAlgo : (params.priv ? &libVES_KeyAlgo_autoPEM : ves->keyAlgo)), (params.keyAlgo && params.priv ? params.keyAlgo->str2privfn(((void *)&ves - offsetof(libVES_VaultKey, ves)), params.priv, params.uveskey): NULL), v, ves);
+    libVES_VaultKey *vkey = libVES_VaultKey_new(type, (algo ? algo : (params.priv ? &libVES_KeyAlgo_autoPEM : ves->keyAlgo)), pkey, v, ves);
     libVES_veskey_free(vnew);
+    if (!vkey && algo && pkey) libVES_KeyAlgo_pkeyfree(algo, pkey);
     return vkey;
 }
 

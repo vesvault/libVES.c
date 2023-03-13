@@ -157,6 +157,9 @@ AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
 am__v_lt_1 = 
+libVES_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
+	$(libVES_la_LDFLAGS) $(LDFLAGS) -o $@
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -365,6 +368,7 @@ lib_LTLIBRARIES = libVES.la
 nobase_include_HEADERS = $(LIBVES_HFILES) $(JVAR_HFILES)
 libVES_la_SOURCES = $(LIBVES_CFILES) $(JVAR_CFILES) $(LIBVES_HFILES) $(JVAR_HFILES)
 libVES_la_LIBADD = $(LIBOQS)
+libVES_la_LDFLAGS = -version-info 1:0:0
 all: all-am
 
 .SUFFIXES:
@@ -464,7 +468,7 @@ libVES/KeyAlgo_OQS.lo: libVES/$(am__dirstamp) \
 	libVES/$(DEPDIR)/$(am__dirstamp)
 
 libVES.la: $(libVES_la_OBJECTS) $(libVES_la_DEPENDENCIES) $(EXTRA_libVES_la_DEPENDENCIES) 
-	$(AM_V_CCLD)$(LINK) -rpath $(libdir) $(libVES_la_OBJECTS) $(libVES_la_LIBADD) $(LIBS)
+	$(AM_V_CCLD)$(libVES_la_LINK) -rpath $(libdir) $(libVES_la_OBJECTS) $(libVES_la_LIBADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)

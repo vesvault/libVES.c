@@ -33,6 +33,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "List.h"
+#include "Util.h"
 
 const libVES_ListCtl libVES_ListCtl_NULL = { .cmpfn = NULL, .freefn = NULL };
 
@@ -42,7 +43,7 @@ libVES_List *libVES_List_new(const struct libVES_ListCtl *ctl) {
     lst->max = lst->len = 0;
     lst->list = NULL;
     lst->ctl = ctl;
-    return lst;
+    return libVES_REFINIT(lst);
 }
 
 void *libVES_List_add(libVES_List *lst, void *entry, int pos) {
@@ -109,7 +110,7 @@ void *libVES_List_find(libVES_List *lst, void *entry) {
 }
 
 void libVES_List_free(libVES_List *lst) {
-    if (!lst) return;
+    if (libVES_REFBUSY(lst)) return;
     int i;
     if (lst->ctl->freefn) for (i = 0; i < lst->len; i++) lst->ctl->freefn(lst->list[i]);
     free(lst->list);

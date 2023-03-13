@@ -58,7 +58,7 @@ libVES_Cipher *libVES_Cipher_new(const libVES_CiAlgo *algo, libVES *ves, size_t 
 	const char *extra = key + algo->keylenfn(ci);
 	ci->meta = (extra < key + keylen) ? jVar_parse(extra, key + keylen - extra) : NULL;
     } else ci->meta = NULL;
-    return ci;
+    return libVES_REFINIT(ci);
 }
 
 libVES_Cipher *libVES_Cipher_forVEntry(size_t keylen, const char *key, libVES *ves) {
@@ -154,7 +154,7 @@ void libVES_Cipher_reset(libVES_Cipher *ci) {
 }
 
 void libVES_Cipher_free(libVES_Cipher *ci) {
-    if (!ci) return;
+    if (libVES_REFBUSY(ci)) return;
     libVES_Cipher_reset(ci);
     if (ci->algo->freefn) ci->algo->freefn(ci);
     libVES_cleanseJVar(ci->meta);

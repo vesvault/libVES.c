@@ -69,20 +69,24 @@ DECLARE_ASN1_FUNCTIONS_const(libVES_KeyAlgo_OQS_PRIVATEKEY)
 DECLARE_ASN1_ENCODE_FUNCTIONS_const(libVES_KeyAlgo_OQS_PRIVATEKEY, libVES_KeyAlgo_OQS_PRIVATEKEY)
 IMPLEMENT_ASN1_FUNCTIONS_const(libVES_KeyAlgo_OQS_PRIVATEKEY)
 
+#define libVES_KeyAlgo_OQS_chklimits(kem)	((kem)->length_ciphertext <= LIBVES_MAXLEN_ENCDATA - 256 && (kem)->length_secret_key + (kem)->length_public_key <= LIBVES_MAXLEN_KEY * 3 / 4 - 256)
 
+void *libVES_KeyAlgo_OQS_pkeygen(const libVES_KeyAlgo *algo, const char *algostr) {
+    struct libVES_KeyAlgo_OQS *oqs = malloc(sizeof(*oqs));
+    if (!oqs) return NULL;
+    const char *s = algostr ? strchr(algostr, ':') : NULL;
+    oqs->kem = OQS_KEM_new(s ? s + 1 : libVES_KeyAlgo_OQS_defaultAlgo);
+    if (!libVES_KeyAlgo_OQS_chklimits(oqs->kem)) return OQS_KEM_free(oqs->kem), free(oqs), NULL;
+    oqs->pub = NULL;
+    oqs->priv = NULL;
+    return oqs;
+}
 
 libVES_VaultKey *libVES_KeyAlgo_OQS_new(const libVES_KeyAlgo *algo, void *pkey, libVES_veskey *veskey, libVES *ves) {
     struct libVES_KeyAlgo_OQS *oqs = pkey;
-    if (!oqs) {
-	oqs = malloc(sizeof(*oqs));
-	oqs->kem = NULL;
-	oqs->pub = NULL;
-	oqs->priv = NULL;
-    }
-    if (!oqs) return NULL;
-    if (!oqs->kem) oqs->kem = OQS_KEM_new(libVES_KeyAlgo_OQS_defaultAlgo);
-    if (!oqs->kem) {
-	libVES_setError(ves, LIBVES_E_CRYPTO, "Error allocating KEM: " libVES_KeyAlgo_OQS_defaultAlgo);
+    if (!oqs) oqs = libVES_KeyAlgo_OQS_pkeygen(algo, NULL);
+    if (!oqs || !oqs->kem) {
+	libVES_setError(ves, LIBVES_E_CRYPTO, "Error allocating OQS");
 	if (!pkey) free(oqs);
 	return NULL;
     }
@@ -208,7 +212,6 @@ char *libVES_KeyAlgo_OQS_pub2str(libVES_VaultKey *vkey, void *pkey) {
 	}
 	ASN1_OBJECT_free(obj);
     }
-//printf("pub = \n%s\n", str);
     return str;
 }
 
@@ -268,10 +271,10 @@ void *libVES_KeyAlgo_OQS_str2priv(libVES_VaultKey *vkey, const char *priv, libVE
 					} else {
 					    free(oqs->priv);
 					    free(oqs->pub);
+					    OQS_KEM_free(kem);
+					    free(oqs);
+					    oqs = NULL;
 					}
-				    } else {
-					free(oqs);
-					oqs = NULL;
 				    }
 				}
 				libVES_KeyAlgo_OQS_PRIVATEKEY_free(priv);
@@ -348,7 +351,6 @@ char *libVES_KeyAlgo_OQS_priv2str(libVES_VaultKey *vkey, void *pkey, libVES_vesk
 	ASN1_STRING_free(algo);
 	ASN1_OBJECT_free(obj);
     }
-//printf("priv = \n%s\n", str);
     return str;
 }
 
@@ -358,6 +360,7 @@ void libVES_KeyAlgo_OQS_keyfree(struct libVES_KeyAlgo_OQS *oqs) {
     free(oqs->pub);
     if (oqs->priv) OPENSSL_cleanse(oqs->priv, oqs->kem->length_secret_key);
     free(oqs->priv);
+    free(oqs);
 }
 
 void libVES_KeyAlgo_OQS_lock(libVES_VaultKey *vkey) {
@@ -367,11 +370,12 @@ void libVES_KeyAlgo_OQS_lock(libVES_VaultKey *vkey) {
 }
 
 int libVES_KeyAlgo_OQS_dump(libVES_VaultKey *vkey, int fd, int flags) {
-    struct libVES_KeyAlgo_OQS *oqs = vkey->pPub;
+    struct libVES_KeyAlgo_OQS *oqs = vkey->pPriv;
+    if (!oqs) oqs = vkey->pPub;
     BIO *out;
     if (!oqs || !oqs->kem) return -1;
     out = BIO_new_fd(fd, BIO_NOCLOSE);
-    int w = BIO_printf(out, "\tOQS: %s\n", oqs->kem->method_name);
+    int w = BIO_printf(out, "\tOQS: %s (%s)\n\tNIST level: %d\n\tIND-%s\n", oqs->kem->method_name, oqs->kem->alg_version, oqs->kem->claimed_nist_level, (oqs->kem->ind_cca ? "CCA" : "CPA"));
     BIO_free(out);
     return w;
 }
@@ -424,6 +428,22 @@ int libVES_KeyAlgo_OQS_encrypt(libVES_VaultKey *vkey, const char *plaintext, siz
     return oqs->kem->length_ciphertext;
 }
 
+void libVES_KeyAlgo_OQS_pkeyfree(const libVES_KeyAlgo *algo, void *pkey) {
+    libVES_KeyAlgo_OQS_keyfree(pkey);
+}
+
+int libVES_KeyAlgo_OQS_methodstr(const libVES_KeyAlgo *algo, char *buf, size_t buflen, int idx) {
+    const char *a = idx >= 0 ? OQS_KEM_alg_identifier(idx) : NULL;
+    if (!a) return -1;
+    int l = strlen(a);
+    if (l >= buflen || !OQS_KEM_alg_is_enabled(a)) return 0;
+    OQS_KEM *kem = OQS_KEM_new(a);
+    if (!kem) return 0;
+    if (!libVES_KeyAlgo_OQS_chklimits(kem)) l = 0;
+    OQS_KEM_free(kem);
+    if (l) strcpy(buf, a);
+    return l;
+}
 
 
 const libVES_KeyAlgo libVES_KeyAlgo_OQS = {
@@ -439,5 +459,9 @@ const libVES_KeyAlgo libVES_KeyAlgo_OQS = {
     .decfn = &libVES_KeyAlgo_OQS_decrypt,
     .lockfn = &libVES_KeyAlgo_OQS_lock,
     .dumpfn = &libVES_KeyAlgo_OQS_dump,
-    .freefn = NULL
+    .freefn = NULL,
+    .pkeygenfn = &libVES_KeyAlgo_OQS_pkeygen,
+    .pkeyfreefn = &libVES_KeyAlgo_OQS_pkeyfree,
+    .methodstrfn = &libVES_KeyAlgo_OQS_methodstr,
+    .len = sizeof(libVES_KeyAlgo)
 };

@@ -29,6 +29,32 @@
  *
  ***************************************************************************/
 
+
+typedef struct libVES_CiAlgo_AESgcm {
+    unsigned char key[32];
+    unsigned char seed[12];
+    unsigned char iv[12];
+    size_t offs;
+    union {
+	char *pbuf;
+	struct {
+	    void *mdctx;
+	    char gbuf[16];
+	};
+    };
+} libVES_CiAlgo_AESgcm;
+
+typedef struct libVES_CiAlgo_AEScfb {
+    unsigned char key[32];
+    unsigned char seed[32];
+    unsigned char iv[32];
+} libVES_CiAlgo_AEScfb;
+
+
+#define libVES_Cipher_KEYLENforVEntry	(sizeof(((libVES_CiAlgo_AESgcm *)0)->key) + sizeof(((libVES_CiAlgo_AESgcm *)0)->seed))
+#define libVES_Cipher_PADLENforVEntry	48
+
+
 /***************************************************************************
  * AES256GCM1K
  * Chunked seekable GCM stream cipher with integrity check.

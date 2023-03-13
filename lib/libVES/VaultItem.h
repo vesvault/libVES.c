@@ -43,6 +43,7 @@ typedef struct libVES_VaultItem {
     };
     struct jVar *meta;
     struct jVar *entries;
+    int refct;
     size_t sharelen;
     struct libVES_VaultKey *share[];
 } libVES_VaultItem;

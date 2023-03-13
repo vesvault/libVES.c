@@ -78,5 +78,5 @@ void *put_jvarobj(const char *str, size_t len, void **ptr) {
 }
 
 void *put_keyalgo(const char *str, size_t len, void **ptr) {
-    return *ptr = (void *) libVES_VaultKey_algoFromStr(str);
+    return *ptr = libVES_VaultKey_algoFromStr(str) ? (void *)str : NULL;
 }

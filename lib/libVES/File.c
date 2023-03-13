@@ -46,7 +46,7 @@ libVES_File *libVES_File_new(libVES_Ref *ref) {
     file->name = file->path = file->mime = NULL;
     file->external = ref;
     file->creator = NULL;
-    return file;
+    return libVES_REFINIT(file);
 }
 
 libVES_File *libVES_File_fromJVar(jVar *data) {
@@ -59,7 +59,7 @@ libVES_File *libVES_File_fromJVar(jVar *data) {
     file->mime = jVar_getString0(jVar_get(data, "mime"));
     file->external = libVES_External_fromJVar(jVar_get(data, "externals"));
     file->creator = libVES_User_fromJVar(jVar_get(data, "creator"));
-    return file;
+    return libVES_REFINIT(file);
 }
 
 jVar *libVES_File_toJVar(libVES_File *file) {
@@ -79,7 +79,7 @@ char *libVES_File_toURI(libVES_File *file) {
 }
 
 void libVES_File_free(libVES_File *file) {
-    if (!file) return;
+    if (libVES_REFBUSY(file)) return;
     free(file->name);
     free(file->path);
     free(file->mime);

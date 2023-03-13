@@ -33,6 +33,7 @@ typedef struct libVES_List {
     void **list;
     size_t len;
     size_t max;
+    int refct;
 } libVES_List;
 
 typedef struct libVES_ListCtl {

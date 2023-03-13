@@ -45,15 +45,18 @@
 #include "../libVES.h"
 #include "../jVar.h"
 
+#define	AESgcm(ci)	(*((libVES_CiAlgo_AESgcm *)(ci)->key))
+#define	AEScfb(ci)	(*((libVES_CiAlgo_AEScfb *)(ci)->key))
+
 #define libVES_CiAlgo_AESSETKEY(alg, algname) \
-	    if (key && keylen < sizeof(ci->alg.key)) libVES_throw(ves, LIBVES_E_PARAM, algname " cipher key is too short", NULL); \
-	    ci = malloc(offsetof(libVES_Cipher, alg.end)); \
+	    if (key && keylen < sizeof(AES ## alg(ci).key)) libVES_throw(ves, LIBVES_E_PARAM, algname " cipher key is too short", NULL); \
+	    ci = malloc(sizeof(libVES_Cipher) + sizeof(AES ## alg(ci))); \
 	    assert(ci); \
 	    if (key) { \
-		memcpy(ci->alg.key, key, sizeof(ci->alg.key)); \
-		memcpy(ci->alg.seed, key + (keylen <= sizeof(ci->alg.key) + sizeof(ci->alg.seed) ? keylen - sizeof(ci->alg.seed) : sizeof(ci->alg.key)), sizeof(ci->alg.seed)); \
+		memcpy(AES ## alg(ci).key, key, sizeof(AES ## alg(ci).key)); \
+		memcpy(AES ## alg(ci).seed, key + (keylen <= sizeof(AES ## alg(ci).key) + sizeof(AES ## alg(ci).seed) ? keylen - sizeof(AES ## alg(ci).seed) : sizeof(AES ## alg(ci).key)), sizeof(AES ## alg(ci).seed)); \
 	    } else { \
-		if (RAND_bytes(ci->alg.key, sizeof(ci->alg.key) + sizeof(ci->alg.seed)) <= 0) libVES_throwEVP(ves, LIBVES_E_CRYPTO, "RAND_bytes", NULL); \
+		if (RAND_bytes(AES ## alg(ci).key, sizeof(AES ## alg(ci).key) + sizeof(AES ## alg(ci).seed)) <= 0) libVES_throwEVP(ves, LIBVES_E_CRYPTO, "RAND_bytes", NULL); \
 	    }
 
 #define libVES_CiAlgo_LEN_1K	1024
@@ -63,24 +66,24 @@
 libVES_Cipher *libVES_CiAlgo_n_AES256GCMp(const libVES_CiAlgo *algo, libVES *ves, size_t keylen, const char *key) {
     libVES_Cipher *ci;
     libVES_CiAlgo_AESSETKEY(gcm, "AES 256 GCM");
-    memcpy(ci->gcm.iv, ci->gcm.seed, sizeof(ci->gcm.iv));
-    ci->gcm.pbuf = NULL;
-    ci->gcm.offs = 0;
+    memcpy(AESgcm(ci).iv, AESgcm(ci).seed, sizeof(AESgcm(ci).iv));
+    AESgcm(ci).pbuf = NULL;
+    AESgcm(ci).offs = 0;
     return ci;
 }
 
 libVES_Cipher *libVES_CiAlgo_n_AES256GCM1K(const libVES_CiAlgo *algo, libVES *ves, size_t keylen, const char *key) {
     libVES_Cipher *ci;
     libVES_CiAlgo_AESSETKEY(gcm, "AES 256 GCM");
-    ci->gcm.mdctx = NULL;
-    ci->gcm.offs = 0;
+    AESgcm(ci).mdctx = NULL;
+    AESgcm(ci).offs = 0;
     return ci;
 }
 
 libVES_Cipher *libVES_CiAlgo_n_AES256CFB(const libVES_CiAlgo *algo, libVES *ves, size_t keylen, const char *key) {
     libVES_Cipher *ci;
     libVES_CiAlgo_AESSETKEY(cfb, "AES 256 CFB");
-    memcpy(ci->cfb.iv, ci->cfb.seed, sizeof(ci->cfb.iv));
+    memcpy(AEScfb(ci).iv, AEScfb(ci).seed, sizeof(AEScfb(ci).iv));
     return ci;
 }
 
@@ -93,19 +96,19 @@ int libVES_CiAlgo_d_AES256GCM(libVES_Cipher *ci, int final, const char *cipherte
     }
     if (ci->flags & LIBVES_CF_ENC) libVES_throw(ci->ves, LIBVES_E_CRYPTO, "AES256GCM dec conflict", -1);
     else if (!(ci->flags & LIBVES_CF_DEC)) {
-	if (EVP_DecryptInit_ex(ci->ctx, EVP_aes_256_gcm(), NULL, ci->gcm.key, ci->gcm.iv) > 0) ci->flags |= LIBVES_CF_DEC;
+	if (EVP_DecryptInit_ex(ci->ctx, EVP_aes_256_gcm(), NULL, AESgcm(ci).key, AESgcm(ci).iv) > 0) ci->flags |= LIBVES_CF_DEC;
 	else libVES_throwEVP(ci->ves, LIBVES_E_CRYPTO, "AES256GCM dec init", -1);
     }
     if (final) {
-	if (ctlen < sizeof(ci->gcm.gbuf)) libVES_throw(ci->ves, LIBVES_E_CRYPTO, "AES256GCM dec: Unexpected end of stream", -1);
-	ctlen -= sizeof(ci->gcm.gbuf);
+	if (ctlen < sizeof(AESgcm(ci).gbuf)) libVES_throw(ci->ves, LIBVES_E_CRYPTO, "AES256GCM dec: Unexpected end of stream", -1);
+	ctlen -= sizeof(AESgcm(ci).gbuf);
     }
     int ptlen = ctlen;
     if (EVP_DecryptUpdate(ci->ctx, (unsigned char *) plaintext, &ptlen, (unsigned char *) ciphertext, ctlen) <= 0) {
 	libVES_throwEVP(ci->ves, LIBVES_E_CRYPTO, "AES256GCM dec update", -1);
     }
     if (final) {
-	if (EVP_CIPHER_CTX_ctrl(ci->ctx, EVP_CTRL_GCM_SET_TAG, sizeof(ci->gcm.gbuf), (void *)(ciphertext + ctlen)) <= 0) {
+	if (EVP_CIPHER_CTX_ctrl(ci->ctx, EVP_CTRL_GCM_SET_TAG, sizeof(AESgcm(ci).gbuf), (void *)(ciphertext + ctlen)) <= 0) {
 	    libVES_throwEVP(ci->ves, LIBVES_E_CRYPTO, "AES256GCM dec gcm", -1);
 	}
 	int ptlenf = ctlen - ptlen;
@@ -119,16 +122,16 @@ int libVES_CiAlgo_d_AES256GCM(libVES_Cipher *ci, int final, const char *cipherte
 }
 
 int libVES_CiAlgo_e_AES256GCM(libVES_Cipher *ci, int final, const char *plaintext, size_t ptlen, char *ciphertext) {
-    if (!ciphertext) return ptlen + sizeof(ci->gcm.gbuf);
+    if (!ciphertext) return ptlen + sizeof(AESgcm(ci).gbuf);
     if (!ci->ctx) {
 	ci->ctx = EVP_CIPHER_CTX_new();
     }
     if (ci->flags & LIBVES_CF_DEC) libVES_throw(ci->ves, LIBVES_E_CRYPTO, "AES256GCM enc conflict", -1);
     else if (!(ci->flags & LIBVES_CF_ENC)) {
-	if (EVP_EncryptInit_ex(ci->ctx, EVP_aes_256_gcm(), NULL, ci->gcm.key, ci->gcm.iv) > 0) ci->flags |= LIBVES_CF_ENC;
+	if (EVP_EncryptInit_ex(ci->ctx, EVP_aes_256_gcm(), NULL, AESgcm(ci).key, AESgcm(ci).iv) > 0) ci->flags |= LIBVES_CF_ENC;
 	else libVES_throwEVP(ci->ves, LIBVES_E_CRYPTO, "AES256GCM enc init", -1);
     }
-    int ctlen = ptlen + sizeof(ci->gcm.gbuf);
+    int ctlen = ptlen + sizeof(AESgcm(ci).gbuf);
     if (EVP_EncryptUpdate(ci->ctx, (unsigned char *) ciphertext, &ctlen, (unsigned char *) plaintext, ptlen) <= 0) {
 	libVES_throwEVP(ci->ves, LIBVES_E_CRYPTO, "AES256GCM enc update", -1);
     }
@@ -138,11 +141,11 @@ int libVES_CiAlgo_e_AES256GCM(libVES_Cipher *ci, int final, const char *plaintex
 	    libVES_throwEVP(ci->ves, LIBVES_E_CRYPTO, "AES256GCM enc final", -1);
 	}
 	ctlen += ctlenf;
-	if (EVP_CIPHER_CTX_ctrl(ci->ctx, EVP_CTRL_GCM_GET_TAG, sizeof(ci->gcm.gbuf), (void *)(ciphertext + ctlen)) <= 0) {
+	if (EVP_CIPHER_CTX_ctrl(ci->ctx, EVP_CTRL_GCM_GET_TAG, sizeof(AESgcm(ci).gbuf), (void *)(ciphertext + ctlen)) <= 0) {
 	    libVES_throwEVP(ci->ves, LIBVES_E_CRYPTO, "AES256GCM enc gcm", -1);
 	}
 	ci->flags &= !LIBVES_CF_ENC;
-	ctlen += sizeof(ci->gcm.gbuf);
+	ctlen += sizeof(AESgcm(ci).gbuf);
     }
     return ctlen;
 }
@@ -154,7 +157,7 @@ int libVES_CiAlgo_d_AES256CFB(libVES_Cipher *ci, int final, const char *cipherte
     }
     if (ci->flags & LIBVES_CF_ENC) libVES_throw(ci->ves, LIBVES_E_CRYPTO, "AES256CFB dec conflict", -1);
     else if (!(ci->flags & LIBVES_CF_DEC)) {
-	if (EVP_DecryptInit_ex(ci->ctx, EVP_aes_256_cfb(), NULL, ci->cfb.key, ci->cfb.iv) > 0) ci->flags |= LIBVES_CF_DEC;
+	if (EVP_DecryptInit_ex(ci->ctx, EVP_aes_256_cfb(), NULL, AEScfb(ci).key, AEScfb(ci).iv) > 0) ci->flags |= LIBVES_CF_DEC;
 	else libVES_throwEVP(ci->ves, LIBVES_E_CRYPTO, "AES256CFB dec init", -1);
     }
     int ptlen = ctlen;
@@ -179,7 +182,7 @@ int libVES_CiAlgo_e_AES256CFB(libVES_Cipher *ci, int final, const char *plaintex
     }
     if (ci->flags & LIBVES_CF_DEC) libVES_throw(ci->ves, LIBVES_E_CRYPTO, "AES256CFB enc conflict", -1);
     else if (!(ci->flags & LIBVES_CF_ENC)) {
-	if (EVP_EncryptInit_ex(ci->ctx, EVP_aes_256_cfb(), NULL, ci->cfb.key, ci->cfb.iv) > 0) ci->flags |= LIBVES_CF_ENC;
+	if (EVP_EncryptInit_ex(ci->ctx, EVP_aes_256_cfb(), NULL, AEScfb(ci).key, AEScfb(ci).iv) > 0) ci->flags |= LIBVES_CF_ENC;
 	else libVES_throwEVP(ci->ves, LIBVES_E_CRYPTO, "AES256CFB enc init", -1);
     }
     int ctlen = ptlen;
@@ -198,19 +201,19 @@ int libVES_CiAlgo_e_AES256CFB(libVES_Cipher *ci, int final, const char *plaintex
 }
 
 int libVES_CiAlgo_d_AES256GCMp(libVES_Cipher *ci, int final, const char *ciphertext, size_t ctlen, char *plaintext) {
-    size_t len = ci->gcm.offs + ctlen;
+    size_t len = AESgcm(ci).offs + ctlen;
     if (!plaintext) return len;
-    if (!final || ctlen < sizeof(ci->gcm.gbuf)) {
-	ci->gcm.pbuf = realloc(ci->gcm.pbuf, len);
-	memcpy(ci->gcm.pbuf + ci->gcm.offs, ciphertext, ctlen);
-	ci->gcm.offs = len;
+    if (!final || ctlen < sizeof(AESgcm(ci).gbuf)) {
+	AESgcm(ci).pbuf = realloc(AESgcm(ci).pbuf, len);
+	memcpy(AESgcm(ci).pbuf + AESgcm(ci).offs, ciphertext, ctlen);
+	AESgcm(ci).offs = len;
 	ctlen = 0;
     }
     if (final) {
 	int l;
 	char *ptext = plaintext;
-	if (ci->gcm.offs) {
-	    l = libVES_CiAlgo_d_AES256GCM(ci, !ctlen, ci->gcm.pbuf, ci->gcm.offs, ptext);
+	if (AESgcm(ci).offs) {
+	    l = libVES_CiAlgo_d_AES256GCM(ci, !ctlen, AESgcm(ci).pbuf, AESgcm(ci).offs, ptext);
 	    if (l < 0) return -1;
 	    ptext += l;
 	}
@@ -219,7 +222,7 @@ int libVES_CiAlgo_d_AES256GCMp(libVES_Cipher *ci, int final, const char *ciphert
 	    if (l < 0) return -1;
 	    ptext += l;
 	}
-	ci->gcm.offs = 0;
+	AESgcm(ci).offs = 0;
 	unsigned char padl = plaintext[0];
 	ptext -= padl + 1;
 	memmove(plaintext, plaintext + 1, ptext - plaintext);
@@ -228,8 +231,8 @@ int libVES_CiAlgo_d_AES256GCMp(libVES_Cipher *ci, int final, const char *ciphert
 }
 
 int libVES_CiAlgo_e_AES256GCMp(libVES_Cipher *ci, int final, const char *plaintext, size_t ptlen, char *ciphertext) {
-    size_t len = ci->gcm.offs + ptlen;
-    if (!ciphertext) return (ci->flags |= LIBVES_CF_EXACT), (len / libVES_CiAlgo_LEN_GCMP + 1) * libVES_CiAlgo_LEN_GCMP + sizeof(ci->gcm.gbuf);
+    size_t len = AESgcm(ci).offs + ptlen;
+    if (!ciphertext) return (ci->flags |= LIBVES_CF_EXACT), (len / libVES_CiAlgo_LEN_GCMP + 1) * libVES_CiAlgo_LEN_GCMP + sizeof(AESgcm(ci).gbuf);
     if (final) {
 	char padl = libVES_CiAlgo_LEN_GCMP - 1 - len % libVES_CiAlgo_LEN_GCMP;
 	char pad[libVES_CiAlgo_LEN_GCMP - 1];
@@ -238,10 +241,10 @@ int libVES_CiAlgo_e_AES256GCMp(libVES_Cipher *ci, int final, const char *plainte
 	int l = libVES_CiAlgo_e_AES256GCM(ci, 0, &padl, 1, ctext);
 	if (l < 0) return -1;
 	ctext += l;
-	if (ci->gcm.offs) {
-	    l = libVES_CiAlgo_e_AES256GCM(ci, 0, ci->gcm.pbuf, ci->gcm.offs, ctext);
+	if (AESgcm(ci).offs) {
+	    l = libVES_CiAlgo_e_AES256GCM(ci, 0, AESgcm(ci).pbuf, AESgcm(ci).offs, ctext);
 	    if (l < 0) return -1;
-	    OPENSSL_cleanse(ci->gcm.pbuf, ci->gcm.offs);
+	    OPENSSL_cleanse(AESgcm(ci).pbuf, AESgcm(ci).offs);
 	    ctext += l;
 	}
 	l = libVES_CiAlgo_e_AES256GCM(ci, 0, plaintext, ptlen, ctext);
@@ -249,25 +252,25 @@ int libVES_CiAlgo_e_AES256GCMp(libVES_Cipher *ci, int final, const char *plainte
 	ctext += l;
 	l = libVES_CiAlgo_e_AES256GCM(ci, 1, pad, padl, ctext);
 	if (l < 0) return -1;
-	ci->gcm.offs = 0;
+	AESgcm(ci).offs = 0;
 	return ctext + l - ciphertext;
     } else {
-	ci->gcm.pbuf = realloc(ci->gcm.pbuf, len);
-	memcpy(ci->gcm.pbuf + ci->gcm.offs, plaintext, ptlen);
-	ci->gcm.offs = len;
+	AESgcm(ci).pbuf = realloc(AESgcm(ci).pbuf, len);
+	memcpy(AESgcm(ci).pbuf + AESgcm(ci).offs, plaintext, ptlen);
+	AESgcm(ci).offs = len;
 	return 0;
     }
 }
 
 int libVES_CiAlgo_setiv_AES256GCM1K(libVES_Cipher *ci, const char *gbuf) {
     char md[32];
-    if (!ci->gcm.mdctx) ci->gcm.mdctx = EVP_MD_CTX_create();
+    if (!AESgcm(ci).mdctx) AESgcm(ci).mdctx = EVP_MD_CTX_create();
     unsigned int shalen = sizeof(md);
-    if (EVP_DigestInit_ex(ci->gcm.mdctx, EVP_sha256(), NULL) > 0
-	&& EVP_DigestUpdate(ci->gcm.mdctx, ci->gcm.seed, sizeof(ci->gcm.seed)) > 0
-	&& EVP_DigestUpdate(ci->gcm.mdctx, gbuf, sizeof(ci->gcm.gbuf)) > 0
-	&& EVP_DigestFinal_ex(ci->gcm.mdctx, (unsigned char *) md, &shalen) > 0) {
-	memcpy(ci->gcm.iv, md, sizeof(ci->gcm.iv));
+    if (EVP_DigestInit_ex(AESgcm(ci).mdctx, EVP_sha256(), NULL) > 0
+	&& EVP_DigestUpdate(AESgcm(ci).mdctx, AESgcm(ci).seed, sizeof(AESgcm(ci).seed)) > 0
+	&& EVP_DigestUpdate(AESgcm(ci).mdctx, gbuf, sizeof(AESgcm(ci).gbuf)) > 0
+	&& EVP_DigestFinal_ex(AESgcm(ci).mdctx, (unsigned char *) md, &shalen) > 0) {
+	memcpy(AESgcm(ci).iv, md, sizeof(AESgcm(ci).iv));
 	return 1;
     }
     libVES_throwEVP(ci->ves, LIBVES_E_CRYPTO, "AES256GCM1K setiv", 0);
@@ -276,14 +279,14 @@ int libVES_CiAlgo_setiv_AES256GCM1K(libVES_Cipher *ci, const char *gbuf) {
 int libVES_CiAlgo_d_AES256GCM1K(libVES_Cipher *ci, int final, const char *ciphertext, size_t ctlen, char *plaintext) {
     if (!plaintext) {
 	ci->flags |= LIBVES_CF_EXACT;
-	size_t al = ctlen + ci->gcm.offs;
-	if (al > sizeof(ci->gcm.gbuf)) al -= sizeof(ci->gcm.gbuf);
+	size_t al = ctlen + AESgcm(ci).offs;
+	if (al > sizeof(AESgcm(ci).gbuf)) al -= sizeof(AESgcm(ci).gbuf);
 	else al = 0;
-	size_t ad = al / (libVES_CiAlgo_LEN_1K + sizeof(ci->gcm.gbuf));
-	size_t am = al % (libVES_CiAlgo_LEN_1K + sizeof(ci->gcm.gbuf));
-	size_t dl = (ci->gcm.offs < 2 * sizeof(ci->gcm.gbuf)) ? 2 * sizeof(ci->gcm.gbuf) - ci->gcm.offs : 0;
-	dl += ad * sizeof(ci->gcm.gbuf);
-	if (am < sizeof(ci->gcm.gbuf) && ad) dl -= sizeof(ci->gcm.gbuf) - am;
+	size_t ad = al / (libVES_CiAlgo_LEN_1K + sizeof(AESgcm(ci).gbuf));
+	size_t am = al % (libVES_CiAlgo_LEN_1K + sizeof(AESgcm(ci).gbuf));
+	size_t dl = (AESgcm(ci).offs < 2 * sizeof(AESgcm(ci).gbuf)) ? 2 * sizeof(AESgcm(ci).gbuf) - AESgcm(ci).offs : 0;
+	dl += ad * sizeof(AESgcm(ci).gbuf);
+	if (am < sizeof(AESgcm(ci).gbuf) && ad) dl -= sizeof(AESgcm(ci).gbuf) - am;
 	return ctlen > dl ? ctlen - dl : 0;
     }
     const char *ctext = ciphertext;
@@ -292,37 +295,37 @@ int libVES_CiAlgo_d_AES256GCM1K(libVES_Cipher *ci, int final, const char *cipher
     int force = final;
     while (ctext < ctail || force) {
 	size_t len = ctail - ctext;
-	if (ci->gcm.offs < sizeof(ci->gcm.gbuf)) {
+	if (AESgcm(ci).offs < sizeof(AESgcm(ci).gbuf)) {
 	    if (final && !len) libVES_throw(ci->ves, LIBVES_E_CRYPTO, "AES256GCM1K dec: Unexpected end of stream", -1);
-	    int l = sizeof(ci->gcm.gbuf) - ci->gcm.offs;
+	    int l = sizeof(AESgcm(ci).gbuf) - AESgcm(ci).offs;
 	    if (l > len) l = len;
-	    memcpy(ci->gcm.gbuf + ci->gcm.offs, ctext, l);
-	    ci->gcm.offs += l;
+	    memcpy(AESgcm(ci).gbuf + AESgcm(ci).offs, ctext, l);
+	    AESgcm(ci).offs += l;
 	    ctext += l;
-	    if (ci->gcm.offs >= sizeof(ci->gcm.gbuf)) {
-		if (!libVES_CiAlgo_setiv_AES256GCM1K(ci, ci->gcm.gbuf)) return -1;
+	    if (AESgcm(ci).offs >= sizeof(AESgcm(ci).gbuf)) {
+		if (!libVES_CiAlgo_setiv_AES256GCM1K(ci, AESgcm(ci).gbuf)) return -1;
 	    }
 	} else {
-	    int bl = libVES_CiAlgo_LEN_1K + 2 * sizeof(ci->gcm.gbuf);
-	    if (final && bl > len + ci->gcm.offs) {
-		bl = len + ci->gcm.offs;
-		if (bl < sizeof(ci->gcm.gbuf)) libVES_throw(ci->ves, LIBVES_E_CRYPTO, "AES256GCM1K dec: Framing error", -1);
+	    int bl = libVES_CiAlgo_LEN_1K + 2 * sizeof(AESgcm(ci).gbuf);
+	    if (final && bl > len + AESgcm(ci).offs) {
+		bl = len + AESgcm(ci).offs;
+		if (bl < sizeof(AESgcm(ci).gbuf)) libVES_throw(ci->ves, LIBVES_E_CRYPTO, "AES256GCM1K dec: Framing error", -1);
 		force = 0;
 	    }
-	    int bl2 = bl - ci->gcm.offs;
+	    int bl2 = bl - AESgcm(ci).offs;
 	    if (len > bl2) len = bl2;
 
-	    int gp0 = sizeof(ci->gcm.gbuf) + sizeof(ci->gcm.gbuf) - ci->gcm.offs;
+	    int gp0 = sizeof(AESgcm(ci).gbuf) + sizeof(AESgcm(ci).gbuf) - AESgcm(ci).offs;
 	    if (gp0 < 0) gp0 = 0;
 	    int gp1 = len;
-	    if (gp1 > sizeof(ci->gcm.gbuf)) gp1 = sizeof(ci->gcm.gbuf);
-	    int gl2 = (bl2 <= len && len >= sizeof(ci->gcm.gbuf)) ? 0 : len;
-	    if (gl2 > sizeof(ci->gcm.gbuf)) gl2 = sizeof(ci->gcm.gbuf);
-	    int gp2 = sizeof(ci->gcm.gbuf) - gl2;
+	    if (gp1 > sizeof(AESgcm(ci).gbuf)) gp1 = sizeof(AESgcm(ci).gbuf);
+	    int gl2 = (bl2 <= len && len >= sizeof(AESgcm(ci).gbuf)) ? 0 : len;
+	    if (gl2 > sizeof(AESgcm(ci).gbuf)) gl2 = sizeof(AESgcm(ci).gbuf);
+	    int gp2 = sizeof(AESgcm(ci).gbuf) - gl2;
 	    int l;
 	    
 	    if (gp1 > gp0) {
-		l = libVES_CiAlgo_d_AES256GCM(ci, 0, ci->gcm.gbuf + gp0, gp1 - gp0, ptext);
+		l = libVES_CiAlgo_d_AES256GCM(ci, 0, AESgcm(ci).gbuf + gp0, gp1 - gp0, ptext);
 		if (l < 0) return -1;
 		ptext += l;
 	    }
@@ -332,22 +335,22 @@ int libVES_CiAlgo_d_AES256GCM1K(libVES_Cipher *ci, int final, const char *cipher
 	    ptext += l;
 	    ctext += len - gl2;
 	    if (ff) {
-		if (!libVES_CiAlgo_setiv_AES256GCM1K(ci, ctext - sizeof(ci->gcm.gbuf))) return -1;
+		if (!libVES_CiAlgo_setiv_AES256GCM1K(ci, ctext - sizeof(AESgcm(ci).gbuf))) return -1;
 	    }
 	    if (gl2 > 0) {
-		if (gp2 > 0) memmove(ci->gcm.gbuf, ci->gcm.gbuf + gl2, gp2);
-		memcpy(ci->gcm.gbuf + gp2, ctext, gl2);
+		if (gp2 > 0) memmove(AESgcm(ci).gbuf, AESgcm(ci).gbuf + gl2, gp2);
+		memcpy(AESgcm(ci).gbuf + gp2, ctext, gl2);
 		ctext += gl2;
 	    }
 	    if (len >= bl2) {
 		if (!ff) {
-		    l = libVES_CiAlgo_d_AES256GCM(ci, 1, ci->gcm.gbuf, sizeof(ci->gcm.gbuf), ptext);
+		    l = libVES_CiAlgo_d_AES256GCM(ci, 1, AESgcm(ci).gbuf, sizeof(AESgcm(ci).gbuf), ptext);
 		    if (l < 0) return -1;
 		    ptext += l;
-		    if (!libVES_CiAlgo_setiv_AES256GCM1K(ci, ci->gcm.gbuf)) return -1;
+		    if (!libVES_CiAlgo_setiv_AES256GCM1K(ci, AESgcm(ci).gbuf)) return -1;
 		}
-		ci->gcm.offs = sizeof(ci->gcm.gbuf);
-	    } else ci->gcm.offs += len;
+		AESgcm(ci).offs = sizeof(AESgcm(ci).gbuf);
+	    } else AESgcm(ci).offs += len;
 	}
     }
     return ptext - plaintext;
@@ -355,21 +358,21 @@ int libVES_CiAlgo_d_AES256GCM1K(libVES_Cipher *ci, int final, const char *cipher
 
 int libVES_CiAlgo_e_AES256GCM1K(libVES_Cipher *ci, int final, const char *plaintext, size_t ptlen, char *ciphertext) {
     if (!ciphertext) return (ci->flags |= LIBVES_CF_EXACT), ptlen + ((ptlen
-	+ (ci->gcm.offs > sizeof(ci->gcm.gbuf) ? ci->gcm.offs - sizeof(ci->gcm.gbuf) : 0)
-	) / libVES_CiAlgo_LEN_1K + (final ? 1 : 0) + (ci->gcm.offs ? 0 : 1)) * sizeof(ci->gcm.gbuf);
+	+ (AESgcm(ci).offs > sizeof(AESgcm(ci).gbuf) ? AESgcm(ci).offs - sizeof(AESgcm(ci).gbuf) : 0)
+	) / libVES_CiAlgo_LEN_1K + (final ? 1 : 0) + (AESgcm(ci).offs ? 0 : 1)) * sizeof(AESgcm(ci).gbuf);
     char *ctext = ciphertext;
     const char *ptext = plaintext;
     const char *ptail = ptext + ptlen;
     int ff = final;
-    if (!ci->gcm.offs) {
-	if (RAND_bytes((unsigned char *) ctext, sizeof(ci->gcm.gbuf)) <= 0) libVES_throwEVP(ci->ves, LIBVES_E_CRYPTO, "RAND_bytes", -1);
+    if (!AESgcm(ci).offs) {
+	if (RAND_bytes((unsigned char *) ctext, sizeof(AESgcm(ci).gbuf)) <= 0) libVES_throwEVP(ci->ves, LIBVES_E_CRYPTO, "RAND_bytes", -1);
 	if (!libVES_CiAlgo_setiv_AES256GCM1K(ci, ctext)) return -1;
-	ctext += sizeof(ci->gcm.gbuf);
-	ci->gcm.offs = sizeof(ci->gcm.gbuf);
+	ctext += sizeof(AESgcm(ci).gbuf);
+	AESgcm(ci).offs = sizeof(AESgcm(ci).gbuf);
     }
     while (ptext < ptail || ff) {
 	int len = ptail - ptext;
-	int bl2 = libVES_CiAlgo_LEN_1K + sizeof(ci->gcm.gbuf) - ci->gcm.offs;
+	int bl2 = libVES_CiAlgo_LEN_1K + sizeof(AESgcm(ci).gbuf) - AESgcm(ci).offs;
 	if (final && len < bl2) {
 	    bl2 = len;
 	    ff = 0;
@@ -380,9 +383,9 @@ int libVES_CiAlgo_e_AES256GCM1K(libVES_Cipher *ci, int final, const char *plaint
 	ctext += l;
 	ptext += len;
 	if (len >= bl2) {
-	    ci->gcm.offs = sizeof(ci->gcm.gbuf);
-	    if (!libVES_CiAlgo_setiv_AES256GCM1K(ci, ctext - sizeof(ci->gcm.gbuf))) return -1;
-	} else ci->gcm.offs += l;
+	    AESgcm(ci).offs = sizeof(AESgcm(ci).gbuf);
+	    if (!libVES_CiAlgo_setiv_AES256GCM1K(ci, ctext - sizeof(AESgcm(ci).gbuf))) return -1;
+	} else AESgcm(ci).offs += l;
     }
     return ctext - ciphertext;
 }
@@ -390,20 +393,20 @@ int libVES_CiAlgo_e_AES256GCM1K(libVES_Cipher *ci, int final, const char *plaint
 
 
 void libVES_CiAlgo_r_AES256GCMp(libVES_Cipher *ci) {
-    if (ci->gcm.pbuf) {
-	OPENSSL_cleanse(ci->gcm.pbuf, ci->gcm.offs);
-	free(ci->gcm.pbuf);
-	ci->gcm.pbuf = NULL;
+    if (AESgcm(ci).pbuf) {
+	OPENSSL_cleanse(AESgcm(ci).pbuf, AESgcm(ci).offs);
+	free(AESgcm(ci).pbuf);
+	AESgcm(ci).pbuf = NULL;
     }
-    ci->gcm.offs = 0;
+    AESgcm(ci).offs = 0;
     if (ci->ctx) EVP_CIPHER_CTX_free(ci->ctx);
     ci->ctx = NULL;
 }
 
 void libVES_CiAlgo_r_AES256GCM1K(libVES_Cipher *ci) {
-    if (ci->gcm.mdctx) EVP_MD_CTX_destroy(ci->gcm.mdctx);
-    ci->gcm.mdctx = NULL;
-    ci->gcm.offs = 0;
+    if (AESgcm(ci).mdctx) EVP_MD_CTX_destroy(AESgcm(ci).mdctx);
+    AESgcm(ci).mdctx = NULL;
+    AESgcm(ci).offs = 0;
     if (ci->ctx) EVP_CIPHER_CTX_free(ci->ctx);
     ci->ctx = NULL;
 }
@@ -428,25 +431,25 @@ libVES_Seek *libVES_CiAlgo_s_AES256GCM1K(libVES_Cipher *ci, libVES_Seek *sk) {
 	    return NULL;
 	}
 	sk->flags |= LIBVES_SK_RDY;
-	ci->gcm.offs = sizeof(ci->gcm.gbuf);
+	AESgcm(ci).offs = sizeof(AESgcm(ci).gbuf);
     } else {
 	if (sk->plainPos >= 0) {
 	    sk->plainPos -= sk->plainPos % libVES_CiAlgo_LEN_1K;
-	    sk->cipherFbPos = (sk->plainPos / libVES_CiAlgo_LEN_1K) * (libVES_CiAlgo_LEN_1K + sizeof(ci->gcm.gbuf));
-	    sk->cipherPos = sk->cipherFbPos + sizeof(ci->gcm.gbuf);
-	    sk->cipherFbLen = sizeof(ci->gcm.gbuf);
+	    sk->cipherFbPos = (sk->plainPos / libVES_CiAlgo_LEN_1K) * (libVES_CiAlgo_LEN_1K + sizeof(AESgcm(ci).gbuf));
+	    sk->cipherPos = sk->cipherFbPos + sizeof(AESgcm(ci).gbuf);
+	    sk->cipherFbLen = sizeof(AESgcm(ci).gbuf);
 	    sk->flags |= LIBVES_SK_FBK;
 	} else if (sk->cipherPos == 0) {
 	    sk->plainPos = 0;
 	    sk->cipherFbPos = -1;
-	    ci->gcm.offs = 0;
+	    AESgcm(ci).offs = 0;
 	    sk->flags |= LIBVES_SK_RDY;
 	} else if (sk->cipherPos > 0) {
-	    sk->cipherPos -= sk->cipherPos % (libVES_CiAlgo_LEN_1K + sizeof(ci->gcm.gbuf));
+	    sk->cipherPos -= sk->cipherPos % (libVES_CiAlgo_LEN_1K + sizeof(AESgcm(ci).gbuf));
 	    sk->cipherFbPos = sk->cipherPos;
-	    sk->cipherPos += sizeof(ci->gcm.gbuf);
-	    sk->cipherFbLen = sizeof(ci->gcm.gbuf);
-	    sk->plainPos = sk->cipherFbPos / (libVES_CiAlgo_LEN_1K + sizeof(ci->gcm.gbuf)) * libVES_CiAlgo_LEN_1K;
+	    sk->cipherPos += sizeof(AESgcm(ci).gbuf);
+	    sk->cipherFbLen = sizeof(AESgcm(ci).gbuf);
+	    sk->plainPos = sk->cipherFbPos / (libVES_CiAlgo_LEN_1K + sizeof(AESgcm(ci).gbuf)) * libVES_CiAlgo_LEN_1K;
 	    sk->flags |= LIBVES_SK_FBK;
 	}
     }
@@ -455,17 +458,17 @@ libVES_Seek *libVES_CiAlgo_s_AES256GCM1K(libVES_Cipher *ci, libVES_Seek *sk) {
 
 libVES_Seek *libVES_CiAlgo_s_AES256CFB(libVES_Cipher *ci, libVES_Seek *sk) {
     if (sk->cipherFb) {
-	if (sk->cipherFbLen < sizeof(ci->cfb.iv)) memcpy(ci->cfb.iv, ci->cfb.seed + sk->cipherFbLen, sizeof(ci->cfb.iv) - sk->cipherFbLen);
-	memcpy(ci->cfb.iv + sizeof(ci->cfb.iv) - sk->cipherFbLen, sk->cipherFb, sk->cipherFbLen);
+	if (sk->cipherFbLen < sizeof(AEScfb(ci).iv)) memcpy(AEScfb(ci).iv, AEScfb(ci).seed + sk->cipherFbLen, sizeof(AEScfb(ci).iv) - sk->cipherFbLen);
+	memcpy(AEScfb(ci).iv + sizeof(AEScfb(ci).iv) - sk->cipherFbLen, sk->cipherFb, sk->cipherFbLen);
 	sk->flags |= LIBVES_SK_RDY;
     } else {
 	if (sk->plainPos >= 0) {
 	    int fbl = sk->cipherFbLen = sk->plainPos;
-	    if (fbl > sizeof(ci->cfb.iv)) fbl = sizeof(ci->cfb.iv);
+	    if (fbl > sizeof(AEScfb(ci).iv)) fbl = sizeof(AEScfb(ci).iv);
 	    sk->cipherPos = sk->plainPos - fbl;
 	    if (fbl) sk->flags |= LIBVES_SK_FBK;
 	    else {
-		memcpy(ci->cfb.iv, ci->cfb.seed, sizeof(ci->cfb.iv));
+		memcpy(AEScfb(ci).iv, AEScfb(ci).seed, sizeof(AEScfb(ci).iv));
 		sk->flags |= LIBVES_SK_RDY;
 	    }
 	} else if (sk->cipherPos == 0) {
@@ -474,8 +477,8 @@ libVES_Seek *libVES_CiAlgo_s_AES256CFB(libVES_Cipher *ci, libVES_Seek *sk) {
 	    sk->flags |= LIBVES_SK_RDY;
 	} else {
 	    sk->cipherFbPos = sk->cipherPos;
-	    sk->cipherFbLen = sizeof(ci->cfb.iv);
-	    sk->plainPos = sk->cipherPos = sk->cipherPos + sizeof(ci->cfb.iv);
+	    sk->cipherFbLen = sizeof(AEScfb(ci).iv);
+	    sk->plainPos = sk->cipherPos = sk->cipherPos + sizeof(AEScfb(ci).iv);
 	    sk->flags |= LIBVES_SK_FBK;
 	}
     }
@@ -483,15 +486,15 @@ libVES_Seek *libVES_CiAlgo_s_AES256CFB(libVES_Cipher *ci, libVES_Seek *sk) {
 }
 
 int libVES_CiAlgo_l_AES256GCM(libVES_Cipher *ci) {
-    return sizeof(ci->gcm.key) + sizeof(ci->gcm.seed);
+    return sizeof(AESgcm(ci).key) + sizeof(AESgcm(ci).seed);
 }
 
 int libVES_CiAlgo_l_AES256CFB(libVES_Cipher *ci) {
-    return sizeof(ci->cfb.key) + sizeof(ci->cfb.seed);
+    return sizeof(AEScfb(ci).key) + sizeof(AEScfb(ci).seed);
 }
 
 void libVES_CiAlgo_f_AES256(libVES_Cipher *ci) {
-    OPENSSL_cleanse(ci->gcm.key, sizeof(ci->gcm.key));
+    OPENSSL_cleanse(AESgcm(ci).key, sizeof(AESgcm(ci).key));
 }
 
 
@@ -504,7 +507,8 @@ const libVES_CiAlgo libVES_CiAlgo_AES256GCMp = {
     .decfn = &libVES_CiAlgo_d_AES256GCMp,
     .resetfn = &libVES_CiAlgo_r_AES256GCMp,
     .seekfn = &libVES_CiAlgo_s_AES256GCMp,
-    .freefn = &libVES_CiAlgo_f_AES256
+    .freefn = &libVES_CiAlgo_f_AES256,
+    .len = sizeof(libVES_CiAlgo)
 };
 const libVES_CiAlgo libVES_CiAlgo_AES256GCM1K = {
     .str = "AES256GCM1K",
@@ -515,7 +519,8 @@ const libVES_CiAlgo libVES_CiAlgo_AES256GCM1K = {
     .decfn = &libVES_CiAlgo_d_AES256GCM1K,
     .resetfn = &libVES_CiAlgo_r_AES256GCM1K,
     .seekfn = &libVES_CiAlgo_s_AES256GCM1K,
-    .freefn = &libVES_CiAlgo_f_AES256
+    .freefn = &libVES_CiAlgo_f_AES256,
+    .len = sizeof(libVES_CiAlgo)
 };
 const libVES_CiAlgo libVES_CiAlgo_AES256CFB = {
     .str = "AES256CFB",
@@ -526,5 +531,6 @@ const libVES_CiAlgo libVES_CiAlgo_AES256CFB = {
     .decfn = &libVES_CiAlgo_d_AES256CFB,
     .resetfn = &libVES_CiAlgo_r_AES256CFB,
     .seekfn = &libVES_CiAlgo_s_AES256CFB,
-    .freefn = &libVES_CiAlgo_f_AES256
+    .freefn = &libVES_CiAlgo_f_AES256,
+    .len = sizeof(libVES_CiAlgo)
 };

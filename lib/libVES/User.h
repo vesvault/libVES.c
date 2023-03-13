@@ -34,6 +34,7 @@ typedef struct libVES_User {
     char *email;
     char *firstName;
     char *lastName;
+    int refct;
 } libVES_User;
 struct libVES_VaultKey;
 struct libVES;

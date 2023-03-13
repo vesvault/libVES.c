@@ -119,6 +119,10 @@ int libVES_KeyAlgo_EVP_dump(libVES_VaultKey *vkey, int fd, int flags) {
     return res;
 }
 
+void libVES_KeyAlgo_EVP_pkeyfree(const libVES_KeyAlgo *algo, void *pkey) {
+    EVP_PKEY_free(pkey);
+}
+
 int libVES_KeyAlgo_EVP_veskey_cb(char *buf, int size, int rwflag, void *u) {
     libVES_veskey *vk = (libVES_veskey *) u;
     if (!vk || size < vk->keylen) return -1;
@@ -150,23 +154,34 @@ char *libVES_KeyAlgo_EVP_toPEM(libVES_veskey *veskey, struct evp_pkey_st *pkey) 
 }
 
 
+void *libVES_KeyAlgo_RSA_pkeygen(const libVES_KeyAlgo *algo, const char *algostr) {
+    int bits, pex;
+    const char *s = algostr ? strchr(algostr, ':') : NULL;
+    int c = s ? sscanf(s + 1, "%i:%i", &bits, &pex) : 0;
+    if (c < 2) pex = 0x10001;
+    if (c < 1) bits = libVES_KeyAlgo_RSA_defaultBits;
+    BIGNUM *e = BN_new();
+    BN_set_word(e, pex);
+    RSA *rsa = RSA_new();
+    EVP_PKEY *pkey;
+    if (RSA_generate_key_ex(rsa, bits, e, NULL)) {
+	pkey = EVP_PKEY_new();
+	EVP_PKEY_assign_RSA(pkey, rsa);
+    } else {
+	RSA_free(rsa);
+	pkey = NULL;
+    }
+    BN_free(e);
+    return pkey;
+}
+
 libVES_VaultKey *libVES_KeyAlgo_RSA_new(const libVES_KeyAlgo *algo, void *pkey, libVES_veskey *veskey, libVES *ves) {
     if (pkey) {
 	if (EVP_PKEY_base_id((EVP_PKEY *) pkey) != EVP_PKEY_RSA) libVES_throw(ves, LIBVES_E_PARAM, "Invalid pkey type, expected RSA", NULL);
     } else {
-	BIGNUM *e = BN_new();
-	BN_set_word(e, 0x10001);
-	RSA *rsa = RSA_new();
-	if (RSA_generate_key_ex(rsa, libVES_KeyAlgo_RSA_defaultBits, e, NULL)) {
-	    pkey = EVP_PKEY_new();
-	    EVP_PKEY_assign_RSA((EVP_PKEY *) pkey, rsa);
-	} else RSA_free(rsa);
-	BN_free(e);
+	pkey = libVES_KeyAlgo_RSA_pkeygen(algo, NULL);
     }
-    if (!pkey) {
-	libVES_setErrorEVP(ves, LIBVES_E_CRYPTO, "[generate RSA]");
-	return NULL;
-    }
+    if (!pkey) libVES_throw(ves, LIBVES_E_CRYPTO, "[generate RSA]", NULL);
     libVES_VaultKey *vkey = malloc(sizeof(libVES_VaultKey));
     if (!vkey) return NULL;
     vkey->algo = algo;
@@ -242,25 +257,41 @@ int libVES_KeyAlgo_RSA_encrypt(libVES_VaultKey *vkey, const char *plaintext, siz
     return res;
 }
 
+int libVES_KeyAlgo_RSA_methodstr(const libVES_KeyAlgo *algo, char *buf, size_t buflen, int idx) {
+    static const char rsainfo[] = "{bits}[:{pubexp}]";
+    if (idx) return -1;
+    if (buflen < sizeof(rsainfo)) return 0;
+    strcpy(buf, rsainfo);
+    return strlen(buf);
+}
+
+
+void *libVES_KeyAlgo_ECDH_pkeygen(const libVES_KeyAlgo *algo, const char *algostr) {
+    const char *s = algostr ? strchr(algostr, ':') : NULL;
+    EC_GROUP *grp = EC_GROUP_new_by_curve_name(s ? OBJ_txt2nid(s + 1) : libVES_KeyAlgo_ECDH_defaultCurve);
+    if (!grp) return NULL;
+    EC_KEY *ec_priv = EC_KEY_new();
+    EC_KEY_set_group(ec_priv, grp);
+    EC_GROUP_free(grp);
+    EC_KEY_set_asn1_flag(ec_priv, OPENSSL_EC_NAMED_CURVE);
+    EVP_PKEY *pkey;
+    if (EC_KEY_generate_key(ec_priv)) {
+	pkey = EVP_PKEY_new();
+	EVP_PKEY_assign_EC_KEY(pkey, ec_priv);
+    } else {
+	EC_KEY_free(ec_priv);
+	pkey = NULL;
+    }
+    return pkey;
+}
 
 libVES_VaultKey *libVES_KeyAlgo_ECDH_new(const libVES_KeyAlgo *algo, void *pkey, libVES_veskey *veskey, libVES *ves) {
     if (pkey) {
 	if (EVP_PKEY_base_id((EVP_PKEY *) pkey) != EVP_PKEY_EC) libVES_throw(ves, LIBVES_E_PARAM, "Invalid pkey type, expected EC", NULL);
     } else {
-	EC_KEY *ec_priv = EC_KEY_new();
-	EC_GROUP *grp = EC_GROUP_new_by_curve_name(libVES_KeyAlgo_ECDH_defaultCurve);
-	EC_KEY_set_group(ec_priv, grp);
-	EC_GROUP_free(grp);
-	EC_KEY_set_asn1_flag(ec_priv, OPENSSL_EC_NAMED_CURVE);
-	if (EC_KEY_generate_key(ec_priv)) {
-	    pkey = EVP_PKEY_new();
-	    EVP_PKEY_assign_EC_KEY((EVP_PKEY *) pkey, ec_priv);
-	} else EC_KEY_free(ec_priv);
+	pkey = libVES_KeyAlgo_ECDH_pkeygen(algo, NULL);
     }
-    if (!pkey) {
-	libVES_setErrorEVP(ves, LIBVES_E_CRYPTO, "[generate EC]");
-	return NULL;
-    }
+    if (!pkey) libVES_throw(ves, LIBVES_E_CRYPTO, "[generate EC]", NULL);
     libVES_VaultKey *vkey = malloc(sizeof(libVES_VaultKey));
     if (!vkey) return NULL;
     vkey->algo = algo;
@@ -330,8 +361,26 @@ int libVES_KeyAlgo_ECDH_encrypt(libVES_VaultKey *vkey, const char *plaintext, si
     return res;
 }
 
-
-
+int libVES_KeyAlgo_ECDH_methodstr(const libVES_KeyAlgo *algo, char *buf, size_t buflen, int idx) {
+    static EC_builtin_curve *curves = NULL;
+    static int crvct;
+    if (idx >= 0 && !curves) {
+	curves = malloc(sizeof(curves[0]) * 1024);
+	crvct = EC_get_builtin_curves(curves, 1024);
+	curves = realloc(curves, sizeof(curves[0]) * crvct);
+    }
+    if (idx < 0 || idx >= crvct) {
+	free(curves);
+	curves = NULL;
+	return -1;
+    }
+    const char *crv = OBJ_nid2ln(curves[idx].nid);
+    if (!crv) return 0;
+    int l = strlen(crv);
+    if (l >= buflen) return 0;
+    strcpy(buf, crv);
+    return l;
+}
 
 
 void *libVES_KeyAlgo_autoEVPfn = (void *) &libVES_KeyAlgo_autoEVP_new;
@@ -350,7 +399,11 @@ const libVES_KeyAlgo libVES_KeyAlgo_RSA = {
     .decfn = &libVES_KeyAlgo_RSA_decrypt,
     .lockfn = &libVES_KeyAlgo_EVP_lock,
     .dumpfn = &libVES_KeyAlgo_EVP_dump,
-    .freefn = NULL
+    .freefn = NULL,
+    .pkeygenfn = &libVES_KeyAlgo_RSA_pkeygen,
+    .pkeyfreefn = &libVES_KeyAlgo_EVP_pkeyfree,
+    .methodstrfn = &libVES_KeyAlgo_RSA_methodstr,
+    .len = sizeof(libVES_KeyAlgo)
 };
 
 const libVES_KeyAlgo libVES_KeyAlgo_ECDH = {
@@ -366,5 +419,9 @@ const libVES_KeyAlgo libVES_KeyAlgo_ECDH = {
     .decfn = &libVES_KeyAlgo_ECDH_decrypt,
     .lockfn = &libVES_KeyAlgo_EVP_lock,
     .dumpfn = &libVES_KeyAlgo_EVP_dump,
-    .freefn = NULL
+    .freefn = NULL,
+    .pkeygenfn = &libVES_KeyAlgo_ECDH_pkeygen,
+    .pkeyfreefn = &libVES_KeyAlgo_EVP_pkeyfree,
+    .methodstrfn = &libVES_KeyAlgo_ECDH_methodstr,
+    .len = sizeof(libVES_KeyAlgo)
 };

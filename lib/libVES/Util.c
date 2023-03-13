@@ -138,7 +138,15 @@ void libVES_setErrorEVP(libVES *ves, int err, const char *scope) {
 }
 
 void *libVES_lookupAlgo(const char *str, struct libVES_List *lst) {
+    char sbuf[24];
     if (!str) return NULL;
+    const char *p = strchr(str, ':');
+    if (p) {
+	if (p - str >= sizeof(sbuf)) return NULL;
+	memcpy(sbuf, str, p - str);
+	sbuf[p - str] = 0;
+	str = sbuf;
+    }
     return libVES_List_find(lst, &str);
 }
 

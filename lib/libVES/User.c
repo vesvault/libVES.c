@@ -146,7 +146,7 @@ libVES_User *libVES_User_fromPath(const char **path) {
     user->email = strdup(email);
     user->firstName = buf == email || !*buf ? NULL : strdup(buf);
     user->lastName = lastw ? strdup(lastw) : NULL;
-    return user;
+    return libVES_REFINIT(user);
 }
 
 void libVES_User_parseJVar(libVES_User *user, jVar *data) {
@@ -161,7 +161,7 @@ libVES_User *libVES_User_fromJVar(jVar *data) {
     if (!user) return NULL;
     user->id = jVar_getInt(jVar_get(data, "id"));
     libVES_User_parseJVar(user, data);
-    return user;
+    return libVES_REFINIT(user);
 }
 
 jVar *libVES_User_toJVar(libVES_User *user) {
@@ -244,11 +244,11 @@ libVES_User *libVES_User_copy(libVES_User *user) {
     if (!res) return NULL;
     res->id = user->id;
     res->email = res->firstName = res->lastName = NULL;
-    return res;
+    return libVES_REFINIT(res);
 }
 
 void libVES_User_free(libVES_User *user) {
-    if (!user) return;
+    if (libVES_REFBUSY(user)) return;
     free(user->email);
     free(user->firstName);
     free(user->lastName);

@@ -31,6 +31,7 @@
 
 typedef struct libVES_Ref {
     char *domain;
+    int refct;
     union {
 	char externalId[0];
 	long long int internalId;
@@ -56,4 +57,4 @@ libVES_Ref *libVES_Ref_fromURI(const char **uri, struct libVES *ves);
 libVES_Ref *libVES_External_fromJVar(struct jVar *data);
 struct jVar *libVES_Ref_toJVar(libVES_Ref *ref, struct jVar *dst);
 libVES_Ref *libVES_Ref_copy(libVES_Ref *ref);
-#define libVES_Ref_free(ref)	free(ref)
+void libVES_Ref_free(libVES_Ref *ref);

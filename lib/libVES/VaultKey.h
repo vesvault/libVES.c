@@ -43,6 +43,7 @@ typedef struct libVES_VaultKey {
     struct libVES_VaultItem *vitem;
     struct jVar *entries;
     char *appUrl;
+    int refct;
 } libVES_VaultKey;
 
 typedef struct libVES_veskey {
@@ -61,9 +62,17 @@ struct jVar;
 #define LIBVES_VK_PENDING	6
 #define LIBVES_VK_DELETED	7
 
+#ifndef LIBVES_MAXLEN_KEY
+#define LIBVES_MAXLEN_KEY	65535
+#endif
+#ifndef LIBVES_MAXLEN_ENCDATA
+#define LIBVES_MAXLEN_ENCDATA	65535
+#endif
+
 typedef struct libVES_KeyAlgo {
     char *str;
     char *name;
+    int len;
     libVES_VaultKey *(*newfn)(const struct libVES_KeyAlgo *algo, void *pkey, struct libVES_veskey *veskey, struct libVES *ves);
     char *(*pub2strfn)(libVES_VaultKey *vkey, void *pkey);
     void *(*str2pubfn)(libVES_VaultKey *vkey, const char *str);
@@ -77,9 +86,16 @@ typedef struct libVES_KeyAlgo {
     void (*lockfn)(libVES_VaultKey *vkey);
     int (*dumpfn)(libVES_VaultKey *vkey, int fd, int flags);
     void (*freefn)(libVES_VaultKey *vkey);
+    void *(*pkeygenfn)(const struct libVES_KeyAlgo *algo, const char *algostr);
+    void (*pkeyfreefn)(const struct libVES_KeyAlgo *algo, void *pkey);
+    int (*methodstrfn)(const struct libVES_KeyAlgo *algo, char *buf, size_t buflen, int idx);
 } libVES_KeyAlgo;
 
 #define libVES_KeyAlgo_pseudo(newfn_ptr)		(*((libVES_KeyAlgo *) (((char *) &newfn_ptr) - offsetof(libVES_KeyAlgo, newfn))))
+#define libVES_KeyAlgo_callable(algo, func)		(algo->len >= offsetof(libVES_KeyAlgo, func) + sizeof((algo)->func) && (algo)->func)
+#define libVES_KeyAlgo_pkeygen(algo, algostr)		(algo)->pkeygenfn(algo, algostr)
+#define libVES_KeyAlgo_pkeyfree(algo, algostr)		(algo)->pkeyfreefn(algo, algostr)
+#define libVES_KeyAlgo_methodstr(algo, buf, buflen, idx)	(libVES_KeyAlgo_callable(algo, methodstrfn) ? (algo)->methodstrfn(algo, buf, buflen, idx) : -1)
 
 extern const char *libVES_VaultKey_types[];
 extern struct libVES_List libVES_VaultKey_algos;
@@ -123,15 +139,12 @@ char *libVES_VaultKey_toURIi(libVES_VaultKey *vkey);
 
 /***************************************************************************
  * Retrieve or create a Vault Key from ref and optional user
- * ref and user may or may not be consumed by the resulting libVES_VaultKey,
- * use libVES_VaultKey_free_ref_user() to free if not consumed
+ * ref and user may get strong refcounted by the resulting libVES_VaultKey,
+ * use libVES_Ref_free(ref), libVES_User_free(user) before the resulting
+ * libVES_VaultKey is deallocated.
  ***************************************************************************/
 #define libVES_VaultKey_get(ref, ves, user)	libVES_VaultKey_get2(ref, ves, user, NULL, LIBVES_O_GET | LIBVES_O_NEW)
 
-/***************************************************************************
- * Call after libVES_VaultKey_get() or livBES_VaultKey_get2()
- * to safely free ref and user if they were not consumed by vkey
- ***************************************************************************/
 libVES_VaultKey *libVES_VaultKey_free_ref_user(libVES_VaultKey *vkey, struct libVES_Ref *ref, struct libVES_User *user);
 
 libVES_VaultKey *libVES_VaultKey_get2(struct libVES_Ref *ref, struct libVES *ves, struct libVES_User *user, char **sesstkn, int flags);
@@ -154,7 +167,7 @@ void *libVES_VaultKey_unlock(libVES_VaultKey *vkey, struct libVES_veskey *veskey
 void libVES_VaultKey_lock(libVES_VaultKey *vkey);
 
 /***************************************************************************
- * Retrieve a VESkey from an associated Vault Item.
+ * Retrieve a VESkey from an associated Vault Item if possible.
  ***************************************************************************/
 struct libVES_veskey *libVES_VaultKey_getVESkey(libVES_VaultKey *vkey);
 

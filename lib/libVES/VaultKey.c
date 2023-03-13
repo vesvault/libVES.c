@@ -44,6 +44,7 @@
 #include "../libVES.h"
 #include "VaultKey.h"
 #include "Cipher.h"
+#include "CiAlgo_AES.h"
 #include "Util.h"
 #include "List.h"
 #include "Ref.h"
@@ -82,6 +83,7 @@ libVES_VaultKey *libVES_VaultKey_new(int type, const libVES_KeyAlgo *algo, void 
     vkey->vitem->type = LIBVES_VI_PASSWORD;
     vkey->vitem->value = vkcpy;
     vkey->vitem->len = veskey->keylen;
+    libVES_REFUP(VaultItem, vkey->vitem);
     vkey->entries = NULL;
     vkey->appUrl = NULL;
     if (!vkey->algo || !vkey->pPriv) {
@@ -94,7 +96,7 @@ libVES_VaultKey *libVES_VaultKey_new(int type, const libVES_KeyAlgo *algo, void 
 	if (vkey->algo->priv2strfn) vkey->privateKey = vkey->algo->priv2strfn(vkey, vkey->pPriv, veskey);
     }
     libVES_veskey_free(vknew);
-    return vkey;
+    return libVES_REFINIT(vkey);
 }
 
 libVES_VaultKey *libVES_VaultKey_fromJVar(jVar *j_vkey, libVES *ves) {
@@ -108,12 +110,15 @@ libVES_VaultKey *libVES_VaultKey_fromJVar(jVar *j_vkey, libVES *ves) {
     vkey->publicKey = jVar_getString0(jVar_get(j_vkey, "publicKey"));
     vkey->privateKey = jVar_getString0(jVar_get(j_vkey, "privateKey"));
     vkey->user = libVES_User_fromJVar(jVar_get(j_vkey, "user"));
+    libVES_REFUP(User, vkey->user);
     vkey->external = libVES_External_fromJVar(jVar_get(j_vkey, "externals"));
+    libVES_REFUP(Ref, vkey->external);
     vkey->vitem = libVES_VaultItem_fromJVar(jVar_index(jVar_get(j_vkey, "items"), 0), ves);
+    libVES_REFUP(VaultItem, vkey->vitem);
     vkey->pPriv = vkey->pPub = NULL;
     vkey->entries = NULL;
     vkey->appUrl = NULL;
-    return vkey;
+    return libVES_REFINIT(vkey);
 }
 
 libVES_List *libVES_VaultKey_listFromURI(const char **path, struct libVES *ves, struct libVES_List *lst) {
@@ -134,7 +139,6 @@ libVES_List *libVES_VaultKey_listFromURI(const char **path, struct libVES *ves, 
 	    if (!res && libVES_checkError(ves, LIBVES_E_NOTFOUND)) {
 		vkey = libVES_VaultKey_create(ref, ves, user);
 	    } else {
-		libVES_User_free(user);
 		vkey = NULL;
 	    }
 	}
@@ -142,14 +146,14 @@ libVES_List *libVES_VaultKey_listFromURI(const char **path, struct libVES *ves, 
 	    if (!lst) lst = libVES_List_new(&libVES_VaultKey_ListCtl);
 	    libVES_List_push(lst, vkey);
 	    res = lst;
-	    libVES_VaultKey_free_ref_user(vkey, ref, user);
 	}
+	libVES_User_free(user);
     } else {
 	libVES_setError(ves, LIBVES_E_PARAM, "Vault URI expected (missing a trailing '/'?)");
 	res = NULL;
     }
     if (res) *path = p;
-    else libVES_Ref_free(ref);
+    libVES_Ref_free(ref);
     return res;
 }
 
@@ -211,8 +215,8 @@ libVES_VaultKey *libVES_VaultKey_get2(libVES_Ref *ref, libVES *ves, libVES_User 
 	if (vkey_res) {
 	    vkey = libVES_VaultKey_fromJVar(vkey_res, ves);
 	    if (sesstkn) *sesstkn = jVar_getString(jVar_get(vkey_res, "encSessionToken"));
-	    if (!vkey->external && ref->domain) vkey->external = ref;
-	    if (!vkey->user) vkey->user = user;
+	    if (!vkey->external && ref->domain) vkey->external = libVES_REFUP(Ref, ref);
+	    if (!vkey->user) vkey->user = libVES_REFUP(User, user);
 	} else {
 	    if (!(flags & LIBVES_O_NEW) || !user || sesstkn) return NULL;
 	    if (!libVES_checkError(ves, LIBVES_E_NOTFOUND)) return NULL;
@@ -227,10 +231,8 @@ libVES_VaultKey *libVES_VaultKey_get2(libVES_Ref *ref, libVES *ves, libVES_User 
 }
 
 libVES_VaultKey *libVES_VaultKey_free_ref_user(libVES_VaultKey *vkey, libVES_Ref *ref, libVES_User *user) {
-    if (vkey) {
-	if (ref && ref != vkey->external) libVES_Ref_free(ref);
-	if (user && user != vkey->user) libVES_User_free(user);
-    }
+    libVES_Ref_free(ref);
+    libVES_User_free(user);
     return vkey;
 }
 
@@ -246,30 +248,26 @@ libVES_VaultKey *libVES_VaultKey_create(libVES_Ref *ref, libVES *ves, libVES_Use
     }
     libVES_VaultKey *vkey = ves->genVaultKeyFn(ves, type, ref, user);
     if (!vkey) return NULL;
-    vkey->user = user;
-    vkey->external = ref;
+    vkey->user = libVES_REFUP(User, user);
+    vkey->external = libVES_REFUP(Ref, ref);
     if (user && !libVES_VaultKey_propagate(vkey)) {
-	vkey->user = NULL;
-	vkey->external = NULL;
+	libVES_REFRM(vkey->user);
+	libVES_REFRM(vkey->external);
 	libVES_VaultKey_free(vkey);
 	vkey = NULL;
     } else if (!user) {
-	libVES_VaultItem_free(vkey->vitem);
+	libVES_REFDN(VaultItem, vkey->vitem);
 	vkey->vitem = NULL;
     }
-    return vkey;
+    return libVES_REFINIT(vkey);
 }
 
 libVES_VaultKey *libVES_VaultKey_createFrom(libVES_VaultKey *vkey) {
     if (!vkey) return NULL;
     if (libVES_VaultKey_isNew(vkey)) libVES_throw(vkey->ves, LIBVES_E_PARAM, "The key is already pending update", NULL);
-    libVES_Ref *ref = libVES_Ref_copy(libVES_VaultKey_getExternal(vkey));
-    libVES_User *user = libVES_User_copy(libVES_VaultKey_getUser(vkey));
+    libVES_Ref *ref = libVES_VaultKey_getExternal(vkey);
+    libVES_User *user = libVES_VaultKey_getUser(vkey);
     libVES_VaultKey *res = libVES_VaultKey_create(ref, vkey->ves, user);
-    if (!res) {
-	libVES_Ref_free(ref);
-	libVES_User_free(user);
-    }
     return res;
 }
 
@@ -316,8 +314,8 @@ void libVES_VaultKey_parseJVar(libVES_VaultKey *vkey, jVar *jvar) {
 	for (i = 0; i < jVar_count(jv); i++) {
 	    libVES_VaultItem *vitem = libVES_VaultItem_fromJVar(jVar_index(jv, i), vkey->ves);
 	    if (vitem && vitem->type == LIBVES_VI_PASSWORD) {
-		libVES_VaultItem_free(vkey->vitem);
-		vkey->vitem = vitem;
+		libVES_REFDN(VaultItem, vkey->vitem);
+		vkey->vitem = libVES_REFUP(VaultItem, vitem);
 		break;
 	    }
 	    libVES_VaultItem_free(vitem);
@@ -349,6 +347,7 @@ libVES_User *libVES_VaultKey_getUser(libVES_VaultKey *vkey) {
 	jVar *rsp = libVES_REST(vkey->ves, uri, NULL);
 	if (!rsp) return NULL;
 	vkey->user = libVES_User_fromJVar(jVar_get(rsp, "user"));
+	libVES_REFUP(User, vkey->user);
 	jVar_free(rsp);
 	if (!vkey->user) libVES_throw(vkey->ves, LIBVES_E_DENIED, "Cannot load vault key user info", NULL);
     }
@@ -537,12 +536,8 @@ jVar *libVES_VaultKey_rekeyFrom(libVES_VaultKey *vkey, libVES_VaultKey *from, in
 int libVES_VaultKey_rekey(libVES_VaultKey *vkey) {
     if (!vkey) return 0;
     if (vkey->external) {
-	libVES_Ref *ref = libVES_Ref_copy(vkey->external);
-	libVES_VaultKey *activekey = libVES_VaultKey_get(ref, vkey->ves, NULL);
-	if (!activekey) {
-	    libVES_Ref_free(ref);
-	    return 0;
-	}
+	libVES_VaultKey *activekey = libVES_VaultKey_get(vkey->external, vkey->ves, NULL);
+	if (!activekey) return 0;
 	int ok = vkey->id == activekey->id || (libVES_VaultKey_rekeyFrom(activekey, vkey, 0) && libVES_VaultKey_post(activekey));
 	libVES_VaultKey_free(activekey);
 	return ok;
@@ -613,11 +608,11 @@ int libVES_VaultKey_dump(libVES_VaultKey *vkey, int fd, int flags) {
 }
 
 void libVES_VaultKey_free(libVES_VaultKey *vkey) {
-    if (!vkey) return;
+    if (libVES_REFBUSY(vkey)) return;
     libVES_VaultKey_lock(vkey);
-    libVES_User_free(vkey->user);
-    libVES_VaultItem_free(vkey->vitem);
-    libVES_Ref_free(vkey->external);
+    libVES_REFDN(User, vkey->user);
+    libVES_REFDN(VaultItem, vkey->vitem);
+    libVES_REFDN(Ref, vkey->external);
     free(vkey->privateKey);
     free(vkey->publicKey);
     jVar_free(vkey->entries);
@@ -638,12 +633,11 @@ int libVES_VaultKey_cmpLST(void *entry, void *match) {
 }
 
 void libVES_VaultKey_freeLST(void *entry) {
-    if (entry != ((libVES_VaultKey *) entry)->ves->vaultKey) libVES_VaultKey_free(entry);
+    libVES_VaultKey_free(entry);
 }
 
 const libVES_ListCtl libVES_VaultKey_ListCtl = { .cmpfn = &libVES_VaultKey_cmpLST, .freefn = &libVES_VaultKey_freeLST };
 const libVES_ListCtl libVES_VaultKey_ListCtlU = { .cmpfn = &libVES_VaultKey_cmpLST, .freefn = NULL };
-
 
 libVES_veskey *libVES_veskey_new(size_t keylen, const char *veskey) {
     libVES_veskey *vk = malloc(offsetof(libVES_veskey, veskey) + keylen);

@@ -32,11 +32,6 @@ struct libVES;
 struct libVES_List;
 struct libVES_VaultKey;
 
-#define libVES_b64decsize(len)		((len) * 3 / 4)
-#define libVES_b64encsize(len)		(((len) + 2) / 3 * 4 + 1)
-size_t libVES_b64decode(const char *b64, char **dec);
-char *libVES_b64encode(const char *data, size_t len, char *b64);
-
 #define libVES_lookupStr(idx, lst)		((idx >= 0 && idx < sizeof(lst) / sizeof(*lst)) ? lst[idx] : NULL)
 int libVES_enumStrl(const char *str, size_t len, const char **list);
 #define libVES_enumStr(str, list)	libVES_enumStrl(str, sizeof(list) / sizeof(*list), list)
@@ -57,3 +52,10 @@ extern const struct libVES_ListCtl libVES_algoListCtl;
 void *libVES_lookupAlgo(const char *str, struct libVES_List *lst);
 
 char *libVES_buildURI(int argc, ...);
+
+
+#define libVES_REFINIT(ptr)			(((ptr) && ((ptr)->refct = 0)), (ptr))
+#define libVES_REFUP(type, ptr)			(((ptr) && ((libVES_ ## type *)(ptr))->refct++), (ptr))
+#define libVES_REFDN(type, ptr)			(!(ptr) || (--((libVES_ ## type *)(ptr))->refct > 0) || (libVES_ ## type ## _free(ptr), 0))
+#define libVES_REFRM(ptr)			(!(ptr) || (--(ptr)->refct, (ptr) = NULL))
+#define libVES_REFBUSY(ptr)			(!(ptr) || (ptr)->refct > 0)
