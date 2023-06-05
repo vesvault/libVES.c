@@ -28,7 +28,7 @@
  * ves-util.h                 VES Utility Main Header
  *
  ***************************************************************************/
-#define VESUTIL_VERSION_CODE	"1.00"
+#define VESUTIL_VERSION_CODE	"1.02"
 #define VESUTIL_VERSION_STR	"VES CLI " VESUTIL_VERSION_CODE " (libVES.c " LIBVES_VERSION_CODE ") (c) 2018 - 2023 VESvault Corp (https://vesvault.com)"
 #define VESUTIL_VERSION_SHORT	"ves/" VESUTIL_VERSION_CODE
 #define	E_PARAM		64
@@ -78,7 +78,6 @@ extern struct param_st {
     char *key;
     char *token;
     char *primary;
-    char *passwd;
     struct {
 	int width;
 	int col;
@@ -103,6 +102,7 @@ extern struct param_st {
     char *priv;
     const char *keyAlgo;
     int flags;
+    int ks_flags;
     short int itemType;
     char debug;
 } params;
@@ -123,6 +123,7 @@ extern struct param_st {
 #define PF_FRC		0x0200
 #define PF_LCK		0x0400
 #define PF_NEW		0x0800
+#define PF_KEYSTORE	0x00010000
 
 #define SF_WR		0x01
 

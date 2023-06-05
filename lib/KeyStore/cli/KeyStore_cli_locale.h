@@ -14,7 +14,7 @@
  *         \___/              - Stream Encryption
  *
  *
- * (c) 2018 VESvault Corp
+ * (c) 2023 VESvault Corp
  * Jim Zubov <jz@vesvault.com>
  *
  * GNU General Public License v3
@@ -25,14 +25,26 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * ves-util/put.h             VES Utility: Header for parameter value handlers
+ * KeyStore_cli.c                   libVES: CLI key store module
  *
  ***************************************************************************/
-void *put_veskey(const char *str, size_t len, void **ptr);
-void *put_share(const char *str, size_t len, void **ptr);
-void *put_unshare(const char *str, size_t len, void **ptr);
-void *put_setshare(const char *str, size_t len, void **ptr);
-void *put_jvar(const char *str, size_t len, void **ptr);
-void *put_jvarobj(const char *str, size_t len, void **ptr);
-void *put_keyalgo(const char *str, size_t len, void **ptr);
-void *put_keystore(const char *str, size_t len, void **ptr);
+
+extern struct libVES_KeyStore_cli_locale libVES_KeyStore_cli_locale_default;
+
+struct libVES_KeyStore_cli_locale {
+    const char **head;
+    const char **keyname;
+    const char **keyname2;
+    const char **domain;
+    const char **domain2;
+    const char **user;
+    const char **user2;
+    const char **pin;
+    const char **pin2;
+    const char **retry;
+    const char **retry2;
+    const char **syncode;
+    const char **syncode2;
+    const char **nouser;
+    const char **primary;
+};

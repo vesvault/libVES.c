@@ -91,6 +91,7 @@ build_triplet = @build@
 host_triplet = @host@
 @HAVE_LIBOQS_TRUE@am__append_1 = libVES/KeyAlgo_OQS.c
 @HAVE_LIBOQS_TRUE@am__append_2 = libVES/KeyAlgo_OQS.h
+@LIBVES_KEYSTORE_TRUE@am__append_3 = -Wl,--whole-archive,KeyStore/$(LIBVES_KEYSTORE)/libVES_KeyStore_$(LIBVES_KEYSTORE).a,--no-whole-archive
 subdir = lib
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.ac
@@ -136,22 +137,26 @@ libVES_la_DEPENDENCIES = $(am__DEPENDENCIES_1)
 am__libVES_la_SOURCES_DIST = libVES.c libVES/Util.c libVES/List.c \
 	libVES/Cipher.c libVES/CiAlgo_AES.c libVES/VaultKey.c \
 	libVES/KeyAlgo_EVP.c libVES/VaultItem.c libVES/Ref.c \
-	libVES/User.c libVES/File.c libVES/REST.c libVES/KeyAlgo_OQS.c \
-	jVar.c libVES.h libVES/List.h libVES/Cipher.h \
-	libVES/CiAlgo_AES.h libVES/VaultKey.h libVES/KeyAlgo_EVP.h \
-	libVES/VaultItem.h libVES/Ref.h libVES/User.h libVES/File.h \
-	libVES/REST.h libVES/KeyAlgo_OQS.h jVar.h
+	libVES/User.c libVES/File.c libVES/REST.c libVES/KeyStore.c \
+	libVES/KeyAlgo_OQS.c jVar.c VESlocker.c libVES.h libVES/List.h \
+	libVES/Cipher.h libVES/CiAlgo_AES.h libVES/VaultKey.h \
+	libVES/KeyAlgo_EVP.h libVES/VaultItem.h libVES/Ref.h \
+	libVES/User.h libVES/File.h libVES/REST.h libVES/KeyStore.h \
+	libVES/KeyAlgo_OQS.h jVar.h VESlocker.h
 am__dirstamp = $(am__leading_dot)dirstamp
 @HAVE_LIBOQS_TRUE@am__objects_1 = libVES/KeyAlgo_OQS.lo
 am__objects_2 = libVES.lo libVES/Util.lo libVES/List.lo \
 	libVES/Cipher.lo libVES/CiAlgo_AES.lo libVES/VaultKey.lo \
 	libVES/KeyAlgo_EVP.lo libVES/VaultItem.lo libVES/Ref.lo \
-	libVES/User.lo libVES/File.lo libVES/REST.lo $(am__objects_1)
+	libVES/User.lo libVES/File.lo libVES/REST.lo \
+	libVES/KeyStore.lo $(am__objects_1)
 am__objects_3 = jVar.lo
-am__objects_4 =
-am__objects_5 = $(am__objects_4)
+am__objects_4 = VESlocker.lo
+am__objects_5 =
+am__objects_6 = $(am__objects_5)
 am_libVES_la_OBJECTS = $(am__objects_2) $(am__objects_3) \
-	$(am__objects_5) $(am__objects_4)
+	$(am__objects_4) $(am__objects_6) $(am__objects_5) \
+	$(am__objects_5)
 libVES_la_OBJECTS = $(am_libVES_la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
@@ -175,13 +180,15 @@ am__v_at_1 =
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/src
 depcomp = $(SHELL) $(top_srcdir)/build-aux/depcomp
 am__maybe_remake_depfiles = depfiles
-am__depfiles_remade = ./$(DEPDIR)/jVar.Plo ./$(DEPDIR)/libVES.Plo \
-	libVES/$(DEPDIR)/CiAlgo_AES.Plo libVES/$(DEPDIR)/Cipher.Plo \
-	libVES/$(DEPDIR)/File.Plo libVES/$(DEPDIR)/KeyAlgo_EVP.Plo \
-	libVES/$(DEPDIR)/KeyAlgo_OQS.Plo libVES/$(DEPDIR)/List.Plo \
-	libVES/$(DEPDIR)/REST.Plo libVES/$(DEPDIR)/Ref.Plo \
-	libVES/$(DEPDIR)/User.Plo libVES/$(DEPDIR)/Util.Plo \
-	libVES/$(DEPDIR)/VaultItem.Plo libVES/$(DEPDIR)/VaultKey.Plo
+am__depfiles_remade = ./$(DEPDIR)/VESlocker.Plo ./$(DEPDIR)/jVar.Plo \
+	./$(DEPDIR)/libVES.Plo libVES/$(DEPDIR)/CiAlgo_AES.Plo \
+	libVES/$(DEPDIR)/Cipher.Plo libVES/$(DEPDIR)/File.Plo \
+	libVES/$(DEPDIR)/KeyAlgo_EVP.Plo \
+	libVES/$(DEPDIR)/KeyAlgo_OQS.Plo libVES/$(DEPDIR)/KeyStore.Plo \
+	libVES/$(DEPDIR)/List.Plo libVES/$(DEPDIR)/REST.Plo \
+	libVES/$(DEPDIR)/Ref.Plo libVES/$(DEPDIR)/User.Plo \
+	libVES/$(DEPDIR)/Util.Plo libVES/$(DEPDIR)/VaultItem.Plo \
+	libVES/$(DEPDIR)/VaultKey.Plo
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -203,6 +210,14 @@ am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
 SOURCES = $(libVES_la_SOURCES)
 DIST_SOURCES = $(am__libVES_la_SOURCES_DIST)
+RECURSIVE_TARGETS = all-recursive check-recursive cscopelist-recursive \
+	ctags-recursive dvi-recursive html-recursive info-recursive \
+	install-data-recursive install-dvi-recursive \
+	install-exec-recursive install-html-recursive \
+	install-info-recursive install-pdf-recursive \
+	install-ps-recursive install-recursive installcheck-recursive \
+	installdirs-recursive pdf-recursive ps-recursive \
+	tags-recursive uninstall-recursive
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -211,9 +226,17 @@ am__can_run_installinfo = \
 am__nobase_include_HEADERS_DIST = libVES.h libVES/List.h \
 	libVES/Cipher.h libVES/CiAlgo_AES.h libVES/VaultKey.h \
 	libVES/KeyAlgo_EVP.h libVES/VaultItem.h libVES/Ref.h \
-	libVES/User.h libVES/File.h libVES/REST.h libVES/KeyAlgo_OQS.h \
-	jVar.h
+	libVES/User.h libVES/File.h libVES/REST.h libVES/KeyStore.h \
+	libVES/KeyAlgo_OQS.h jVar.h VESlocker.h
 HEADERS = $(nobase_include_HEADERS)
+RECURSIVE_CLEAN_TARGETS = mostlyclean-recursive clean-recursive	\
+  distclean-recursive maintainer-clean-recursive
+am__recursive_targets = \
+  $(RECURSIVE_TARGETS) \
+  $(RECURSIVE_CLEAN_TARGETS) \
+  $(am__extra_recursive_targets)
+AM_RECURSIVE_TARGETS = $(am__recursive_targets:-recursive=) TAGS CTAGS \
+	distdir distdir-am
 am__tagged_files = $(HEADERS) $(SOURCES) $(TAGS_FILES) $(LISP)
 # Read a list of newline-separated strings from the standard input,
 # and print each of them once, without duplicates.  Input order is
@@ -233,9 +256,35 @@ am__define_uniq_tagged_files = \
   done | $(am__uniquify_input)`
 ETAGS = etags
 CTAGS = ctags
+DIST_SUBDIRS = $(SUBDIRS)
 am__DIST_COMMON = $(srcdir)/Makefile.in \
 	$(top_srcdir)/build-aux/depcomp
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
+am__relativize = \
+  dir0=`pwd`; \
+  sed_first='s,^\([^/]*\)/.*$$,\1,'; \
+  sed_rest='s,^[^/]*/*,,'; \
+  sed_last='s,^.*/\([^/]*\)$$,\1,'; \
+  sed_butlast='s,/*[^/]*$$,,'; \
+  while test -n "$$dir1"; do \
+    first=`echo "$$dir1" | sed -e "$$sed_first"`; \
+    if test "$$first" != "."; then \
+      if test "$$first" = ".."; then \
+        dir2=`echo "$$dir0" | sed -e "$$sed_last"`/"$$dir2"; \
+        dir0=`echo "$$dir0" | sed -e "$$sed_butlast"`; \
+      else \
+        first2=`echo "$$dir2" | sed -e "$$sed_first"`; \
+        if test "$$first2" = "$$first"; then \
+          dir2=`echo "$$dir2" | sed -e "$$sed_rest"`; \
+        else \
+          dir2="../$$dir2"; \
+        fi; \
+        dir0="$$dir0"/"$$first"; \
+      fi; \
+    fi; \
+    dir1=`echo "$$dir1" | sed -e "$$sed_rest"`; \
+  done; \
+  reldir="$$dir2"
 ACLOCAL = @ACLOCAL@
 AMTAR = @AMTAR@
 AM_DEFAULT_VERBOSITY = @AM_DEFAULT_VERBOSITY@
@@ -273,6 +322,7 @@ LIBOBJS = @LIBOBJS@
 LIBOQS = @LIBOQS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
+LIBVES_KEYSTORE = @LIBVES_KEYSTORE@
 LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
@@ -354,22 +404,26 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
+SUBDIRS = KeyStore/cli
 LIBVES_CFILES = libVES.c libVES/Util.c libVES/List.c libVES/Cipher.c \
 	libVES/CiAlgo_AES.c libVES/VaultKey.c libVES/KeyAlgo_EVP.c \
 	libVES/VaultItem.c libVES/Ref.c libVES/User.c libVES/File.c \
-	libVES/REST.c $(am__append_1)
+	libVES/REST.c libVES/KeyStore.c $(am__append_1)
 LIBVES_HFILES = libVES.h libVES/List.h libVES/Cipher.h \
 	libVES/CiAlgo_AES.h libVES/VaultKey.h libVES/KeyAlgo_EVP.h \
 	libVES/VaultItem.h libVES/Ref.h libVES/User.h libVES/File.h \
-	libVES/REST.h $(am__append_2)
+	libVES/REST.h libVES/KeyStore.h $(am__append_2)
 JVAR_CFILES = jVar.c
 JVAR_HFILES = jVar.h
+VL_CFILES = VESlocker.c
+VL_HFILES = VESlocker.h
 lib_LTLIBRARIES = libVES.la
-nobase_include_HEADERS = $(LIBVES_HFILES) $(JVAR_HFILES)
-libVES_la_SOURCES = $(LIBVES_CFILES) $(JVAR_CFILES) $(LIBVES_HFILES) $(JVAR_HFILES)
+nobase_include_HEADERS = $(LIBVES_HFILES) $(JVAR_HFILES) $(VL_HFILES)
+libVES_la_SOURCES = $(LIBVES_CFILES) $(JVAR_CFILES) $(VL_CFILES) $(LIBVES_HFILES) $(JVAR_HFILES) $(VL_HFILES)
 libVES_la_LIBADD = $(LIBOQS)
-libVES_la_LDFLAGS = -version-info 1:0:0
-all: all-am
+libVES_la_LDFLAGS = -version-info 1:0:0 $(am__append_3)
+@LIBVES_KEYSTORE_TRUE@EXTRA_libVES_la_DEPENDENCIES = KeyStore/$(LIBVES_KEYSTORE)/libVES_KeyStore_$(LIBVES_KEYSTORE).a
+all: all-recursive
 
 .SUFFIXES:
 .SUFFIXES: .c .lo .o .obj
@@ -464,6 +518,8 @@ libVES/File.lo: libVES/$(am__dirstamp) \
 	libVES/$(DEPDIR)/$(am__dirstamp)
 libVES/REST.lo: libVES/$(am__dirstamp) \
 	libVES/$(DEPDIR)/$(am__dirstamp)
+libVES/KeyStore.lo: libVES/$(am__dirstamp) \
+	libVES/$(DEPDIR)/$(am__dirstamp)
 libVES/KeyAlgo_OQS.lo: libVES/$(am__dirstamp) \
 	libVES/$(DEPDIR)/$(am__dirstamp)
 
@@ -478,6 +534,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/VESlocker.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jVar.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libVES.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libVES/$(DEPDIR)/CiAlgo_AES.Plo@am__quote@ # am--include-marker
@@ -485,6 +542,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@libVES/$(DEPDIR)/File.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libVES/$(DEPDIR)/KeyAlgo_EVP.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libVES/$(DEPDIR)/KeyAlgo_OQS.Plo@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@libVES/$(DEPDIR)/KeyStore.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libVES/$(DEPDIR)/List.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libVES/$(DEPDIR)/REST.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libVES/$(DEPDIR)/Ref.Plo@am__quote@ # am--include-marker
@@ -554,14 +612,61 @@ uninstall-nobase_includeHEADERS:
 	$(am__nobase_strip_setup); files=`$(am__nobase_strip)`; \
 	dir='$(DESTDIR)$(includedir)'; $(am__uninstall_files_from_dir)
 
+# This directory's subdirectories are mostly independent; you can cd
+# into them and run 'make' without going through this Makefile.
+# To change the values of 'make' variables: instead of editing Makefiles,
+# (1) if the variable is set in 'config.status', edit 'config.status'
+#     (which will cause the Makefiles to be regenerated when you run 'make');
+# (2) otherwise, pass the desired values on the 'make' command line.
+$(am__recursive_targets):
+	@fail=; \
+	if $(am__make_keepgoing); then \
+	  failcom='fail=yes'; \
+	else \
+	  failcom='exit 1'; \
+	fi; \
+	dot_seen=no; \
+	target=`echo $@ | sed s/-recursive//`; \
+	case "$@" in \
+	  distclean-* | maintainer-clean-*) list='$(DIST_SUBDIRS)' ;; \
+	  *) list='$(SUBDIRS)' ;; \
+	esac; \
+	for subdir in $$list; do \
+	  echo "Making $$target in $$subdir"; \
+	  if test "$$subdir" = "."; then \
+	    dot_seen=yes; \
+	    local_target="$$target-am"; \
+	  else \
+	    local_target="$$target"; \
+	  fi; \
+	  ($(am__cd) $$subdir && $(MAKE) $(AM_MAKEFLAGS) $$local_target) \
+	  || eval $$failcom; \
+	done; \
+	if test "$$dot_seen" = "no"; then \
+	  $(MAKE) $(AM_MAKEFLAGS) "$$target-am" || exit 1; \
+	fi; test -z "$$fail"
+
 ID: $(am__tagged_files)
 	$(am__define_uniq_tagged_files); mkid -fID $$unique
-tags: tags-am
+tags: tags-recursive
 TAGS: tags
 
 tags-am: $(TAGS_DEPENDENCIES) $(am__tagged_files)
 	set x; \
 	here=`pwd`; \
+	if ($(ETAGS) --etags-include --version) >/dev/null 2>&1; then \
+	  include_option=--etags-include; \
+	  empty_fix=.; \
+	else \
+	  include_option=--include; \
+	  empty_fix=; \
+	fi; \
+	list='$(SUBDIRS)'; for subdir in $$list; do \
+	  if test "$$subdir" = .; then :; else \
+	    test ! -f $$subdir/TAGS || \
+	      set "$$@" "$$include_option=$$here/$$subdir/TAGS"; \
+	  fi; \
+	done; \
 	$(am__define_uniq_tagged_files); \
 	shift; \
 	if test -z "$(ETAGS_ARGS)$$*$$unique"; then :; else \
@@ -574,7 +679,7 @@ tags-am: $(TAGS_DEPENDENCIES) $(am__tagged_files)
 	      $$unique; \
 	  fi; \
 	fi
-ctags: ctags-am
+ctags: ctags-recursive
 
 CTAGS: ctags
 ctags-am: $(TAGS_DEPENDENCIES) $(am__tagged_files)
@@ -587,7 +692,7 @@ GTAGS:
 	here=`$(am__cd) $(top_builddir) && pwd` \
 	  && $(am__cd) $(top_srcdir) \
 	  && gtags -i $(GTAGS_ARGS) "$$here"
-cscopelist: cscopelist-am
+cscopelist: cscopelist-recursive
 
 cscopelist-am: $(am__tagged_files)
 	list='$(am__tagged_files)'; \
@@ -639,22 +744,48 @@ distdir-am: $(DISTFILES)
 	    || exit 1; \
 	  fi; \
 	done
+	@list='$(DIST_SUBDIRS)'; for subdir in $$list; do \
+	  if test "$$subdir" = .; then :; else \
+	    $(am__make_dryrun) \
+	      || test -d "$(distdir)/$$subdir" \
+	      || $(MKDIR_P) "$(distdir)/$$subdir" \
+	      || exit 1; \
+	    dir1=$$subdir; dir2="$(distdir)/$$subdir"; \
+	    $(am__relativize); \
+	    new_distdir=$$reldir; \
+	    dir1=$$subdir; dir2="$(top_distdir)"; \
+	    $(am__relativize); \
+	    new_top_distdir=$$reldir; \
+	    echo " (cd $$subdir && $(MAKE) $(AM_MAKEFLAGS) top_distdir="$$new_top_distdir" distdir="$$new_distdir" \\"; \
+	    echo "     am__remove_distdir=: am__skip_length_check=: am__skip_mode_fix=: distdir)"; \
+	    ($(am__cd) $$subdir && \
+	      $(MAKE) $(AM_MAKEFLAGS) \
+	        top_distdir="$$new_top_distdir" \
+	        distdir="$$new_distdir" \
+		am__remove_distdir=: \
+		am__skip_length_check=: \
+		am__skip_mode_fix=: \
+	        distdir) \
+	      || exit 1; \
+	  fi; \
+	done
 check-am: all-am
-check: check-am
+check: check-recursive
 all-am: Makefile $(LTLIBRARIES) $(HEADERS)
-installdirs:
+installdirs: installdirs-recursive
+installdirs-am:
 	for dir in "$(DESTDIR)$(libdir)" "$(DESTDIR)$(includedir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
-install: install-am
-install-exec: install-exec-am
-install-data: install-data-am
-uninstall: uninstall-am
+install: install-recursive
+install-exec: install-exec-recursive
+install-data: install-data-recursive
+uninstall: uninstall-recursive
 
 install-am: all-am
 	@$(MAKE) $(AM_MAKEFLAGS) install-exec-am install-data-am
 
-installcheck: installcheck-am
+installcheck: installcheck-recursive
 install-strip:
 	if test -z '$(STRIP)'; then \
 	  $(MAKE) $(AM_MAKEFLAGS) INSTALL_PROGRAM="$(INSTALL_STRIP_PROGRAM)" \
@@ -678,19 +809,21 @@ distclean-generic:
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
-clean: clean-am
+clean: clean-recursive
 
 clean-am: clean-generic clean-libLTLIBRARIES clean-libtool \
 	mostlyclean-am
 
-distclean: distclean-am
-		-rm -f ./$(DEPDIR)/jVar.Plo
+distclean: distclean-recursive
+		-rm -f ./$(DEPDIR)/VESlocker.Plo
+	-rm -f ./$(DEPDIR)/jVar.Plo
 	-rm -f ./$(DEPDIR)/libVES.Plo
 	-rm -f libVES/$(DEPDIR)/CiAlgo_AES.Plo
 	-rm -f libVES/$(DEPDIR)/Cipher.Plo
 	-rm -f libVES/$(DEPDIR)/File.Plo
 	-rm -f libVES/$(DEPDIR)/KeyAlgo_EVP.Plo
 	-rm -f libVES/$(DEPDIR)/KeyAlgo_OQS.Plo
+	-rm -f libVES/$(DEPDIR)/KeyStore.Plo
 	-rm -f libVES/$(DEPDIR)/List.Plo
 	-rm -f libVES/$(DEPDIR)/REST.Plo
 	-rm -f libVES/$(DEPDIR)/Ref.Plo
@@ -702,54 +835,56 @@ distclean: distclean-am
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-tags
 
-dvi: dvi-am
+dvi: dvi-recursive
 
 dvi-am:
 
-html: html-am
+html: html-recursive
 
 html-am:
 
-info: info-am
+info: info-recursive
 
 info-am:
 
 install-data-am: install-nobase_includeHEADERS
 
-install-dvi: install-dvi-am
+install-dvi: install-dvi-recursive
 
 install-dvi-am:
 
 install-exec-am: install-libLTLIBRARIES
 
-install-html: install-html-am
+install-html: install-html-recursive
 
 install-html-am:
 
-install-info: install-info-am
+install-info: install-info-recursive
 
 install-info-am:
 
 install-man:
 
-install-pdf: install-pdf-am
+install-pdf: install-pdf-recursive
 
 install-pdf-am:
 
-install-ps: install-ps-am
+install-ps: install-ps-recursive
 
 install-ps-am:
 
 installcheck-am:
 
-maintainer-clean: maintainer-clean-am
-		-rm -f ./$(DEPDIR)/jVar.Plo
+maintainer-clean: maintainer-clean-recursive
+		-rm -f ./$(DEPDIR)/VESlocker.Plo
+	-rm -f ./$(DEPDIR)/jVar.Plo
 	-rm -f ./$(DEPDIR)/libVES.Plo
 	-rm -f libVES/$(DEPDIR)/CiAlgo_AES.Plo
 	-rm -f libVES/$(DEPDIR)/Cipher.Plo
 	-rm -f libVES/$(DEPDIR)/File.Plo
 	-rm -f libVES/$(DEPDIR)/KeyAlgo_EVP.Plo
 	-rm -f libVES/$(DEPDIR)/KeyAlgo_OQS.Plo
+	-rm -f libVES/$(DEPDIR)/KeyStore.Plo
 	-rm -f libVES/$(DEPDIR)/List.Plo
 	-rm -f libVES/$(DEPDIR)/REST.Plo
 	-rm -f libVES/$(DEPDIR)/Ref.Plo
@@ -760,26 +895,27 @@ maintainer-clean: maintainer-clean-am
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 
-mostlyclean: mostlyclean-am
+mostlyclean: mostlyclean-recursive
 
 mostlyclean-am: mostlyclean-compile mostlyclean-generic \
 	mostlyclean-libtool
 
-pdf: pdf-am
+pdf: pdf-recursive
 
 pdf-am:
 
-ps: ps-am
+ps: ps-recursive
 
 ps-am:
 
 uninstall-am: uninstall-libLTLIBRARIES uninstall-nobase_includeHEADERS
 
-.MAKE: install-am install-strip
+.MAKE: $(am__recursive_targets) install-am install-strip
 
-.PHONY: CTAGS GTAGS TAGS all all-am am--depfiles check check-am clean \
-	clean-generic clean-libLTLIBRARIES clean-libtool cscopelist-am \
-	ctags ctags-am distclean distclean-compile distclean-generic \
+.PHONY: $(am__recursive_targets) CTAGS GTAGS TAGS all all-am \
+	am--depfiles check check-am clean clean-generic \
+	clean-libLTLIBRARIES clean-libtool cscopelist-am ctags \
+	ctags-am distclean distclean-compile distclean-generic \
 	distclean-libtool distclean-tags distdir dvi dvi-am html \
 	html-am info info-am install install-am install-data \
 	install-data-am install-dvi install-dvi-am install-exec \
@@ -787,7 +923,7 @@ uninstall-am: uninstall-libLTLIBRARIES uninstall-nobase_includeHEADERS
 	install-info-am install-libLTLIBRARIES install-man \
 	install-nobase_includeHEADERS install-pdf install-pdf-am \
 	install-ps install-ps-am install-strip installcheck \
-	installcheck-am installdirs maintainer-clean \
+	installcheck-am installdirs installdirs-am maintainer-clean \
 	maintainer-clean-generic mostlyclean mostlyclean-compile \
 	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
 	tags tags-am uninstall uninstall-am uninstall-libLTLIBRARIES \

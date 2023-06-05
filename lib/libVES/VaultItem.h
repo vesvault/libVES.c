@@ -100,6 +100,7 @@ char *libVES_VaultItem_toStringl(libVES_VaultItem *vitem, size_t *len, char *buf
  * Set the raw content and type
  ***************************************************************************/
 int libVES_VaultItem_setValue(libVES_VaultItem *vitem, size_t len, const char *value, int type);
+int libVES_VaultItem_setValue0(libVES_VaultItem *vitem, size_t len, char *value, int type);
 
 /***************************************************************************
  * A stream cipher object stored in the Vault Item

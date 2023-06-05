@@ -39,6 +39,7 @@
 #include <libVES/VaultKey.h>
 #include <libVES/VaultItem.h>
 #include "../ves-util.h"
+#include "keystore_flags.h"
 #include "put.h"
 
 void *put_veskey(const char *str, size_t len, void **pdata) {
@@ -79,4 +80,25 @@ void *put_jvarobj(const char *str, size_t len, void **ptr) {
 
 void *put_keyalgo(const char *str, size_t len, void **ptr) {
     return *ptr = libVES_VaultKey_algoFromStr(str) ? (void *)str : NULL;
+}
+
+void *put_keystore(const char *str, size_t len, void **ptr) {
+    const char *s = str;
+    const char *tail = s + len;
+    while (s < tail) {
+	const char *next = memchr(s, ',', tail - s);
+	if (!next) next = tail;
+	if (next > s) {
+	    struct keystore_flag *f;
+	    for (f = keystore_flags; f->tag; f++) {
+		if (next - s == strlen(f->tag) && !strncmp(s, f->tag, next - s)) {
+		    *(int *)ptr |= f->val;
+		    break;
+		}
+	    }
+	    if (!f->tag) VES_throw("[put_keystore]", "Unknown flag (see -El)", s, NULL);
+	}
+	s = next + 1;
+    }
+    return ptr;
 }

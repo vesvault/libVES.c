@@ -109,11 +109,11 @@ libVES_VaultItem *libVES_VaultItem_fromJVar(jVar *data, libVES *ves) {
     if ((obj = jVar_get(data, "file"))) {
 	vitem->objectType = LIBVES_O_FILE;
 	vitem->file = libVES_File_fromJVar(obj);
-	libVES_REFUP(File, vitem->file);
+	(void)libVES_REFUP(File, vitem->file);
     } else if ((obj = jVar_get(data, "vaultKey"))) {
 	vitem->objectType = LIBVES_O_VKEY;
 	vitem->vaultKey = libVES_VaultKey_fromJVar(obj, NULL);
-	libVES_REFUP(VaultKey, vitem->vaultKey);
+	(void)libVES_REFUP(VaultKey, vitem->vaultKey);
     } else {
 	vitem->objectType = -1;
 	vitem->object = NULL;
@@ -130,7 +130,7 @@ libVES_VaultItem *libVES_VaultItem_fromJVar(jVar *data, libVES *ves) {
 	    jVar *entry = jVar_index(entries, i);
 	    char *encdata = jVar_getString0(jVar_get(entry, "encData"));
 	    libVES_VaultKey *vkey = vitem->share[i] = libVES_VaultKey_fromJVar(jVar_get(entry, "vaultKey"), ves);
-	    libVES_REFUP(VaultKey, vkey);
+	    (void)libVES_REFUP(VaultKey, vkey);
 	    if (!vitem->value && (ukey = libVES_List_find(ves->unlockedKeys, vkey))) {
 		int len = libVES_VaultKey_decrypt(ukey, encdata, &vitem->value);
 		if (len >= 0) vitem->len = len;
@@ -197,7 +197,7 @@ libVES_VaultItem *libVES_VaultItem_create(libVES_Ref *ref) {
     libVES_VaultItem *vitem = libVES_VaultItem_new();
     vitem->objectType = LIBVES_O_FILE;
     vitem->file = libVES_File_new(ref);
-    libVES_REFUP(File, vitem->file);
+    (void)libVES_REFUP(File, vitem->file);
     return vitem;
 }
 
@@ -227,9 +227,16 @@ jVar *libVES_VaultItem_getObject(libVES_VaultItem *vitem) {
 }
 
 int libVES_VaultItem_setValue(libVES_VaultItem *vitem, size_t len, const char *value, int type) {
+    char *v = malloc(len);
+    if (!v) return 0;
+    memcpy(v, value, len);
+    return libVES_VaultItem_setValue0(vitem, len, v, type) ? 1 : (free(v), 0);
+}
+
+int libVES_VaultItem_setValue0(libVES_VaultItem *vitem, size_t len, char *value, int type) {
     if (!vitem) return 0;
     free(vitem->value);
-    vitem->value = (char *) value;
+    vitem->value = value;
     vitem->len = len;
     if (type >= 0) vitem->type = type;
     libVES_VaultItem_force(vitem);
@@ -240,7 +247,7 @@ int libVES_VaultItem_setCipher(libVES_VaultItem *vitem, libVES_Cipher *ci) {
     if (!vitem || !ci) return 0;
     size_t len;
     char *value = libVES_Cipher_toStringl(ci, &len, NULL);
-    int res = libVES_VaultItem_setValue(vitem, len, value, LIBVES_VI_FILE);
+    int res = libVES_VaultItem_setValue0(vitem, len, value, LIBVES_VI_FILE);
     if (!res) free(value);
     else {
 	if (!jVar_isObject(vitem->meta)) {
@@ -256,7 +263,7 @@ int libVES_VaultItem_setObject(libVES_VaultItem *vitem, jVar *obj) {
     if (!vitem || !obj) return 0;
     char *json = jVar_toJSON(obj);
     if (!json) return 0;
-    int res = libVES_VaultItem_setValue(vitem, strlen(json), json, LIBVES_VI_STRING);
+    int res = libVES_VaultItem_setValue0(vitem, strlen(json), json, LIBVES_VI_STRING);
     if (!res) free(json);
     return res;
 }
@@ -349,14 +356,19 @@ libVES_VaultItem *libVES_VaultItem_get(libVES_Ref *ref, libVES *ves) {
 int libVES_VaultItem_post(libVES_VaultItem *vitem, libVES *ves) {
     if (!vitem || !ves) return 0;
     if ((vitem->flags & LIBVES_SH_UPD) && !vitem->entries) {
-	libVES_List_STATIC(lst, NULL, 1, ves->vaultKey);
-	if (!libVES_VaultItem_entries(vitem, &lst, LIBVES_SH_ADD)) return 0;
+	libVES_VaultKey *vk = libVES_getVaultKey(ves);
+	libVES_List_STATIC(lst, NULL, 1, vk);
+	if (!vk || !libVES_VaultItem_entries(vitem, &lst, LIBVES_SH_ADD)) return 0;
     }
     jVar *req = libVES_VaultItem_toJVar(vitem);
     if (!req) return 0;
     jVar *res = libVES_REST(ves, "vaultItems", req);
     jVar_free(req);
     if (!res) return 0;
+    if (!vitem->id) {
+	vitem->id = jVar_getInt(jVar_get(res, "id"));
+	if (vitem->objectType == LIBVES_VI_FILE && vitem->file) vitem->file->id = vitem->id;
+    }
     jVar_free(res);
     return 1;
 }

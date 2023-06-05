@@ -54,8 +54,8 @@ void *libVES_lookupAlgo(const char *str, struct libVES_List *lst);
 char *libVES_buildURI(int argc, ...);
 
 
-#define libVES_REFINIT(ptr)			(((ptr) && ((ptr)->refct = 0)), (ptr))
-#define libVES_REFUP(type, ptr)			(((ptr) && ((libVES_ ## type *)(ptr))->refct++), (ptr))
+#define libVES_REFINIT(ptr)			((void)((ptr) && ((ptr)->refct = 0)), (ptr))
+#define libVES_REFUP(type, ptr)			((void)((ptr) && ((libVES_ ## type *)(ptr))->refct++), (ptr))
 #define libVES_REFDN(type, ptr)			(!(ptr) || (--((libVES_ ## type *)(ptr))->refct > 0) || (libVES_ ## type ## _free(ptr), 0))
-#define libVES_REFRM(ptr)			(!(ptr) || (--(ptr)->refct, (ptr) = NULL))
+#define libVES_REFRM(ptr)			(!(ptr) || ((void)--(ptr)->refct, (ptr) = NULL))
 #define libVES_REFBUSY(ptr)			(!(ptr) || (ptr)->refct > 0)

@@ -25,14 +25,14 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * ves-util/put.h             VES Utility: Header for parameter value handlers
+ * ves-util/keystore_flags.h  VES Utility: Header for -E option flags
  *
  ***************************************************************************/
-void *put_veskey(const char *str, size_t len, void **ptr);
-void *put_share(const char *str, size_t len, void **ptr);
-void *put_unshare(const char *str, size_t len, void **ptr);
-void *put_setshare(const char *str, size_t len, void **ptr);
-void *put_jvar(const char *str, size_t len, void **ptr);
-void *put_jvarobj(const char *str, size_t len, void **ptr);
-void *put_keyalgo(const char *str, size_t len, void **ptr);
-void *put_keystore(const char *str, size_t len, void **ptr);
+
+struct keystore_flag {
+    int val;
+    const char *tag;
+    const char *info;
+};
+
+extern struct keystore_flag keystore_flags[];

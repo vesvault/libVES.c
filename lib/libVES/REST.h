@@ -36,4 +36,5 @@ struct jVar *libVES_REST(struct libVES *ves, const char *uri, struct jVar *body)
 struct jVar *libVES_REST_login(struct libVES *ves, const char *uri, struct jVar *body, const char *username, const char *passwd);
 struct jVar *libVES_REST_VESauthGET(struct libVES *ves, const char *url, long *pcode, const char *fmt, ...);
 struct jVar *libVES_REST_hdrs(struct libVES *ves, const char *uri, struct jVar *body, struct curl_slist *hdrs);
+struct jVar *libVES_REST_req(struct libVES *ves, const char *url, jVar *body, struct curl_slist *hdrs, long *pcode);
 void libVES_REST_done(struct libVES *ves);

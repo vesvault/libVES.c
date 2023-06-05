@@ -51,6 +51,7 @@
 #include <jVar.h>
 #include "../ves-util.h"
 #include "out.h"
+#include "keystore_flags.h"
 #include "tty.h"
 
 int out_list(int fdi, struct ctx_st *ctx) {
@@ -328,4 +329,14 @@ void out_ansi_str(int fdi, const char *str) {
 	    }
 	}
     } while (c);
+}
+
+int out_keystore_flags(int fd, struct ctx_st *ctx) {
+    struct keystore_flag *f;
+    char buf[256];
+    for (f = keystore_flags; f->tag; f++) {
+	sprintf(buf, "%-8s  %.160s\r\n", f->tag, f->info);
+	(void)write(fd, buf, strlen(buf));
+    }
+    return 0;
 }

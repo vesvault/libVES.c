@@ -83,6 +83,9 @@
 /* Define to 1 if you have the <windows.h> header file. */
 #undef HAVE_WINDOWS_H
 
+/* Define the keystore module from lib/KeyStore */
+#undef LIBVES_KEYSTORE
+
 /* Define to the sub-directory where libtool stores uninstalled libraries. */
 #undef LT_OBJDIR
 

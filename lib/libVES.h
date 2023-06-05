@@ -28,8 +28,8 @@
  * libVES.h                   libVES: Main header
  *
  ***************************************************************************/
-#define LIBVES_VERSION_NUMBER	0x01020000L
-#define LIBVES_VERSION_CODE	"1.20"
+#define LIBVES_VERSION_NUMBER	0x01020400L
+#define LIBVES_VERSION_CODE	"1.24"
 #define LIBVES_VERSION_STR	"libVES.c " LIBVES_VERSION_CODE " (c) 2018 - 2023 VESvault Corp"
 #define LIBVES_VERSION_SHORT	"libVES/" LIBVES_VERSION_CODE
 
@@ -72,6 +72,7 @@ typedef struct libVES {
 #define LIBVES_E_UNSUPPORTED	9
 #define LIBVES_E_INCORRECT	10
 #define LIBVES_E_ASSERT		11
+#define LIBVES_E_DIALOG		12
 #define LIBVES_E_INTERNAL	31
 
 #define LIBVES_O_FILE		0x01
@@ -274,6 +275,15 @@ size_t libVES_b64decode(const char *b64, char **dec);
 /***************************************************************************
  * Base64 encode, returns b64 or malloc'd string if b64==NULL, filled with
  * NUL terminated encoded content
+ * libVES_b64encode_web produces an RFC4648 section 5 url-safe encoding
+ * libVES_b64encode_map takes a custom map, 64 chars + the padding char
  ***************************************************************************/
 char *libVES_b64encode(const char *data, size_t len, char *b64);
+char *libVES_b64encode_web(const char *data, size_t len, char *b64);
+char *libVES_b64encode_map(const char *map, const char *data, size_t len, char *b64);
 
+/***************************************************************************
+ * Assign ves->me if not assigned yet, useful for primary vault operations.
+ * The user is refcounted if assigned, it's safe to use libVES_User_free(user)
+ ***************************************************************************/
+void libVES_setUser(struct libVES *ves, struct libVES_User *user);

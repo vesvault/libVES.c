@@ -14,7 +14,7 @@
  *         \___/              - Stream Encryption
  *
  *
- * (c) 2018 VESvault Corp
+ * (c) 2023 VESvault Corp
  * Jim Zubov <jz@vesvault.com>
  *
  * GNU General Public License v3
@@ -25,14 +25,24 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * ves-util/put.h             VES Utility: Header for parameter value handlers
+ * keydir.c                       libVES: Local directory key storage
  *
  ***************************************************************************/
-void *put_veskey(const char *str, size_t len, void **ptr);
-void *put_share(const char *str, size_t len, void **ptr);
-void *put_unshare(const char *str, size_t len, void **ptr);
-void *put_setshare(const char *str, size_t len, void **ptr);
-void *put_jvar(const char *str, size_t len, void **ptr);
-void *put_jvarobj(const char *str, size_t len, void **ptr);
-void *put_keyalgo(const char *str, size_t len, void **ptr);
-void *put_keystore(const char *str, size_t len, void **ptr);
+
+struct libVES_KeyStore;
+
+struct libVES_KeyStore_keydir {
+    const char **(* pathfn)(struct libVES_KeyStore *ks);
+    void (* cleanfn)(struct libVES_KeyStore *ks);
+    struct {
+	int (* getfn)(struct libVES_KeyStore *ks, const char *domain, const char *extid, char *val, int maxlen, int flags);
+	int (* putfn)(struct libVES_KeyStore *ks, const char *domain, const char *extid, const char *val, int len, int flags);
+	int (* deletefn)(struct libVES_KeyStore *ks, const char *domain, const char *extid, int flags);
+    } chain;
+};
+
+
+int libVES_KeyStore_keydir_get(struct libVES_KeyStore *ks, const char *domain, const char *extid, char *val, int maxlen, int flags);
+int libVES_KeyStore_keydir_put(struct libVES_KeyStore *ks, const char *domain, const char *extid, const char *val, int len, int flags);
+int libVES_KeyStore_keydir_delete(struct libVES_KeyStore *ks, const char *domain, const char *extid, int flags);
+#define libVES_KeyStore_keydir_cleanup(ks)	((struct libVES_KeyStore_keydir *)((ks)->store))->cleanfn(ks)

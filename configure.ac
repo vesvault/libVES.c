@@ -3,7 +3,7 @@
 
 
 AC_PREREQ([2.69])
-AC_INIT([VES], [1.20], [bugs@vesvault.com])
+AC_INIT([VES], [1.24], [bugs@vesvault.com])
 AC_CONFIG_SRCDIR([src/ves-util.c])
 AC_CONFIG_HEADERS([src/config.h])
 
@@ -38,6 +38,21 @@ LIBOQS=
             [-lcrypto]
         )],
 	[AM_CONDITIONAL([HAVE_LIBOQS], [test])]
+    )
+
+AC_ARG_WITH([keystore],
+    [AS_HELP_STRING([--with-keystore],
+          [build with a keystore module from lib/KeyStore])],
+    [],
+    [with_keystore=cli])
+LIBVES_KEYSTORE=
+    AS_IF([test "x$with_keystore" != xno],
+	[AC_SUBST([LIBVES_KEYSTORE], [$with_keystore])
+	    AC_DEFINE_UNQUOTED([LIBVES_KEYSTORE], [$with_keystore],
+                    [Define the keystore module from lib/KeyStore])
+	    AM_CONDITIONAL([LIBVES_KEYSTORE], [test 1])
+        ],
+	[AM_CONDITIONAL([LIBVES_KEYSTORE], [test])]
     )
 
 

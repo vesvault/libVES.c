@@ -39,7 +39,7 @@ extern const struct libVES_KeyAlgo libVES_KeyAlgo_RSA;
  * ECDH via EVP
  ***************************************************************************/
 extern const struct libVES_KeyAlgo libVES_KeyAlgo_ECDH;
-#define libVES_KeyAlgo_ECDH_defaultCurve	NID_secp384r1
+#define libVES_KeyAlgo_ECDH_defaultCurve	NID_secp521r1
 
 extern void *libVES_KeyAlgo_autoEVPfn;
 extern void *libVES_KeyAlgo_autoPEMfn;

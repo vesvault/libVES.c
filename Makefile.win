@@ -1,18 +1,26 @@
 #OPENSSL_PATH=c:\src\openssl\openssl-1.1.0e-vs2015
 OPENSSL_PATH="c:\Program Files (x86)\OpenSSL-Win32"
 CURL_PATH=c:\src\curl32
+OQS_PATH=c:\src\liboqs
 
 CFLAGS=-I $(OPENSSL_PATH)\\include \
 -I $(CURL_PATH)\\include \
--I lib
+-I $(OQS_PATH)\\include \
+-I lib \
+-D HAVE_LIBOQS \
+-D LIBVES_KEYSTORE=cli
 
 LDFLAGS=$(OPENSSL_PATH)\\lib\\VC\\libcrypto32MD.lib \
-$(CURL_PATH)\\lib\\libcurl.dll.a
+$(CURL_PATH)\\lib\\libcurl.dll.a \
+$(OQS_PATH)\\lib\\Release\\oqs.lib \
+advapi32.lib
 
 AR=lib
 LD=link
 
 LIBVES_LIB=lib\\libVES.lib
+LIBVES_DLL=lib\\libVES.dll
+KEYSTORE_CLI_LIB=lib\\KeyStore\\cli\\libVES_KeyStore_cli.lib
 VESUTIL_EXE=ves.exe
 
 LIBVES_OBJS=lib\\libVES.obj \
@@ -22,13 +30,17 @@ lib\\libVES\\Cipher.obj \
 lib\\libVES\\CiAlgo_AES.obj \
 lib\\libVES\\VaultKey.obj \
 lib\\libVES\\KeyAlgo_EVP.obj \
+lib\\libVES\\KeyAlgo_OQS.obj \
 lib\\libVES\\VaultItem.obj \
 lib\\libVES\\Ref.obj \
 lib\\libVES\\User.obj \
 lib\\libVES\\File.obj \
-lib\\libVES\\REST.obj
+lib\\libVES\\REST.obj \
+lib\\libVES\\KeyStore.obj
 
 JVAR_OBJS=lib\\jVar.obj
+
+VL_OBJS=lib\\VESlocker.obj
 
 VESUTIL_OBJS=src\\ves-util.obj \
 src\\ves-util\\put.obj \
@@ -38,7 +50,8 @@ src\\ves-util\\out.obj \
 src\\ves-util\\ci.obj \
 src\\ves-util\\help.obj \
 src\\ves-util\\hook.obj \
-src\\ves-util\\tty.obj
+src\\ves-util\\tty.obj \
+src\\ves-util\\keystore_flags.obj
 
 EXTRA_OBJS=applink.obj
 
@@ -50,11 +63,16 @@ all:	ves.exe
 applink.obj:
 	$(CC) $(CFLAGS) -Fo:$@ -c $(OPENSSL_PATH)\\include\\openssl\\applink.c
 
-libVES.lib:	$(LIBVES_OBJS) $(JVAR_OBJS)
-	$(AR) /OUT:$(LIBVES_LIB) $(LIBVES_OBJS) $(JVAR_OBJS)
+libVES.lib:	$(LIBVES_OBJS) $(JVAR_OBJS) $(VL_OBJS) $(KEYSTORE_CLI_LIB)
+	$(AR) /OUT:$(LIBVES_LIB) $(LIBVES_OBJS) $(JVAR_OBJS) $(VL_OBJS) $(OQS_PATH)\\lib\\Release\\oqs.lib $(KEYSTORE_CLI_LIB)
 
 ves.exe:	$(VESUTIL_OBJS) libVES.lib $(EXTRA_OBJS)
 	$(LD) /OUT:$(VESUTIL_EXE) $(LDFLAGS) $(VESUTIL_OBJS) $(EXTRA_OBJS) $(LIBVES_LIB)
+
+$(KEYSTORE_CLI_LIB):
+	cd lib\\KeyStore\\cli
+	$(MAKE) libVES_KeyStore_cli.lib
+	cd ..\\..\\..
 
 clean:
 	del $(LIBVES_OBJS) $(JVAR_OBJS) $(VESUTIL_OBJS) $(LIBVES_LIB) $(VESUTIL_EXE)

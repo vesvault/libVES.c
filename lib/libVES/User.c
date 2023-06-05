@@ -146,6 +146,7 @@ libVES_User *libVES_User_fromPath(const char **path) {
     user->email = strdup(email);
     user->firstName = buf == email || !*buf ? NULL : strdup(buf);
     user->lastName = lastw ? strdup(lastw) : NULL;
+    user->primary = NULL;
     return libVES_REFINIT(user);
 }
 
@@ -161,6 +162,7 @@ libVES_User *libVES_User_fromJVar(jVar *data) {
     if (!user) return NULL;
     user->id = jVar_getInt(jVar_get(data, "id"));
     libVES_User_parseJVar(user, data);
+    user->primary = NULL;
     return libVES_REFINIT(user);
 }
 
@@ -205,10 +207,25 @@ libVES_List *libVES_User_vaultKeys2(libVES_User *user, libVES_List *lst, libVES 
 
 libVES_VaultKey *libVES_User_primary(libVES_User *user, const char *passwd, char **sesstkn, libVES *ves) {
     if (!user) return NULL;
-    jVar *rsp = libVES_REST_login(ves, "me?fields=sessionToken,currentVaultKey(id,type,algo,publicKey,privateKey)", NULL, user->email, passwd);
-    if (!rsp) return NULL;
+    jVar *rsp = NULL;
+    if (passwd) {
+	rsp = libVES_REST_login(ves, "me?fields=sessionToken,currentVaultKey(id,type,algo,publicKey,privateKey)", NULL, user->email, passwd);
+	(void)libVES_REFDN(VaultKey, user->primary);
+    } else if (user->primary) {
+	return user->primary;
+    } else {
+	jVar *req = libVES_User_toJVar(user);
+	if (!req) libVES_throw(ves, LIBVES_E_PARAM, "Bad user data", NULL);
+	jVar_put(req, "$op", jVar_string("fetch"));
+	rsp = libVES_REST(ves, "users?fields=currentVaultKey(id,type,algo,publicKey)", req);
+	jVar_free(req);
+    }
+    (void)libVES_REFDN(VaultKey, user->primary);
+    libVES_VaultKey *pri = libVES_VaultKey_fromJVar(jVar_get(rsp, "currentVaultKey"), ves);
+    user->primary = libVES_REFUP(VaultKey, pri);
     if (sesstkn) *sesstkn = jVar_getString0(jVar_get(rsp, "sessionToken"));
-    return libVES_VaultKey_fromJVar(jVar_get(rsp, "currentVaultKey"), ves);
+    jVar_free(rsp);
+    return user->primary;
 }
 
 libVES_User *libVES_User_loadFields(libVES_User *user, libVES *ves) {
@@ -252,5 +269,6 @@ void libVES_User_free(libVES_User *user) {
     free(user->email);
     free(user->firstName);
     free(user->lastName);
+    libVES_REFDN(VaultKey, user->primary);
     free(user);
 }

@@ -83,7 +83,7 @@ libVES_VaultKey *libVES_VaultKey_new(int type, const libVES_KeyAlgo *algo, void 
     vkey->vitem->type = LIBVES_VI_PASSWORD;
     vkey->vitem->value = vkcpy;
     vkey->vitem->len = veskey->keylen;
-    libVES_REFUP(VaultItem, vkey->vitem);
+    (void)libVES_REFUP(VaultItem, vkey->vitem);
     vkey->entries = NULL;
     vkey->appUrl = NULL;
     if (!vkey->algo || !vkey->pPriv) {
@@ -110,11 +110,11 @@ libVES_VaultKey *libVES_VaultKey_fromJVar(jVar *j_vkey, libVES *ves) {
     vkey->publicKey = jVar_getString0(jVar_get(j_vkey, "publicKey"));
     vkey->privateKey = jVar_getString0(jVar_get(j_vkey, "privateKey"));
     vkey->user = libVES_User_fromJVar(jVar_get(j_vkey, "user"));
-    libVES_REFUP(User, vkey->user);
+    (void)libVES_REFUP(User, vkey->user);
     vkey->external = libVES_External_fromJVar(jVar_get(j_vkey, "externals"));
-    libVES_REFUP(Ref, vkey->external);
+    (void)libVES_REFUP(Ref, vkey->external);
     vkey->vitem = libVES_VaultItem_fromJVar(jVar_index(jVar_get(j_vkey, "items"), 0), ves);
-    libVES_REFUP(VaultItem, vkey->vitem);
+    (void)libVES_REFUP(VaultItem, vkey->vitem);
     vkey->pPriv = vkey->pPub = NULL;
     vkey->entries = NULL;
     vkey->appUrl = NULL;
@@ -207,7 +207,10 @@ libVES_VaultKey *libVES_VaultKey_get2(libVES_Ref *ref, libVES *ves, libVES_User 
     if (flags & LIBVES_O_GET) {
 	jVar *vkey_req = jVar_object();
 	libVES_Ref_toJVar(ref, vkey_req);
-	if (ves->vaultKey) jVar_put(vkey_req, "creator", libVES_User_toJVar(libVES_VaultKey_getUser(ves->vaultKey)));
+	if (ves->vaultKey) {
+	    libVES_User *u = libVES_VaultKey_getUser(ves->vaultKey);
+	    if (u) jVar_put(vkey_req, "creator", libVES_User_toJVar(u));
+	}
 	if (user) jVar_put(vkey_req, "user", jVar_put(libVES_User_toJVar(user), "$op", jVar_string("fetch")));
 	jVar_put(vkey_req, "$op", jVar_string("fetch"));
 	jVar *vkey_res = libVES_REST(ves, (sesstkn ? "vaultKeys?fields=id,algo,type,publicKey,privateKey,encSessionToken" : "vaultKeys?fields=id,type,algo,publicKey,externals"), vkey_req);
@@ -251,8 +254,8 @@ libVES_VaultKey *libVES_VaultKey_create(libVES_Ref *ref, libVES *ves, libVES_Use
     vkey->user = libVES_REFUP(User, user);
     vkey->external = libVES_REFUP(Ref, ref);
     if (user && !libVES_VaultKey_propagate(vkey)) {
-	libVES_REFRM(vkey->user);
-	libVES_REFRM(vkey->external);
+	(void)libVES_REFRM(vkey->user);
+	(void)libVES_REFRM(vkey->external);
 	libVES_VaultKey_free(vkey);
 	vkey = NULL;
     } else if (!user) {
@@ -347,7 +350,7 @@ libVES_User *libVES_VaultKey_getUser(libVES_VaultKey *vkey) {
 	jVar *rsp = libVES_REST(vkey->ves, uri, NULL);
 	if (!rsp) return NULL;
 	vkey->user = libVES_User_fromJVar(jVar_get(rsp, "user"));
-	libVES_REFUP(User, vkey->user);
+	(void)libVES_REFUP(User, vkey->user);
 	jVar_free(rsp);
 	if (!vkey->user) libVES_throw(vkey->ves, LIBVES_E_DENIED, "Cannot load vault key user info", NULL);
     }
@@ -371,6 +374,8 @@ void *libVES_VaultKey_unlock(libVES_VaultKey *vkey, libVES_veskey *veskey) {
 
 void libVES_VaultKey_lock(libVES_VaultKey *vkey) {
     if (!vkey) return;
+    (void)libVES_REFDN(VaultItem, vkey->vitem);
+    vkey->vitem = NULL;
     if (vkey->pPriv) libVES_removeUnlocked(vkey->ves, vkey);
     if (vkey->algo && vkey->algo->lockfn) vkey->algo->lockfn(vkey);
 }

@@ -106,7 +106,7 @@ am__objects_1 = ves-util.$(OBJEXT) ves-util/put.$(OBJEXT) \
 	ves-util/get.$(OBJEXT) ves-util/set.$(OBJEXT) \
 	ves-util/out.$(OBJEXT) ves-util/ci.$(OBJEXT) \
 	ves-util/help.$(OBJEXT) ves-util/hook.$(OBJEXT) \
-	ves-util/tty.$(OBJEXT)
+	ves-util/tty.$(OBJEXT) ves-util/keystore_flags.$(OBJEXT)
 am__objects_2 =
 am_ves_OBJECTS = $(am__objects_1) $(am__objects_2)
 ves_OBJECTS = $(am_ves_OBJECTS)
@@ -132,7 +132,8 @@ depcomp = $(SHELL) $(top_srcdir)/build-aux/depcomp
 am__maybe_remake_depfiles = depfiles
 am__depfiles_remade = ./$(DEPDIR)/ves-util.Po ves-util/$(DEPDIR)/ci.Po \
 	ves-util/$(DEPDIR)/get.Po ves-util/$(DEPDIR)/help.Po \
-	ves-util/$(DEPDIR)/hook.Po ves-util/$(DEPDIR)/out.Po \
+	ves-util/$(DEPDIR)/hook.Po \
+	ves-util/$(DEPDIR)/keystore_flags.Po ves-util/$(DEPDIR)/out.Po \
 	ves-util/$(DEPDIR)/put.Po ves-util/$(DEPDIR)/set.Po \
 	ves-util/$(DEPDIR)/tty.Po
 am__mv = mv -f
@@ -221,6 +222,7 @@ LIBOBJS = @LIBOBJS@
 LIBOQS = @LIBOQS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
+LIBVES_KEYSTORE = @LIBVES_KEYSTORE@
 LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
@@ -310,7 +312,8 @@ ves-util/out.c \
 ves-util/ci.c \
 ves-util/help.c \
 ves-util/hook.c \
-ves-util/tty.c
+ves-util/tty.c \
+ves-util/keystore_flags.c
 
 VESUTIL_HFILES = ves-util.h \
 ves-util/put.h \
@@ -320,7 +323,8 @@ ves-util/out.h \
 ves-util/ci.h \
 ves-util/help.h \
 ves-util/hook.h \
-ves-util/tty.h
+ves-util/tty.h \
+ves-util/keystore_flags.h
 
 AM_CPPFLAGS = -I $(top_builddir)/lib
 ves_SOURCES = $(VESUTIL_CFILES) $(VESUTIL_HFILES)
@@ -445,6 +449,8 @@ ves-util/hook.$(OBJEXT): ves-util/$(am__dirstamp) \
 	ves-util/$(DEPDIR)/$(am__dirstamp)
 ves-util/tty.$(OBJEXT): ves-util/$(am__dirstamp) \
 	ves-util/$(DEPDIR)/$(am__dirstamp)
+ves-util/keystore_flags.$(OBJEXT): ves-util/$(am__dirstamp) \
+	ves-util/$(DEPDIR)/$(am__dirstamp)
 
 ves$(EXEEXT): $(ves_OBJECTS) $(ves_DEPENDENCIES) $(EXTRA_ves_DEPENDENCIES) 
 	@rm -f ves$(EXEEXT)
@@ -462,6 +468,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@ves-util/$(DEPDIR)/get.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@ves-util/$(DEPDIR)/help.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@ves-util/$(DEPDIR)/hook.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@ves-util/$(DEPDIR)/keystore_flags.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@ves-util/$(DEPDIR)/out.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@ves-util/$(DEPDIR)/put.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@ves-util/$(DEPDIR)/set.Po@am__quote@ # am--include-marker
@@ -637,6 +644,7 @@ distclean: distclean-am
 	-rm -f ves-util/$(DEPDIR)/get.Po
 	-rm -f ves-util/$(DEPDIR)/help.Po
 	-rm -f ves-util/$(DEPDIR)/hook.Po
+	-rm -f ves-util/$(DEPDIR)/keystore_flags.Po
 	-rm -f ves-util/$(DEPDIR)/out.Po
 	-rm -f ves-util/$(DEPDIR)/put.Po
 	-rm -f ves-util/$(DEPDIR)/set.Po
@@ -691,6 +699,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ves-util/$(DEPDIR)/get.Po
 	-rm -f ves-util/$(DEPDIR)/help.Po
 	-rm -f ves-util/$(DEPDIR)/hook.Po
+	-rm -f ves-util/$(DEPDIR)/keystore_flags.Po
 	-rm -f ves-util/$(DEPDIR)/out.Po
 	-rm -f ves-util/$(DEPDIR)/put.Po
 	-rm -f ves-util/$(DEPDIR)/set.Po

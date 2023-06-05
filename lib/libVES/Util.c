@@ -71,8 +71,7 @@ size_t libVES_b64decode(const char *b64, char **dec) {
     return d - *dec;
 }
 
-char *libVES_b64encode(const char *data, size_t len, char *b64) {
-    static const char map[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+char *libVES_b64encode_map(const char *map, const char *data, size_t len, char *b64) {
     if (!b64) b64 = malloc(libVES_b64encsize(len));
     const unsigned char *s = (const unsigned char *) data;
     size_t l = len;
@@ -87,6 +86,16 @@ char *libVES_b64encode(const char *data, size_t len, char *b64) {
     }
     *d = 0;
     return b64;
+}
+
+char *libVES_b64encode(const char *data, size_t len, char *b64) {
+    static const char map[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+    return libVES_b64encode_map(map, data, len, b64);
+}
+
+char *libVES_b64encode_web(const char *data, size_t len, char *b64) {
+    static const char map[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_\0";
+    return libVES_b64encode_map(map, data, len, b64);
 }
 
 int libVES_enumStrl(const char *str, size_t len, const char **list) {

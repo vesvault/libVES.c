@@ -6,7 +6,8 @@ ves-util/out.c \
 ves-util/ci.c \
 ves-util/help.c \
 ves-util/hook.c \
-ves-util/tty.c
+ves-util/tty.c \
+ves-util/keystore_flags.c
 
 VESUTIL_HFILES = ves-util.h \
 ves-util/put.h \
@@ -16,7 +17,8 @@ ves-util/out.h \
 ves-util/ci.h \
 ves-util/help.h \
 ves-util/hook.h \
-ves-util/tty.h
+ves-util/tty.h \
+ves-util/keystore_flags.h
 
 bin_PROGRAMS = ves
 

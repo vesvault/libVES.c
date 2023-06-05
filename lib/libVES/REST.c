@@ -77,7 +77,7 @@ jVar *libVES_REST_req(libVES *ves, const char *url, jVar *body, struct curl_slis
     sprintf(buf, "User-Agent: %s (https://ves.host) %s (%s)", LIBVES_VERSION_SHORT, ves->appName, curl_version());
     hdrs = curl_slist_append(hdrs, buf);
     if (json) {
-	hdrs = curl_slist_append(hdrs, "Content-Type: application/json");
+	if (body->type != JVAR_JSON) hdrs = curl_slist_append(hdrs, "Content-Type: application/json");
 	curl_easy_setopt(ves->curl, CURLOPT_POSTFIELDS, json);
 	curl_easy_setopt(ves->curl, CURLOPT_POSTFIELDSIZE, strlen(json));
     }
@@ -229,7 +229,8 @@ jVar *libVES_REST_VESauthGET(libVES *ves, const char *url, long *pcode, const ch
 	    if (jVar_isObject(rs)) {
 		rs = jVar_get(rs, p);
 	    } else if (jVar_isArray(rs)) {
-		int idx, c;
+		int idx;
+		char c;
 		rs = sscanf(p, "%d%c", &idx, &c) == 1 ? jVar_index(rs, idx) : NULL;
 	    } else {
 		rs = NULL;

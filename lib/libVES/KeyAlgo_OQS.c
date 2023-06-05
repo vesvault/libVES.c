@@ -380,11 +380,11 @@ int libVES_KeyAlgo_OQS_dump(libVES_VaultKey *vkey, int fd, int flags) {
     return w;
 }
 
-int libVES_KeyAlgo_OQS_derive(char *secret, size_t slen, char *buf, size_t len) {
+int libVES_KeyAlgo_OQS_derive(unsigned char *secret, size_t slen, char *buf, size_t len) {
     EVP_MD_CTX *mdctx = EVP_MD_CTX_create();
-    char sha[48];
+    unsigned char sha[48];
     int res;
-    int shalen = sizeof(sha);
+    unsigned int shalen = sizeof(sha);
     if (EVP_DigestInit_ex(mdctx, EVP_sha384(), NULL) > 0
     && EVP_DigestUpdate(mdctx, secret, slen) > 0
     && EVP_DigestFinal_ex(mdctx, sha, &shalen) > 0) {
@@ -399,12 +399,12 @@ int libVES_KeyAlgo_OQS_derive(char *secret, size_t slen, char *buf, size_t len) 
 
 int libVES_KeyAlgo_OQS_decrypt(libVES_VaultKey *vkey, const char *ciphertext, size_t *ctlen, char *plaintext, char *key, size_t *keylen) {
     struct libVES_KeyAlgo_OQS *oqs = vkey->pPriv;
-    char secret[128];
+    unsigned char secret[128];
     int len;
     if (!oqs || !oqs->kem || !oqs->priv) libVES_throw(vkey->ves, LIBVES_E_CRYPTO, "Missing OQS private key", -1);
     if (oqs->kem->length_shared_secret > sizeof(secret)) libVES_throw(vkey->ves, LIBVES_E_CRYPTO, "OQS secret is too long", -1);
     if (*ctlen < oqs->kem->length_ciphertext) libVES_throw(vkey->ves, LIBVES_E_CRYPTO, "OQS ciphertext is too short", -1);
-    if (OQS_KEM_decaps(oqs->kem, secret, ciphertext, oqs->priv) != OQS_SUCCESS) libVES_throw(vkey->ves, LIBVES_E_CRYPTO, "OQS decaps failed", -1);
+    if (OQS_KEM_decaps(oqs->kem, secret, (const unsigned char *)ciphertext, oqs->priv) != OQS_SUCCESS) libVES_throw(vkey->ves, LIBVES_E_CRYPTO, "OQS decaps failed", -1);
     len = libVES_KeyAlgo_OQS_derive(secret, oqs->kem->length_shared_secret, key, *keylen);
     if (len < 0) libVES_throw(vkey->ves, LIBVES_E_CRYPTO, "OQS key derivation failed", -1);
     *keylen = len;
@@ -414,12 +414,12 @@ int libVES_KeyAlgo_OQS_decrypt(libVES_VaultKey *vkey, const char *ciphertext, si
 
 int libVES_KeyAlgo_OQS_encrypt(libVES_VaultKey *vkey, const char *plaintext, size_t *ptlen, char *ciphertext, char *key, size_t *keylen) {
     struct libVES_KeyAlgo_OQS *oqs = vkey->pPub;
-    char secret[128];
+    unsigned char secret[128];
     int len;
     if (!oqs || !oqs->kem || !oqs->pub) libVES_throw(vkey->ves, LIBVES_E_CRYPTO, "Missing OQS public key", -1);
     if (oqs->kem->length_shared_secret > sizeof(secret)) libVES_throw(vkey->ves, LIBVES_E_CRYPTO, "OQS secret is too long", -1);
     if (ciphertext) {
-	if (OQS_KEM_encaps(oqs->kem, ciphertext, secret, oqs->pub) != OQS_SUCCESS) libVES_throw(vkey->ves, LIBVES_E_CRYPTO, "OQS encaps failed", -1);
+	if (OQS_KEM_encaps(oqs->kem, (unsigned char *)ciphertext, secret, oqs->pub) != OQS_SUCCESS) libVES_throw(vkey->ves, LIBVES_E_CRYPTO, "OQS encaps failed", -1);
 	len = libVES_KeyAlgo_OQS_derive(secret, oqs->kem->length_shared_secret, key, *keylen);
 	if (len <= 0) libVES_throw(vkey->ves, LIBVES_E_CRYPTO, "OQS key derivation failed", -1);
 	*keylen = len;

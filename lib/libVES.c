@@ -48,7 +48,7 @@
 #include "libVES.h"
 
 
-const char *libVES_errorMsgs[12] = {
+const char *libVES_errorMsgs[13] = {
     NULL,
     "Bad parameters",
     "Communication with the API server failed",
@@ -61,6 +61,7 @@ const char *libVES_errorMsgs[12] = {
     "Unsupported algorithm",
     "Incorrect operation",
     "Internal assertion failed",
+    "Dialog failed"
 };
 
 const char *libVES_appName = "(unspecified app)";
@@ -97,7 +98,7 @@ libVES *libVES_fromRef(libVES_Ref *ref) {
     ves->genVaultKeyFn = &libVES_defaultGenVaultKey;
     ves->attnFn = NULL;
     ves->unlockedKeys = libVES_List_new(&libVES_VaultKey_ListCtlU);
-    libVES_REFUP(List, ves->unlockedKeys);
+    (void)libVES_REFUP(List, ves->unlockedKeys);
     ves->sessionTimeout = LIBVES_SESS_TMOUT;
     return ves;
 }
@@ -230,7 +231,7 @@ libVES_VaultKey *libVES_getVaultKey(libVES *ves) {
     if (!ves) return NULL;
     if (!ves->vaultKey) {
 	ves->vaultKey = libVES_VaultKey_get2(ves->external, ves, NULL, NULL, LIBVES_O_GET);
-	libVES_REFUP(VaultKey, ves->vaultKey);
+	(void)libVES_REFUP(VaultKey, ves->vaultKey);
     }
     return ves->vaultKey;
 }
@@ -239,7 +240,7 @@ libVES_VaultKey *libVES_createVaultKey(libVES *ves) {
     if (!ves) return NULL;
     if (ves->vaultKey) libVES_throw(ves, LIBVES_E_DENIED, "Vault key is already loaded", NULL);
     ves->vaultKey = libVES_VaultKey_create(ves->external, ves, ves->me);
-    libVES_REFUP(VaultKey, ves->vaultKey);
+    (void)libVES_REFUP(VaultKey, ves->vaultKey);
     return ves->vaultKey;
 }
 
@@ -270,7 +271,7 @@ libVES_VaultKey *libVES_unlock(libVES *ves, size_t keylen, const char *key) {
     libVES_veskey *veskey = key ? libVES_veskey_new(keylen, key) : NULL;
     if (libVES_getVaultKey(ves)) {
 	res = libVES_VaultKey_unlock(ves->vaultKey, veskey);
-    } else {
+    } else if (!ves->external) {
 	libVES_User *me = libVES_me(ves);
 	res = NULL;
 	if (me) {
@@ -378,6 +379,7 @@ void libVES_lock(libVES *ves) {
 	if (!unl->list) break;
 	if (unl->list[i] == vkey) i++;
     }
+    if (ves->vaultKey) libVES_VaultKey_lock(ves->vaultKey);
 }
 
 libVES_VaultKey *libVES_primary(libVES *ves, const char *email, const char *passwd) {
@@ -386,16 +388,18 @@ libVES_VaultKey *libVES_primary(libVES *ves, const char *email, const char *pass
     return pvkey;
 }
 
+void libVES_setUser(libVES *ves, libVES_User *user) {
+    if (!ves->me) ves->me = libVES_REFUP(User, user);
+}
+
 libVES_User *libVES_me(libVES *ves) {
     if (!ves) return NULL;
     if (!ves->me) {
-	ves->me = libVES_VaultKey_getUser(libVES_getVaultKey(ves));
-	libVES_REFUP(User, ves->me);
+	libVES_setUser(ves, libVES_VaultKey_getUser(libVES_getVaultKey(ves)));
     }
     if (!ves->me) {
 	jVar *rsp = libVES_REST(ves, "me", NULL);
-	ves->me = libVES_User_fromJVar(rsp);
-	libVES_REFUP(User, ves->me);
+	libVES_setUser(ves, libVES_User_fromJVar(rsp));
 	jVar_free(rsp);
     }
     libVES_User_loadFields(ves->me, ves);

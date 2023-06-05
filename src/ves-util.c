@@ -49,6 +49,7 @@
 #include <libVES/Ref.h>
 #include <libVES/Cipher.h>
 #include <libVES/User.h>
+#include <libVES/KeyStore.h>
 #include <openssl/crypto.h>
 #include "ves-util.h"
 #include "ves-util/put.h"
@@ -73,7 +74,6 @@ struct param_st params = {
     .object = NULL,
     .key = NULL,
     .token = NULL,
-    .passwd = NULL,
     .uveskey = NULL,
     .veskey = NULL,
     .share = NULL,
@@ -100,15 +100,15 @@ int main(int argc, char **argv) {
     char *arg = NULL;
     enum { o_null, o_error, o_data, o_help, o_ver, o_a, o_o, o_x, o_explore, o_v, o_q, o_s, o_r, o_setshare, o_apiurl, o_l, o_i,
 	o_delete, o_f, o_fd, o_ptext, o_ctext, o_p, o_e, o_d, o_c, o_m, o_z, o_k, o_force, o_token, o_priv, o_pub, o_u, o_g,
-	o_keyalgo, o_lock, o_pri, o_passwd, o_new, o_rekey, o_propagate, o_manual } op = o_null;
+	o_keyalgo, o_lock, o_pri, o_new, o_rekey, o_propagate, o_manual, o_keystore } op = o_null;
     const struct { char op; char *argw; } argwords[] = {
 	{o_a, "account"}, {o_o, "vault-item"}, {o_o, "object"}, {o_x, "debug"}, {o_help, "help"}, {o_p, "print"}, {o_v, "veskey"},
 	{o_v, "VESkey"}, {o_q, "quiet"}, {o_s, "share"}, {o_r, "unshare"}, {o_apiurl, "api-url"}, {o_l, "list"}, {o_i, "item"},
 	{o_delete, "delete"}, {o_f, "file"}, {o_fd, "fd"}, {o_ptext, "plaintext"}, {o_ctext, "ciphertext"}, {o_explore, "explore"},
 	{o_e, "encrypt"}, {o_d, "decrypt"}, {o_c, "cipher"}, {o_z, "cipher-meta"}, {o_k, "vault-key"}, {o_u, "unlock"},
 	{o_force, "force"}, {o_token, "token"}, {o_priv, "private-key"}, {o_pub, "public-key"}, {o_g, "generate"},
-	{o_keyalgo, "key-algo"}, {o_lock, "lock"}, {o_pri, "primary-account"}, {o_passwd, "password"}, {o_new, "new"},
-	{o_ver, "version"}, {o_rekey, "rekey"}, {o_propagate, "propagate"}, {o_manual, "manual"}
+	{o_keyalgo, "key-algo"}, {o_lock, "lock"}, {o_pri, "primary-account"}, {o_new, "new"}, {o_ver, "version"},
+	{o_rekey, "rekey"}, {o_propagate, "propagate"}, {o_manual, "manual"}, {o_keystore, "keystore"}
     };
     struct {
 	void **ptr;
@@ -178,6 +178,7 @@ int main(int argc, char **argv) {
 	    case 'z': op = o_z; break;
 	    case 'A': op = o_pri; break;
 	    case 'C': op = o_ctext; break;
+	    case 'E': op = o_keystore; break;
 	    case 'F': op = o_fd; break;
 	    case 'G': op = o_keyalgo; break;
 	    case 'K': op = o_propagate; break;
@@ -189,7 +190,6 @@ int main(int argc, char **argv) {
 	    case 'T': op = o_token; break;
 	    case 'U': op = o_force; break;
 	    case 'V': op = o_ver; break;
-	    case 'W': op = o_passwd; break;
 	    case 'X': op = o_explore; break;
 	    case 'Y': op = o_pub; break;
 	    case '-': break;
@@ -244,6 +244,15 @@ int main(int argc, char **argv) {
 		}
 		break;
 	    default:
+		if (in.ptr == (void *)&params.ks_flags) switch (op) {
+		    case o_data:
+		    case o_l:
+			break;
+		    default:
+			in.ptr = NULL;
+			in.putfn = NULL;
+			break;
+		}
 		if (in.ptr) switch (op) {
 		    case o_data: {
 			size_t len;
@@ -254,8 +263,8 @@ int main(int argc, char **argv) {
 			if (in.putfn) {
 			    if (!in.putfn(val, len, in.ptr)) {
 				fprintf(stderr, "Bad parameter value: %s\n", val);
-				return E_PARAM;
-			    }
+				return free(val), E_PARAM;
+			    } else free(val);
 			} else *((char **) in.ptr) = val;
 			in.ptr = NULL;
 			in.putfn = NULL;
@@ -279,6 +288,9 @@ int main(int argc, char **argv) {
 			    set_out(out_keyAlgos);
 			} else if (in.ptr == (void *) &params.cipher) {
 			    set_out(out_ciAlgos);
+			} else if (in.ptr == (void *)&params.ks_flags) {
+			    set_out(out_keystore_flags);
+			    params.flags &= ~PF_KEYSTORE;
 			} else {
 			    fprintf(stderr, "'-l' cannot be used in this context\n");
 			    op = o_error;
@@ -422,9 +434,6 @@ int main(int argc, char **argv) {
 			in.ptr = (void **) &params.primary;
 			in.outfn = &out_email;
 			break;
-		    case o_passwd:
-			in.ptr = (void **) &params.passwd;
-			break;
 		    case o_propagate:
 			params.flags |= PF_VK_PROP;
 			break;
@@ -436,6 +445,11 @@ int main(int argc, char **argv) {
 			break;
 		    case o_delete:
 			params.flags |= PF_DEL;
+			break;
+		    case o_keystore:
+			params.flags |= PF_KEYSTORE;
+			in.ptr = (void **) &params.ks_flags;
+			in.putfn = &put_keystore;
 			break;
 		    case o_ver:
 			printf("%s\n", VESUTIL_VERSION_STR);
@@ -452,7 +466,7 @@ int main(int argc, char **argv) {
 	if (op == o_error) break;
     }
     if (op == o_error) return E_PARAM;
-    if (in.ptr) {
+    if (in.ptr && in.ptr != (void *)&params.ks_flags) {
 	fprintf(stderr, "Unexpeted end of argument list\n");
 	return E_PARAM;
     }
@@ -491,69 +505,26 @@ int main(int argc, char **argv) {
     if (params.apiUrl) ctx.ves->apiUrl = params.apiUrl;
     ctx.ves->genVaultKeyFn = &hook_genVaultKey;
     if (params.token) libVES_setSessionToken(ctx.ves, params.token);
-    libVES_VaultKey *pvkey = NULL;
     if (params.primary) {
 	const char *p = params.primary;
 	libVES_Ref *ref = libVES_Ref_fromURI(&p, NULL);
-	char *pri = NULL;
 	if (ref) {
-	    free(ref);
-	} else if (*p++ == '/') {
-	    libVES_User *u = libVES_User_fromPath(&p);
-	    if (u) {
-		pri = u->email;
-		u->email = NULL;
-		libVES_User_free(u);
-	    }
+	    libVES_Ref_free(ref);
+	    if (*p == '/') p++;
 	}
-	if (!pri) pri = strdup(params.primary);
-	char msg[256];
-	size_t gl = 0;
-	char retry;
-	if (params.passwd) {
-	    pvkey = libVES_primary(ctx.ves, pri, params.passwd);
-	} else {
-	    retry = 3;
-	    sprintf(msg, "VESvault password for %.80s: ", pri);
-	    while (!pvkey) {
-		char *passwd = get_noecho(msg, &gl, NULL);
-		if (!passwd) break;
-		pvkey = libVES_primary(ctx.ves, pri, passwd);
-		OPENSSL_cleanse(passwd, strlen(passwd));
-		free(passwd);
-		if (pvkey) break;
-		if (--retry <= 0 || !libVES_checkError(ctx.ves, LIBVES_E_DENIED)) break;
-	    }
-	}
-	if (!pvkey) return_VESerror("[libVES_primary]");
-	if (!(params.flags & PF_LCK)) {
-	    retry = 3;
-	    sprintf(msg, "Primary VESkey for %.80s: ", pri);
-	    void *unlk = NULL;
-	    while (!unlk) {
-		char *vk = get_noecho(msg, &gl, NULL);
-		if (!vk) break;
-		libVES_veskey *veskey = libVES_veskey_new(strlen(vk), vk);
-		OPENSSL_cleanse(vk, gl);
-		free(vk);
-		unlk = libVES_VaultKey_unlock(pvkey, veskey);
-		libVES_veskey_free(veskey);
-		if (unlk || --retry <= 0) break;
-	    }
-	    if (!unlk) return_VESerror("[libVES_VaultKey_unlock]");
-	    if (params.user && !(params.flags & PF_NEW)) {
-		libVES_veskey *veskey = libVES_VaultKey_getVESkey(libVES_getVaultKey(ctx.ves));
-		if (!veskey) return_VESerror("[libVES_VaultKey_getVESkey]");
-		libVES_setSessionToken(ctx.ves, NULL);
-		if (!libVES_unlock(ctx.ves, veskey->keylen, veskey->veskey)) return_VESerror("[libVES_unlock]");
-		libVES_veskey_free(veskey);
-	    }
-	}
-	free(pri);
-	if (!params.user && !params.key) ctx.vkey = pvkey;
+	if (!*p) p = params.primary;
+	libVES_User *u = libVES_User_fromPath(&p);
+	libVES_setUser(ctx.ves, u);
+	libVES_User_free(u);
+	if (!u) return_VESerror("[primary]");
+	if (!libVES_KeyStore_unlock(NULL, ctx.ves, params.ks_flags)) return_VESerror("[libVES_KeyStore_unlock]");
+	if (!params.user && !params.key && ctx.ves->me) ctx.vkey = ctx.ves->me->primary;
     } else if (params.uveskey) {
 	libVES_veskey *v = params.uveskey;
 	if (!libVES_unlock(ctx.ves, v->keylen, v->veskey)) return_VESerror("[libVES_unlock]");
+	if ((params.ks_flags & LIBVES_KS_SAVE) && !libVES_KeyStore_savekey(NULL, ctx.ves->external, v->keylen, v->veskey)) return_VESerror("[libVES_KeyStore_savekey]");
+    } else if (params.flags & PF_KEYSTORE) {
+	if (!libVES_KeyStore_unlock(NULL, ctx.ves, params.ks_flags)) return_VESerror("[libVES_KeyStore_unlock]");
     }
     if (params.flags & PF_LCK) libVES_lock(ctx.ves);
 
@@ -589,7 +560,7 @@ int main(int argc, char **argv) {
 	if (params.debug >= 0) fprintf(stderr, "Use '-U' to force overwrite raw cipher data\n");
 	return LIBVES_E_PARAM;
     }
-    if (params.value && !(params.flags & (PF_CI_RD | PF_CI_WR))) libVES_VaultItem_setValue(ctx.vitem, params.value->len, params.value->vString, params.itemType);
+    if (params.value && !(params.flags & (PF_CI_RD | PF_CI_WR))) libVES_VaultItem_setValue0(ctx.vitem, params.value->len, params.value->vString, params.itemType);
     if (params.meta) libVES_VaultItem_setMeta(ctx.vitem, params.meta);
     if (params.flags & (PF_CI_RD | PF_CI_WR)) {
 	char new_ci = 0;
@@ -732,7 +703,7 @@ int main(int argc, char **argv) {
 	}
     }
 
-    if (pvkey != ctx.vkey) libVES_VaultKey_free(pvkey);
+//    if (pvkey != ctx.vkey) libVES_VaultKey_free(pvkey);
     libVES_VaultKey_free(ctx.vkey);
     libVES_VaultItem_free(ctx.vitem);
     libVES_free(ctx.ves);
