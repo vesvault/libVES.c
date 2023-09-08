@@ -137,19 +137,22 @@ libVES_la_DEPENDENCIES = $(am__DEPENDENCIES_1)
 am__libVES_la_SOURCES_DIST = libVES.c libVES/Util.c libVES/List.c \
 	libVES/Cipher.c libVES/CiAlgo_AES.c libVES/VaultKey.c \
 	libVES/KeyAlgo_EVP.c libVES/VaultItem.c libVES/Ref.c \
-	libVES/User.c libVES/File.c libVES/REST.c libVES/KeyStore.c \
+	libVES/User.c libVES/File.c libVES/Event.c libVES/Session.c \
+	libVES/REST.c libVES/KeyStore.c libVES/Watch.c \
 	libVES/KeyAlgo_OQS.c jVar.c VESlocker.c libVES.h libVES/List.h \
 	libVES/Cipher.h libVES/CiAlgo_AES.h libVES/VaultKey.h \
 	libVES/KeyAlgo_EVP.h libVES/VaultItem.h libVES/Ref.h \
-	libVES/User.h libVES/File.h libVES/REST.h libVES/KeyStore.h \
+	libVES/User.h libVES/File.h libVES/Event.h libVES/Session.h \
+	libVES/REST.h libVES/KeyStore.h libVES/Watch.h \
 	libVES/KeyAlgo_OQS.h jVar.h VESlocker.h
 am__dirstamp = $(am__leading_dot)dirstamp
 @HAVE_LIBOQS_TRUE@am__objects_1 = libVES/KeyAlgo_OQS.lo
 am__objects_2 = libVES.lo libVES/Util.lo libVES/List.lo \
 	libVES/Cipher.lo libVES/CiAlgo_AES.lo libVES/VaultKey.lo \
 	libVES/KeyAlgo_EVP.lo libVES/VaultItem.lo libVES/Ref.lo \
-	libVES/User.lo libVES/File.lo libVES/REST.lo \
-	libVES/KeyStore.lo $(am__objects_1)
+	libVES/User.lo libVES/File.lo libVES/Event.lo \
+	libVES/Session.lo libVES/REST.lo libVES/KeyStore.lo \
+	libVES/Watch.lo $(am__objects_1)
 am__objects_3 = jVar.lo
 am__objects_4 = VESlocker.lo
 am__objects_5 =
@@ -182,13 +185,14 @@ depcomp = $(SHELL) $(top_srcdir)/build-aux/depcomp
 am__maybe_remake_depfiles = depfiles
 am__depfiles_remade = ./$(DEPDIR)/VESlocker.Plo ./$(DEPDIR)/jVar.Plo \
 	./$(DEPDIR)/libVES.Plo libVES/$(DEPDIR)/CiAlgo_AES.Plo \
-	libVES/$(DEPDIR)/Cipher.Plo libVES/$(DEPDIR)/File.Plo \
-	libVES/$(DEPDIR)/KeyAlgo_EVP.Plo \
+	libVES/$(DEPDIR)/Cipher.Plo libVES/$(DEPDIR)/Event.Plo \
+	libVES/$(DEPDIR)/File.Plo libVES/$(DEPDIR)/KeyAlgo_EVP.Plo \
 	libVES/$(DEPDIR)/KeyAlgo_OQS.Plo libVES/$(DEPDIR)/KeyStore.Plo \
 	libVES/$(DEPDIR)/List.Plo libVES/$(DEPDIR)/REST.Plo \
-	libVES/$(DEPDIR)/Ref.Plo libVES/$(DEPDIR)/User.Plo \
-	libVES/$(DEPDIR)/Util.Plo libVES/$(DEPDIR)/VaultItem.Plo \
-	libVES/$(DEPDIR)/VaultKey.Plo
+	libVES/$(DEPDIR)/Ref.Plo libVES/$(DEPDIR)/Session.Plo \
+	libVES/$(DEPDIR)/User.Plo libVES/$(DEPDIR)/Util.Plo \
+	libVES/$(DEPDIR)/VaultItem.Plo libVES/$(DEPDIR)/VaultKey.Plo \
+	libVES/$(DEPDIR)/Watch.Plo
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -226,7 +230,8 @@ am__can_run_installinfo = \
 am__nobase_include_HEADERS_DIST = libVES.h libVES/List.h \
 	libVES/Cipher.h libVES/CiAlgo_AES.h libVES/VaultKey.h \
 	libVES/KeyAlgo_EVP.h libVES/VaultItem.h libVES/Ref.h \
-	libVES/User.h libVES/File.h libVES/REST.h libVES/KeyStore.h \
+	libVES/User.h libVES/File.h libVES/Event.h libVES/Session.h \
+	libVES/REST.h libVES/KeyStore.h libVES/Watch.h \
 	libVES/KeyAlgo_OQS.h jVar.h VESlocker.h
 HEADERS = $(nobase_include_HEADERS)
 RECURSIVE_CLEAN_TARGETS = mostlyclean-recursive clean-recursive	\
@@ -408,11 +413,13 @@ SUBDIRS = KeyStore/cli
 LIBVES_CFILES = libVES.c libVES/Util.c libVES/List.c libVES/Cipher.c \
 	libVES/CiAlgo_AES.c libVES/VaultKey.c libVES/KeyAlgo_EVP.c \
 	libVES/VaultItem.c libVES/Ref.c libVES/User.c libVES/File.c \
-	libVES/REST.c libVES/KeyStore.c $(am__append_1)
+	libVES/Event.c libVES/Session.c libVES/REST.c \
+	libVES/KeyStore.c libVES/Watch.c $(am__append_1)
 LIBVES_HFILES = libVES.h libVES/List.h libVES/Cipher.h \
 	libVES/CiAlgo_AES.h libVES/VaultKey.h libVES/KeyAlgo_EVP.h \
 	libVES/VaultItem.h libVES/Ref.h libVES/User.h libVES/File.h \
-	libVES/REST.h libVES/KeyStore.h $(am__append_2)
+	libVES/Event.h libVES/Session.h libVES/REST.h \
+	libVES/KeyStore.h libVES/Watch.h $(am__append_2)
 JVAR_CFILES = jVar.c
 JVAR_HFILES = jVar.h
 VL_CFILES = VESlocker.c
@@ -420,7 +427,7 @@ VL_HFILES = VESlocker.h
 lib_LTLIBRARIES = libVES.la
 nobase_include_HEADERS = $(LIBVES_HFILES) $(JVAR_HFILES) $(VL_HFILES)
 libVES_la_SOURCES = $(LIBVES_CFILES) $(JVAR_CFILES) $(VL_CFILES) $(LIBVES_HFILES) $(JVAR_HFILES) $(VL_HFILES)
-libVES_la_LIBADD = $(LIBOQS)
+libVES_la_LIBADD = -lcrypto -lcurl $(LIBOQS)
 libVES_la_LDFLAGS = -version-info 1:0:0 $(am__append_3)
 @LIBVES_KEYSTORE_TRUE@EXTRA_libVES_la_DEPENDENCIES = KeyStore/$(LIBVES_KEYSTORE)/libVES_KeyStore_$(LIBVES_KEYSTORE).a
 all: all-recursive
@@ -516,9 +523,15 @@ libVES/User.lo: libVES/$(am__dirstamp) \
 	libVES/$(DEPDIR)/$(am__dirstamp)
 libVES/File.lo: libVES/$(am__dirstamp) \
 	libVES/$(DEPDIR)/$(am__dirstamp)
+libVES/Event.lo: libVES/$(am__dirstamp) \
+	libVES/$(DEPDIR)/$(am__dirstamp)
+libVES/Session.lo: libVES/$(am__dirstamp) \
+	libVES/$(DEPDIR)/$(am__dirstamp)
 libVES/REST.lo: libVES/$(am__dirstamp) \
 	libVES/$(DEPDIR)/$(am__dirstamp)
 libVES/KeyStore.lo: libVES/$(am__dirstamp) \
+	libVES/$(DEPDIR)/$(am__dirstamp)
+libVES/Watch.lo: libVES/$(am__dirstamp) \
 	libVES/$(DEPDIR)/$(am__dirstamp)
 libVES/KeyAlgo_OQS.lo: libVES/$(am__dirstamp) \
 	libVES/$(DEPDIR)/$(am__dirstamp)
@@ -539,6 +552,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libVES.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libVES/$(DEPDIR)/CiAlgo_AES.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libVES/$(DEPDIR)/Cipher.Plo@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@libVES/$(DEPDIR)/Event.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libVES/$(DEPDIR)/File.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libVES/$(DEPDIR)/KeyAlgo_EVP.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libVES/$(DEPDIR)/KeyAlgo_OQS.Plo@am__quote@ # am--include-marker
@@ -546,10 +560,12 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@libVES/$(DEPDIR)/List.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libVES/$(DEPDIR)/REST.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libVES/$(DEPDIR)/Ref.Plo@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@libVES/$(DEPDIR)/Session.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libVES/$(DEPDIR)/User.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libVES/$(DEPDIR)/Util.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libVES/$(DEPDIR)/VaultItem.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@libVES/$(DEPDIR)/VaultKey.Plo@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@libVES/$(DEPDIR)/Watch.Plo@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
 	@$(MKDIR_P) $(@D)
@@ -820,6 +836,7 @@ distclean: distclean-recursive
 	-rm -f ./$(DEPDIR)/libVES.Plo
 	-rm -f libVES/$(DEPDIR)/CiAlgo_AES.Plo
 	-rm -f libVES/$(DEPDIR)/Cipher.Plo
+	-rm -f libVES/$(DEPDIR)/Event.Plo
 	-rm -f libVES/$(DEPDIR)/File.Plo
 	-rm -f libVES/$(DEPDIR)/KeyAlgo_EVP.Plo
 	-rm -f libVES/$(DEPDIR)/KeyAlgo_OQS.Plo
@@ -827,10 +844,12 @@ distclean: distclean-recursive
 	-rm -f libVES/$(DEPDIR)/List.Plo
 	-rm -f libVES/$(DEPDIR)/REST.Plo
 	-rm -f libVES/$(DEPDIR)/Ref.Plo
+	-rm -f libVES/$(DEPDIR)/Session.Plo
 	-rm -f libVES/$(DEPDIR)/User.Plo
 	-rm -f libVES/$(DEPDIR)/Util.Plo
 	-rm -f libVES/$(DEPDIR)/VaultItem.Plo
 	-rm -f libVES/$(DEPDIR)/VaultKey.Plo
+	-rm -f libVES/$(DEPDIR)/Watch.Plo
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-tags
@@ -881,6 +900,7 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f ./$(DEPDIR)/libVES.Plo
 	-rm -f libVES/$(DEPDIR)/CiAlgo_AES.Plo
 	-rm -f libVES/$(DEPDIR)/Cipher.Plo
+	-rm -f libVES/$(DEPDIR)/Event.Plo
 	-rm -f libVES/$(DEPDIR)/File.Plo
 	-rm -f libVES/$(DEPDIR)/KeyAlgo_EVP.Plo
 	-rm -f libVES/$(DEPDIR)/KeyAlgo_OQS.Plo
@@ -888,10 +908,12 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f libVES/$(DEPDIR)/List.Plo
 	-rm -f libVES/$(DEPDIR)/REST.Plo
 	-rm -f libVES/$(DEPDIR)/Ref.Plo
+	-rm -f libVES/$(DEPDIR)/Session.Plo
 	-rm -f libVES/$(DEPDIR)/User.Plo
 	-rm -f libVES/$(DEPDIR)/Util.Plo
 	-rm -f libVES/$(DEPDIR)/VaultItem.Plo
 	-rm -f libVES/$(DEPDIR)/VaultKey.Plo
+	-rm -f libVES/$(DEPDIR)/Watch.Plo
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 

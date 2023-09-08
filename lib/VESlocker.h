@@ -14,7 +14,7 @@
  *         \___/              - Stream Encryption
  *
  *
- * (c) 2018 VESvault Corp
+ * (c) 2023 VESvault Corp
  * Jim Zubov <jz@vesvault.com>
  *
  * GNU General Public License v3

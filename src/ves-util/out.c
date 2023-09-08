@@ -58,10 +58,10 @@ int out_list(int fdi, struct ctx_st *ctx) {
     FILE *fd = fdopen(fdi, "a");
     libVES_List *lst = libVES_VaultItem_list(ctx->vkey);
     if (!lst) return_VESerror2("[libVES_VaultItem_list]", ctx->ves);
-    size_t i;
-    for (i = 0; i < lst->len; i++) {
+    libVES_VaultItem **pvi = NULL;
+    while ((pvi = libVES_List_next(lst, pvi, libVES_VaultItem))) {
 	char *s;
-	libVES_VaultItem *vi = (libVES_VaultItem *) lst->list[i];
+	libVES_VaultItem *vi = *pvi;
 	fprintf(fd, "%s\t%s%s\t", (s = libVES_VaultItem_toURIi(vi)), (libVES_VaultItem_isDeleted(vi) ? "!" : ""), libVES_VaultItem_typeStr(vi->type));
 	free(s);
 	switch (vi->objectType) {
@@ -224,13 +224,13 @@ int out_explore(int fdi, struct ctx_st *ctx) {
 }
 
 int out_value(int fd, struct ctx_st *ctx) {
-    if (!ctx->vitem || !ctx->vitem->value) VES_throw("[out_value]", params.object, "Value is not available", E_PARAM);
+    if (!ctx->vitem || !ctx->vitem->value) VES_throw("[out_value]", params.object, "Value is not available", E_VALUE);
     OUT_IO_assert("[out_value]", write(fd, ctx->vitem->value, ctx->vitem->len));
     return 0;
 }
 
 int out_meta(int fd, struct ctx_st *ctx) {
-    if (!ctx->vitem) VES_throw("[out_meta]", params.object, "Vault Item is not available", E_PARAM);
+    if (!ctx->vitem) VES_throw("[out_meta]", params.object, "Vault Item is not available", E_VALUE);
     char *json = jVar_toJSON(ctx->vitem->meta);
     int e = json ? write(fd, json, strlen(json)) : 0;
     free(json);
@@ -240,7 +240,7 @@ int out_meta(int fd, struct ctx_st *ctx) {
 
 int out_cimeta(int fd, struct ctx_st *ctx) {
     libVES_Cipher *ci = libVES_VaultItem_getCipher(ctx->vitem, ctx->ves);
-    if (!ci) VES_throw("[out_meta]", params.object, "Cipher is not accessible", E_PARAM);
+    if (!ci) VES_throw("[out_meta]", params.object, "Cipher is not accessible", E_VALUE);
     int e;
     if (ci->meta) {
 	char *s = jVar_toJSON(ci->meta);
@@ -261,7 +261,7 @@ int out_cipher(int fd, struct ctx_st *ctx) {
     } else {
 	jVar *a = jVar_get(ctx->vitem->meta, "a");
 	if (jVar_isString(a)) e = write(fd, a->vString, a->len);
-	else VES_throw("[out_cimeta]", params.object, "Cipher is not accessible", E_PARAM);
+	else VES_throw("[out_cimeta]", params.object, "Cipher is not accessible", E_VALUE);
     }
     libVES_Cipher_free(ci);
     OUT_IO_assert("[out_cipher]", e);
@@ -269,20 +269,20 @@ int out_cipher(int fd, struct ctx_st *ctx) {
 }
 
 int out_token(int fd, struct ctx_st *ctx) {
-    if (!ctx->ves->sessionToken) VES_throw("[out_token]", "", "Session token is not set", E_PARAM);
+    if (!ctx->ves->sessionToken) VES_throw("[out_token]", "", "Session token is not set", E_VALUE);
     OUT_IO_assert("[out_assert]", write(fd, ctx->ves->sessionToken, strlen(ctx->ves->sessionToken)));
     return 0;
 }
 
 int out_pub(int fd, struct ctx_st *ctx) {
-    if (!ctx->vkey->publicKey) VES_throw("[out_pub]", "", "Public key is not available", E_PARAM);
+    if (!ctx->vkey->publicKey) VES_throw("[out_pub]", "", "Public key is not available", E_VALUE);
     OUT_IO_assert("[out_pub]", write(fd, ctx->vkey->publicKey, strlen(ctx->vkey->publicKey)));
     return 0;
 }
 
 int out_priv(int fd, struct ctx_st *ctx) {
     char *pk = libVES_VaultKey_getPrivateKey1(ctx->vkey);
-    if (!pk) VES_throw("[out_priv]", "", "Private key is not available", E_PARAM);
+    if (!pk) VES_throw("[out_priv]", "", "Private key is not available", E_VALUE);
     int e = write(fd, pk, strlen(pk));
     free(pk);
     OUT_IO_assert("[out_priv]", e);
@@ -291,7 +291,7 @@ int out_priv(int fd, struct ctx_st *ctx) {
 
 int out_email(int fd, struct ctx_st *ctx) {
     libVES_User *u = libVES_me(ctx->ves);
-    if (!u || !u->email) VES_throw("[out_email]", "", "User info is not available", E_PARAM);
+    if (!u || !u->email) VES_throw("[out_email]", "", "User info is not available", E_VALUE);
     OUT_IO_assert("[out_email]", write(fd, u->email, strlen(u->email)));
     return 0;
 }
@@ -337,6 +337,25 @@ int out_keystore_flags(int fd, struct ctx_st *ctx) {
     for (f = keystore_flags; f->tag; f++) {
 	sprintf(buf, "%-8s  %.160s\r\n", f->tag, f->info);
 	(void)write(fd, buf, strlen(buf));
+    }
+    return 0;
+}
+
+int out_share(int fd, struct ctx_st *ctx) {
+    if (!ctx->vitem) return 0;
+    int i;
+    int er;
+    for (i = 0; i < ctx->vitem->sharelen; i++) {
+	libVES_VaultKey *vkey = ctx->vitem->share[i];
+	char buf[24];
+	er = write(fd, buf, sprintf(buf, "%lld ", vkey->id));
+	OUT_IO_assert("[out_share]", er);
+	char *uri = libVES_VaultKey_toURI(vkey);
+	if (uri) er = write(fd, uri, strlen(uri));
+	free(uri);
+	OUT_IO_assert("[out_share]", er);
+	er = write(fd, buf, sprintf(buf, " %.20s\n", libVES_VaultKey_typeStr(vkey->type)));
+	OUT_IO_assert("[out_share]", er);
     }
     return 0;
 }

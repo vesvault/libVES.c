@@ -109,7 +109,7 @@ jVar *libVES_REST_req(libVES *ves, const char *url, jVar *body, struct curl_slis
 	const char *curlstr = curl_easy_strerror(curlerr);
 	char *errstr = malloc(128 + (curlstr ? strlen(curlstr) : 0));
 	if (errstr) sprintf(errstr, "cURL error %d: %s", curlerr, curlstr);
-	libVES_throw(ves, LIBVES_E_CONN, errstr, NULL);
+	return libVES_setError0(ves, LIBVES_E_CONN, errstr), NULL;
     }
     if (!rsp) libVES_throw(ves, LIBVES_E_PARSE, "Error parsing JSON response", NULL);
     return rsp;
@@ -117,7 +117,7 @@ jVar *libVES_REST_req(libVES *ves, const char *url, jVar *body, struct curl_slis
 
 jVar *libVES_REST_hdrs(libVES *ves, const char *uri, jVar *body, struct curl_slist *hdrs) {
     char buf[1024];
-    sprintf(buf, "%s%s", ves->apiUrl, uri);
+    sprintf(buf, "%s%s", (strncmp(uri, ves->apiUrl, 6) ? ves->apiUrl : ""), uri);
     if (ves->attnFn) {
 	char *p = buf + strlen(buf);
 	*p++ = strchr(buf, '?') ? '&' : '?';
@@ -138,6 +138,9 @@ jVar *libVES_REST_hdrs(libVES *ves, const char *uri, jVar *body, struct curl_sli
 	    break;
 	case 404:
 	    err = LIBVES_E_NOTFOUND;
+	    break;
+	case 503:
+	    err = LIBVES_E_QUOTA;
 	    break;
 	default:
 	    err = LIBVES_E_SERVER;

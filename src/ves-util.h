@@ -28,11 +28,12 @@
  * ves-util.h                 VES Utility Main Header
  *
  ***************************************************************************/
-#define VESUTIL_VERSION_CODE	"1.02"
+#define VESUTIL_VERSION_CODE	"1.03"
 #define VESUTIL_VERSION_STR	"VES CLI " VESUTIL_VERSION_CODE " (libVES.c " LIBVES_VERSION_CODE ") (c) 2018 - 2023 VESvault Corp (https://vesvault.com)"
 #define VESUTIL_VERSION_SHORT	"ves/" VESUTIL_VERSION_CODE
 #define	E_PARAM		64
 #define E_IO		65
+#define	E_VALUE		66
 
 #define return_VESerror2(scope, ves)		{ const char *str, *msg; int e = libVES_getErrorInfo(ves, &str, &msg); if (params.debug >= 0) fprintf(stderr, "[%s:%d] %s %s (%s)\n", __FILE__, __LINE__, (scope), (str ? str : "Unknown error"), (msg ? msg : "")); return e ? e : E_PARAM; }
 #define return_VESerror(scope)			return_VESerror2(scope, ctx.ves)
@@ -70,6 +71,7 @@ struct ctx_st {
     struct libVES_VaultKey *vkey;
     struct libVES_VaultItem *vitem;
     struct libVES_Cipher *ci;
+    const char *domain;
 };
 
 extern struct param_st {
@@ -128,11 +130,11 @@ extern struct param_st {
 #define SF_WR		0x01
 
 #define VES_throw(scope, str, val, ret)	{ \
-    fprintf(stderr, scope " %s: %s\n", (str), (val)); \
+    if (params.debug >= 0) fprintf(stderr, "[%s:%d] " scope " %s: %s\n", __FILE__, __LINE__, (str), (val)); \
     return (ret); \
 }
 
 #define IO_throw(scope, str, ret)	{ \
-    fprintf(stderr, scope "%s: %s (%d)\n", (str), strerror(errno), errno); \
+    if (params.debug >= 0) fprintf(stderr, "[%s:%d] " scope " %s: %s (%d)\n", __FILE__, __LINE__, (str), strerror(errno), errno); \
     return (ret); \
 }

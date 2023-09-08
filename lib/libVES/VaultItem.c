@@ -118,11 +118,12 @@ libVES_VaultItem *libVES_VaultItem_fromJVar(jVar *data, libVES *ves) {
 	vitem->objectType = -1;
 	vitem->object = NULL;
     }
-    if (ves) {
+    if (ves && entries) {
 	int i;
 	if (ves->debug > 1) {
 	    fprintf(stderr, "(unlocking Vault Item %lld) unlocked keys:", vitem->id);
-	    for (i = 0; i < ves->unlockedKeys->len; i++) fprintf(stderr, " %lld", ((libVES_VaultKey *) ves->unlockedKeys->list[i])->id);
+	    libVES_VaultKey **pvk = NULL;
+	    while ((pvk = libVES_List_next(ves->unlockedKeys, pvk, libVES_VaultKey))) fprintf(stderr, " %lld", (*pvk)->id);
 	    fprintf(stderr, "\n");
 	}
 	libVES_VaultKey *ukey;
@@ -268,6 +269,11 @@ int libVES_VaultItem_setObject(libVES_VaultItem *vitem, jVar *obj) {
     return res;
 }
 
+jVar *libVES_VaultItem_share(libVES_VaultItem *vitem, libVES_VaultKey *vkey, int flags) {
+    libVES_List_STATIC(lst, &libVES_VaultKey_ListCtl, 1, vkey);
+    return libVES_VaultItem_entries(vitem, &lst, flags);
+}
+
 jVar *libVES_VaultItem_entries(libVES_VaultItem *vitem, libVES_List *share, int flags) {
     if (!vitem) return NULL;
     flags |= (vitem->flags & LIBVES_SH_UPD);
@@ -276,7 +282,7 @@ jVar *libVES_VaultItem_entries(libVES_VaultItem *vitem, libVES_List *share, int 
 	entries = vitem->entries;
 	vitem->entries = NULL;
     } else entries = jVar_array();
-    int i, j;
+    int j;
     char *shflags;
     if (vitem->sharelen) {
 	shflags = malloc(vitem->sharelen);
@@ -285,8 +291,9 @@ jVar *libVES_VaultItem_entries(libVES_VaultItem *vitem, libVES_List *share, int 
     } else {
 	shflags = NULL;
     }
-    if (share) for (i = 0; i < share->len; i++) {
-	libVES_VaultKey *vkey = share->list[i];
+    libVES_VaultKey **pvk = NULL;
+    while ((pvk = libVES_List_next(share, pvk, libVES_VaultKey))) {
+	libVES_VaultKey *vkey = *pvk;
 	char exists = 0;
 	if (vkey->id) {
 	    if (flags & LIBVES_SH_DEL) {
@@ -404,6 +411,14 @@ libVES_List *libVES_VaultItem_list(libVES_VaultKey *vkey) {
     return lst;
 }
 
+const char *libVES_VaultItem_getValue(libVES_VaultItem *vitem) {
+    return vitem ? vitem->value : NULL;
+}
+
+int libVES_VaultItem_getLen(libVES_VaultItem *vitem) {
+    return vitem && vitem->value ? vitem->len : -1;
+}
+
 char *libVES_VaultItem_toStringl(libVES_VaultItem *vitem, size_t *len, char *buf) {
     if (!vitem || !vitem->value) return NULL;
     if (!buf) buf = malloc(vitem->len + (len ? 0 : 1));
@@ -443,6 +458,18 @@ jVar *libVES_VaultItem_VESauthGET(libVES_VaultItem *vitem, libVES *ves, const ch
     return rs;
 }
 
+struct libVES_VaultKey **libVES_VaultItem_nextShare(libVES_VaultItem *vitem, struct libVES_VaultKey **ptr) {
+    if (!vitem) return NULL;
+    libVES_VaultKey **p = ptr ? ptr + 1 : vitem->share;
+    return p >= vitem->share + vitem->sharelen ? NULL : p;
+}
+
+struct libVES_VaultKey **libVES_VaultItem_findShare(libVES_VaultItem *vitem, struct libVES_VaultKey *vkey) {
+    if (!vitem || !vkey) return NULL;
+    libVES_VaultKey **p = NULL;
+    while ((p = libVES_VaultItem_nextShare(vitem, p))) if ((*p)->id == vkey->id) return p;
+    return NULL;
+}
 
 void libVES_VaultItem_free(libVES_VaultItem *vitem) {
     if (libVES_REFBUSY(vitem)) return;

@@ -98,5 +98,15 @@ extern struct libVES_KeyStore LIBVES_KEYSTORE_EXT(LIBVES_KEYSTORE);
 #define libVES_KeyStore_default &LIBVES_KEYSTORE_EXT(LIBVES_KEYSTORE)
 #endif
 
+
+/***************************************************************************
+ * Unlock ves using ks libVES_KeyStore module. Flags are LIBVES_KS_*
+ * Set ks = NULL to use the default keystore.
+ ***************************************************************************/
 struct libVES *libVES_KeyStore_unlock(struct libVES_KeyStore *ks, struct libVES *ves, int flags);
+
+/***************************************************************************
+ * Save an externally supplied key identified by ref in the keystore ks.
+ * Set ks = NULL to use the default keystore.
+ ***************************************************************************/
 int libVES_KeyStore_savekey(struct libVES_KeyStore *ks, const struct libVES_Ref *ref, size_t keylen, const char *key);

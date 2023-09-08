@@ -14,7 +14,7 @@
  *         \___/              - Stream Encryption
  *
  *
- * (c) 2018 VESvault Corp
+ * (c) 2023 VESvault Corp
  * Jim Zubov <jz@vesvault.com>
  *
  * GNU General Public License v3
@@ -25,44 +25,38 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * libVES/Ref.h               libVES: Object reference header
+ * libVES/Session.h           libVES: Session info object header
  *
  ***************************************************************************/
 
-typedef struct libVES_Ref {
-    char *domain;
+typedef struct libVES_Session {
+    long long int id;
+    long long createdAt;
+    long long expiresAt;
+    long long accessAt;
+    char *remote;
+    char *userAgent;
+    struct libVES_VaultKey *vkey;
+    struct libVES_User *user;
     int refct;
-    union {
-	char externalId[0];
-	long long int internalId;
-    };
-} libVES_Ref;
+} libVES_Session;
 
-/***************************************************************************
- * New internalID ref, ves:///internalId[/...]
- ***************************************************************************/
-libVES_Ref *libVES_Ref_new(long long int intId);
+struct libVES;
+struct jVar;
 
-/***************************************************************************
- * New externalID ref, ves://domain/externalId[/...]
- ***************************************************************************/
-libVES_Ref *libVES_External_new(const char *domain, const char *extId);
+libVES_Session *libVES_Session_fromJVar(struct jVar *data, struct libVES *ves);
+void libVES_Session_parseJVar(libVES_Session *ses, struct jVar *data, struct libVES *ves);
 
-/***************************************************************************
- * Parse the domain and externalId, or the internalId, from the URI.
- * Upon return, *uri points to the next char after the parsed part.
- ***************************************************************************/
-libVES_Ref *libVES_Ref_fromURI(const char **uri, struct libVES *ves);
+long long int libVES_Session_getId(libVES_Session *ses);
+struct libVES_VaultKey *libVES_Session_getVaultKey(libVES_Session *ses);
+struct libVES_User *libVES_Session_getUser(libVES_Session *ses);
+long long libVES_Session_getCreatedAt(libVES_Session *ses);
+long long libVES_Session_getExpiresAt(libVES_Session *ses);
+long long libVES_Session_getAccessAt(libVES_Session *ses);
+const char *libVES_Session_getRemote(libVES_Session *ses);
+const char *libVES_Session_getUserAgent(libVES_Session *ses);
 
-libVES_Ref *libVES_External_fromJVar(struct jVar *data);
-struct jVar *libVES_Ref_toJVar(libVES_Ref *ref, struct jVar *dst);
-libVES_Ref *libVES_Ref_copy(libVES_Ref *ref);
-
-const char *libVES_Ref_getDomain(libVES_Ref *ref);
-const char *libVES_Ref_getExternalId(libVES_Ref *ref);
-long long libVES_Ref_getInternalId(libVES_Ref *ref);
-
-void libVES_Ref_free(libVES_Ref *ref);
+void libVES_Session_free(libVES_Session *ses);
 
 /***************************************************************************
  * App level refcount management. After calling refup() any calls to
@@ -72,5 +66,5 @@ void libVES_Ref_free(libVES_Ref *ref);
  * deallocated by the call.
  * Both calls are NULL safe.
  ***************************************************************************/
-libVES_Ref *libVES_Ref_refup(libVES_Ref *obj);
-libVES_Ref *libVES_Ref_refdn(libVES_Ref *obj);
+libVES_Session *libVES_Session_refup(libVES_Session *obj);
+libVES_Session *libVES_Session_refdn(libVES_Session *obj);

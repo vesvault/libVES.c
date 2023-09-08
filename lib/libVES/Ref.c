@@ -209,7 +209,27 @@ libVES_Ref *libVES_Ref_copy(libVES_Ref *ref) {
     return res;
 }
 
+const char *libVES_Ref_getDomain(libVES_Ref *ref) {
+    return ref ? ref->domain : NULL;
+}
+
+const char *libVES_Ref_getExternalId(libVES_Ref *ref) {
+    return ref && ref->domain ? ref->externalId : NULL;
+}
+
+long long libVES_Ref_getInternalId(libVES_Ref *ref) {
+    return ref && !ref->domain ? ref->internalId : 0;
+}
+
 void libVES_Ref_free(libVES_Ref *ref) {
     if (libVES_REFBUSY(ref)) return;
     free(ref);
+}
+
+libVES_Ref *libVES_Ref_refup(libVES_Ref *obj) {
+    return libVES_REFUP(Ref, obj);
+}
+
+libVES_Ref *libVES_Ref_refdn(libVES_Ref *obj) {
+    return libVES_REFDN(Ref, obj) ? NULL : obj;
 }

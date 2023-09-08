@@ -45,7 +45,7 @@
 #include "KeyAlgo_EVP.h"
 
 
-libVES_VaultKey *libVES_KeyAlgo_autoEVP_new(const libVES_KeyAlgo *algo, void *pkey, libVES_veskey *veskey, libVES *ves) {
+libVES_VaultKey *libVES_KeyAlgo_autoEVP_new(const libVES_KeyAlgo *algo, void *pkey, const libVES_veskey *veskey, libVES *ves) {
     if (!pkey) libVES_throw(ves, LIBVES_E_PARAM, "EVP private key is not available", NULL);
     switch (EVP_PKEY_base_id((EVP_PKEY *) pkey)) {
 	case EVP_PKEY_RSA: algo = &libVES_KeyAlgo_RSA; break;
@@ -55,7 +55,7 @@ libVES_VaultKey *libVES_KeyAlgo_autoEVP_new(const libVES_KeyAlgo *algo, void *pk
     return algo->newfn(algo, pkey, veskey, ves);
 }
 
-libVES_VaultKey *libVES_KeyAlgo_autoPEM_new(const libVES_KeyAlgo *algo, void *pkey, libVES_veskey *veskey, libVES *ves) {
+libVES_VaultKey *libVES_KeyAlgo_autoPEM_new(const libVES_KeyAlgo *algo, void *pkey, const libVES_veskey *veskey, libVES *ves) {
     if (!pkey) libVES_throw(ves, LIBVES_E_PARAM, "PEM private key expected", NULL);
     EVP_PKEY *p = libVES_KeyAlgo_EVP_fromPEM(veskey, pkey);
     libVES_VaultKey *vkey = libVES_KeyAlgo_autoEVP_new(algo, p, veskey, ves);
@@ -86,13 +86,13 @@ char *libVES_KeyAlgo_EVP_pub2str(libVES_VaultKey *vkey, void *pkey) {
     return str;
 }
 
-void *libVES_KeyAlgo_EVP_str2priv(libVES_VaultKey *vkey, const char *priv, libVES_veskey *veskey) {
+void *libVES_KeyAlgo_EVP_str2priv(libVES_VaultKey *vkey, const char *priv, const libVES_veskey *veskey) {
     EVP_PKEY *pkey = libVES_KeyAlgo_EVP_fromPEM(veskey, priv);
     if (!pkey) libVES_setErrorEVP(vkey->ves, LIBVES_E_CRYPTO, "[str2priv] (Incorrect VESkey?)");
     return pkey;
 }
 
-char *libVES_KeyAlgo_EVP_priv2str(libVES_VaultKey *vkey, void *pkey, libVES_veskey *veskey) {
+char *libVES_KeyAlgo_EVP_priv2str(libVES_VaultKey *vkey, void *pkey, const libVES_veskey *veskey) {
     char *priv = libVES_KeyAlgo_EVP_toPEM(veskey, pkey);
     if (!priv) libVES_setErrorEVP(vkey->ves, LIBVES_E_CRYPTO, "[priv2str]");
     return priv;
@@ -130,18 +130,18 @@ int libVES_KeyAlgo_EVP_veskey_cb(char *buf, int size, int rwflag, void *u) {
     return vk->keylen;
 }
 
-struct evp_pkey_st *libVES_KeyAlgo_EVP_fromPEM(libVES_veskey *veskey, const char *pem) {
+struct evp_pkey_st *libVES_KeyAlgo_EVP_fromPEM(const libVES_veskey *veskey, const char *pem) {
     if (!veskey || !pem) return NULL;
     BIO *bio = BIO_new_mem_buf((void *) pem, strlen(pem));
-    struct evp_pkey_st *pkey = PEM_read_bio_PrivateKey(bio, NULL, &libVES_KeyAlgo_EVP_veskey_cb, veskey);
+    struct evp_pkey_st *pkey = PEM_read_bio_PrivateKey(bio, NULL, &libVES_KeyAlgo_EVP_veskey_cb, (void *)veskey);
     BIO_free(bio);
     return pkey;
 }
 
-char *libVES_KeyAlgo_EVP_toPEM(libVES_veskey *veskey, struct evp_pkey_st *pkey) {
+char *libVES_KeyAlgo_EVP_toPEM(const libVES_veskey *veskey, struct evp_pkey_st *pkey) {
     BIO *mem = BIO_new(BIO_s_mem());
     char *res;
-    if (PEM_write_bio_PKCS8PrivateKey(mem, pkey, (veskey ? EVP_aes_256_cbc() : NULL), (veskey ? veskey->veskey : NULL), (veskey ? veskey->keylen : 0), NULL, NULL) > 0) {
+    if (PEM_write_bio_PKCS8PrivateKey(mem, pkey, (veskey ? EVP_aes_256_cbc() : NULL), (veskey ? (void *)veskey->veskey : NULL), (veskey ? veskey->keylen : 0), NULL, NULL) > 0) {
 	char *buf;
 	int len = BIO_get_mem_data(mem, &buf);
 	if ((res = malloc(len + 1))) {
@@ -175,7 +175,7 @@ void *libVES_KeyAlgo_RSA_pkeygen(const libVES_KeyAlgo *algo, const char *algostr
     return pkey;
 }
 
-libVES_VaultKey *libVES_KeyAlgo_RSA_new(const libVES_KeyAlgo *algo, void *pkey, libVES_veskey *veskey, libVES *ves) {
+libVES_VaultKey *libVES_KeyAlgo_RSA_new(const libVES_KeyAlgo *algo, void *pkey, const libVES_veskey *veskey, libVES *ves) {
     if (pkey) {
 	if (EVP_PKEY_base_id((EVP_PKEY *) pkey) != EVP_PKEY_RSA) libVES_throw(ves, LIBVES_E_PARAM, "Invalid pkey type, expected RSA", NULL);
     } else {
@@ -285,7 +285,7 @@ void *libVES_KeyAlgo_ECDH_pkeygen(const libVES_KeyAlgo *algo, const char *algost
     return pkey;
 }
 
-libVES_VaultKey *libVES_KeyAlgo_ECDH_new(const libVES_KeyAlgo *algo, void *pkey, libVES_veskey *veskey, libVES *ves) {
+libVES_VaultKey *libVES_KeyAlgo_ECDH_new(const libVES_KeyAlgo *algo, void *pkey, const libVES_veskey *veskey, libVES *ves) {
     if (pkey) {
 	if (EVP_PKEY_base_id((EVP_PKEY *) pkey) != EVP_PKEY_EC) libVES_throw(ves, LIBVES_E_PARAM, "Invalid pkey type, expected EC", NULL);
     } else {

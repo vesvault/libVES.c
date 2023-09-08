@@ -72,7 +72,7 @@ IMPLEMENT_ASN1_FUNCTIONS_const(libVES_KeyAlgo_OQS_PRIVATEKEY)
 #define libVES_KeyAlgo_OQS_chklimits(kem)	((kem)->length_ciphertext <= LIBVES_MAXLEN_ENCDATA - 256 && (kem)->length_secret_key + (kem)->length_public_key <= LIBVES_MAXLEN_KEY * 3 / 4 - 256)
 
 void *libVES_KeyAlgo_OQS_pkeygen(const libVES_KeyAlgo *algo, const char *algostr) {
-    struct libVES_KeyAlgo_OQS *oqs = malloc(sizeof(*oqs));
+    libVES_KeyAlgo_OQS_Key *oqs = malloc(sizeof(*oqs));
     if (!oqs) return NULL;
     const char *s = algostr ? strchr(algostr, ':') : NULL;
     oqs->kem = OQS_KEM_new(s ? s + 1 : libVES_KeyAlgo_OQS_defaultAlgo);
@@ -82,8 +82,8 @@ void *libVES_KeyAlgo_OQS_pkeygen(const libVES_KeyAlgo *algo, const char *algostr
     return oqs;
 }
 
-libVES_VaultKey *libVES_KeyAlgo_OQS_new(const libVES_KeyAlgo *algo, void *pkey, libVES_veskey *veskey, libVES *ves) {
-    struct libVES_KeyAlgo_OQS *oqs = pkey;
+libVES_VaultKey *libVES_KeyAlgo_OQS_new(const libVES_KeyAlgo *algo, void *pkey, const libVES_veskey *veskey, libVES *ves) {
+    libVES_KeyAlgo_OQS_Key *oqs = pkey;
     if (!oqs) oqs = libVES_KeyAlgo_OQS_pkeygen(algo, NULL);
     if (!oqs || !oqs->kem) {
 	libVES_setError(ves, LIBVES_E_CRYPTO, "Error allocating OQS");
@@ -114,7 +114,7 @@ libVES_VaultKey *libVES_KeyAlgo_OQS_new(const libVES_KeyAlgo *algo, void *pkey, 
 }
 
 void *libVES_KeyAlgo_OQS_str2pub(libVES_VaultKey *vkey, const char *pub) {
-    struct libVES_KeyAlgo_OQS *oqs = NULL;
+    libVES_KeyAlgo_OQS_Key *oqs = NULL;
     BIO *bio = BIO_new_mem_buf((void *) pub, strlen(pub));
     unsigned char *asn = NULL;
     long asnl;
@@ -174,7 +174,7 @@ void *libVES_KeyAlgo_OQS_str2pub(libVES_VaultKey *vkey, const char *pub) {
 }
 
 char *libVES_KeyAlgo_OQS_pub2str(libVES_VaultKey *vkey, void *pkey) {
-    struct libVES_KeyAlgo_OQS *oqs = pkey;
+    libVES_KeyAlgo_OQS_Key *oqs = pkey;
     ASN1_OBJECT *obj;
     ASN1_STRING *algo;
     char *str = NULL;
@@ -217,12 +217,12 @@ char *libVES_KeyAlgo_OQS_pub2str(libVES_VaultKey *vkey, void *pkey) {
 
 
 
-void *libVES_KeyAlgo_OQS_str2priv(libVES_VaultKey *vkey, const char *priv, libVES_veskey *veskey) {
-    struct libVES_KeyAlgo_OQS *oqs = NULL;
+void *libVES_KeyAlgo_OQS_str2priv(libVES_VaultKey *vkey, const char *priv, const libVES_veskey *veskey) {
+    libVES_KeyAlgo_OQS_Key *oqs = NULL;
     BIO *bio = BIO_new_mem_buf((void *) priv, strlen(priv));
     unsigned char *asn = NULL;
     long asnl;
-    if (PEM_bytes_read_bio(&asn, &asnl, NULL, PEM_STRING_EVP_PKEY, bio, (veskey ? &libVES_KeyAlgo_EVP_veskey_cb : NULL), veskey)) {
+    if (PEM_bytes_read_bio(&asn, &asnl, NULL, PEM_STRING_EVP_PKEY, bio, (veskey ? &libVES_KeyAlgo_EVP_veskey_cb : NULL), (void *)veskey)) {
 	PKCS8_PRIV_KEY_INFO *privkey = NULL;
 	X509_SIG *sig = NULL;
 	const unsigned char *asn1 = asn;
@@ -302,8 +302,8 @@ void *libVES_KeyAlgo_OQS_str2priv(libVES_VaultKey *vkey, const char *priv, libVE
 
 
 
-char *libVES_KeyAlgo_OQS_priv2str(libVES_VaultKey *vkey, void *pkey, libVES_veskey *veskey) {
-    struct libVES_KeyAlgo_OQS *oqs = pkey;
+char *libVES_KeyAlgo_OQS_priv2str(libVES_VaultKey *vkey, void *pkey, const libVES_veskey *veskey) {
+    libVES_KeyAlgo_OQS_Key *oqs = pkey;
     ASN1_OBJECT *obj;
     ASN1_STRING *algo;
     char *str = NULL;
@@ -354,7 +354,7 @@ char *libVES_KeyAlgo_OQS_priv2str(libVES_VaultKey *vkey, void *pkey, libVES_vesk
     return str;
 }
 
-void libVES_KeyAlgo_OQS_keyfree(struct libVES_KeyAlgo_OQS *oqs) {
+void libVES_KeyAlgo_OQS_keyfree(libVES_KeyAlgo_OQS_Key *oqs) {
     if (!oqs) return;
     OQS_KEM_free(oqs->kem);
     free(oqs->pub);
@@ -370,7 +370,7 @@ void libVES_KeyAlgo_OQS_lock(libVES_VaultKey *vkey) {
 }
 
 int libVES_KeyAlgo_OQS_dump(libVES_VaultKey *vkey, int fd, int flags) {
-    struct libVES_KeyAlgo_OQS *oqs = vkey->pPriv;
+    libVES_KeyAlgo_OQS_Key *oqs = vkey->pPriv;
     if (!oqs) oqs = vkey->pPub;
     BIO *out;
     if (!oqs || !oqs->kem) return -1;
@@ -398,7 +398,7 @@ int libVES_KeyAlgo_OQS_derive(unsigned char *secret, size_t slen, char *buf, siz
 }
 
 int libVES_KeyAlgo_OQS_decrypt(libVES_VaultKey *vkey, const char *ciphertext, size_t *ctlen, char *plaintext, char *key, size_t *keylen) {
-    struct libVES_KeyAlgo_OQS *oqs = vkey->pPriv;
+    libVES_KeyAlgo_OQS_Key *oqs = vkey->pPriv;
     unsigned char secret[128];
     int len;
     if (!oqs || !oqs->kem || !oqs->priv) libVES_throw(vkey->ves, LIBVES_E_CRYPTO, "Missing OQS private key", -1);
@@ -413,7 +413,7 @@ int libVES_KeyAlgo_OQS_decrypt(libVES_VaultKey *vkey, const char *ciphertext, si
 }
 
 int libVES_KeyAlgo_OQS_encrypt(libVES_VaultKey *vkey, const char *plaintext, size_t *ptlen, char *ciphertext, char *key, size_t *keylen) {
-    struct libVES_KeyAlgo_OQS *oqs = vkey->pPub;
+    libVES_KeyAlgo_OQS_Key *oqs = vkey->pPub;
     unsigned char secret[128];
     int len;
     if (!oqs || !oqs->kem || !oqs->pub) libVES_throw(vkey->ves, LIBVES_E_CRYPTO, "Missing OQS public key", -1);

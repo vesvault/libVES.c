@@ -167,7 +167,7 @@ jVar *libVES_VaultKey_toJVar(libVES_VaultKey *vkey) {
 	jVar_put(res, "publicKey", jVar_string(vkey->publicKey));
 	jVar_put(res, "privateKey", jVar_string(vkey->privateKey));
 	if (vkey->user) jVar_put(res, "user", libVES_User_toJVar(vkey->user));
-	if (vkey->vitem) jVar_put(res, "vaultItems", jVar_push(jVar_array(), libVES_VaultItem_toJVar(vkey->vitem)));
+	if (vkey->vitem && vkey->vitem->entries) jVar_put(res, "vaultItems", jVar_push(jVar_array(), libVES_VaultItem_toJVar(vkey->vitem)));
 	if (vkey->type == LIBVES_VK_TEMP) {
 	    jVar_put(res, "creator", libVES_User_toJVar(libVES_VaultKey_getUser(vkey->ves->vaultKey)));
 	    if (vkey->appUrl) jVar_put(res, "appUrl", jVar_string(vkey->appUrl));
@@ -258,9 +258,6 @@ libVES_VaultKey *libVES_VaultKey_create(libVES_Ref *ref, libVES *ves, libVES_Use
 	(void)libVES_REFRM(vkey->external);
 	libVES_VaultKey_free(vkey);
 	vkey = NULL;
-    } else if (!user) {
-	libVES_REFDN(VaultItem, vkey->vitem);
-	vkey->vitem = NULL;
     }
     return libVES_REFINIT(vkey);
 }
@@ -358,13 +355,13 @@ libVES_User *libVES_VaultKey_getUser(libVES_VaultKey *vkey) {
     return vkey->user;
 }
 
-void *libVES_VaultKey_unlock(libVES_VaultKey *vkey, libVES_veskey *veskey) {
+void *libVES_VaultKey_unlock(libVES_VaultKey *vkey, const libVES_veskey *veskey) {
     if (!vkey) return NULL;
     if (!vkey->pPriv) {
 	libVES_veskey *vk = NULL;
 	if (!libVES_VaultKey_getPrivateKey(vkey)) return NULL;
 	if (!vkey->algo || !vkey->algo->str2privfn) libVES_throw(vkey->ves, LIBVES_E_UNSUPPORTED, "Key algo cannot unlock the private key", NULL);
-	if (!veskey && !(vk = veskey = libVES_VaultKey_getVESkey(vkey))) libVES_throw(vkey->ves, LIBVES_E_PARAM, "VESkey is needed to unlock the private key", NULL);
+	if (!veskey && !(veskey = vk = libVES_VaultKey_getVESkey(vkey))) libVES_throw(vkey->ves, LIBVES_E_PARAM, "VESkey is needed to unlock the private key", NULL);
 	vkey->pPriv = vkey->algo->str2privfn(vkey, vkey->privateKey, veskey);
 	libVES_veskey_free(vk);
 	if (vkey->pPriv) libVES_addUnlocked(vkey->ves, vkey);
@@ -590,6 +587,10 @@ int libVES_VaultKey_post(libVES_VaultKey *vkey) {
     jVar *rsp = libVES_REST(vkey->ves, "vaultKeys", req);
     jVar_free(req);
     if (!rsp) return 0;
+    if (!vkey->id) {
+	vkey->id = jVar_getInt(jVar_get(rsp, "id"));
+	if (vkey->id && vkey->pPriv) libVES_addUnlocked(vkey->ves, vkey);
+    }
     jVar_free(rsp);
     return 1;
 }

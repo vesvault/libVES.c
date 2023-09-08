@@ -136,6 +136,7 @@ struct libVES_Seek *libVES_Cipher_seek(libVES_Cipher *ci, struct libVES_Seek *sk
 
 char *libVES_Cipher_toStringl(libVES_Cipher *ci, size_t *len, char *buf);
 
+const struct libVES_CiAlgo *libVES_Cipher_getAlgo(libVES_Cipher *ci);
 struct jVar *libVES_Cipher_getMeta(libVES_Cipher *ci);
 int libVES_Cipher_setMeta(libVES_Cipher *ci, struct jVar *jv);
 

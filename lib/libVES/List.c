@@ -109,6 +109,18 @@ void *libVES_List_find(libVES_List *lst, void *entry) {
     return NULL;
 }
 
+void **libVES_List_nextptr(libVES_List *lst, void **ptr) {
+    if (!lst) return NULL;
+    if (!ptr) return lst->len > 0 ? lst->list : NULL;
+    return ptr < lst->list + lst->len - 1 ? ptr + 1 : NULL;
+}
+
+void **libVES_List_prevptr(libVES_List *lst, void **ptr) {
+    if (!lst) return NULL;
+    if (!ptr) return lst->len > 0 ? lst->list + lst->len - 1 : NULL;
+    return ptr > lst->list ? ptr - 1 : NULL;
+}
+
 void libVES_List_free(libVES_List *lst) {
     if (libVES_REFBUSY(lst)) return;
     int i;

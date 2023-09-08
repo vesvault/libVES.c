@@ -73,11 +73,11 @@ typedef struct libVES_KeyAlgo {
     char *str;
     char *name;
     int len;
-    libVES_VaultKey *(*newfn)(const struct libVES_KeyAlgo *algo, void *pkey, struct libVES_veskey *veskey, struct libVES *ves);
+    libVES_VaultKey *(*newfn)(const struct libVES_KeyAlgo *algo, void *pkey, const struct libVES_veskey *veskey, struct libVES *ves);
     char *(*pub2strfn)(libVES_VaultKey *vkey, void *pkey);
     void *(*str2pubfn)(libVES_VaultKey *vkey, const char *str);
-    char *(*priv2strfn)(libVES_VaultKey *vkey, void *pkey, struct libVES_veskey *veskey);
-    void *(*str2privfn)(libVES_VaultKey *vkey, const char *str, struct libVES_veskey *veskey);
+    char *(*priv2strfn)(libVES_VaultKey *vkey, void *pkey, const struct libVES_veskey *veskey);
+    void *(*str2privfn)(libVES_VaultKey *vkey, const char *str, const struct libVES_veskey *veskey);
     void *(*priv2pubfn)(libVES_VaultKey *vkey, void *pkey);
     int (*encfn)(libVES_VaultKey *vkey, const char *plaintext, size_t *ptlen, char *ciphertext, char *key, size_t *keylen);
     int (*decfn)(libVES_VaultKey *vkey, const char *ciphertext, size_t *ctlen, char *plaintext, char *key, size_t *keylen);
@@ -154,12 +154,10 @@ struct libVES_VaultItem *libVES_VaultKey_propagate(libVES_VaultKey *vkey);
 
 /***************************************************************************
  * Unlock the Vault Key using the veskey.
- * If veskey == NULL - attempt to unlock indirectly
- * using libVES_VaultKey_getVESkey()
- * a VESkey stored
- * in an associated Vault Item.
+ * If veskey == NULL - attempt to unlock indirectly using 
+ * libVES_VaultKey_getVESkey(), a VESkey stored in an associated Vault Item.
  ***************************************************************************/
-void *libVES_VaultKey_unlock(libVES_VaultKey *vkey, struct libVES_veskey *veskey);
+void *libVES_VaultKey_unlock(libVES_VaultKey *vkey, const struct libVES_veskey *veskey);
 
 /***************************************************************************
  * Lock the Vault Key, wipe all private data from memory.

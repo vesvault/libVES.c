@@ -53,9 +53,11 @@ void *libVES_lookupAlgo(const char *str, struct libVES_List *lst);
 
 char *libVES_buildURI(int argc, ...);
 
+long long libVES_date2usec(const char *date);
+
 
 #define libVES_REFINIT(ptr)			((void)((ptr) && ((ptr)->refct = 0)), (ptr))
 #define libVES_REFUP(type, ptr)			((void)((ptr) && ((libVES_ ## type *)(ptr))->refct++), (ptr))
-#define libVES_REFDN(type, ptr)			(!(ptr) || (--((libVES_ ## type *)(ptr))->refct > 0) || (libVES_ ## type ## _free(ptr), 0))
+#define libVES_REFDN(type, ptr)			(!(ptr) || (--((libVES_ ## type *)(ptr))->refct > 0) || (libVES_ ## type ## _free(ptr), 1))
 #define libVES_REFRM(ptr)			(!(ptr) || ((void)--(ptr)->refct, (ptr) = NULL))
 #define libVES_REFBUSY(ptr)			(!(ptr) || (ptr)->refct > 0)

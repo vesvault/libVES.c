@@ -42,6 +42,7 @@ int out_veskey(int fd, struct ctx_st *ctx);
 int out_keyAlgos(int fdi, struct ctx_st *ctx);
 int out_ciAlgos(int fdi, struct ctx_st *ctx);
 int out_keystore_flags(int fdi, struct ctx_st *ctx);
+int out_share(int fd, struct ctx_st *ctx);
 
 void out_ansi_str(int fd, const char *str);
 

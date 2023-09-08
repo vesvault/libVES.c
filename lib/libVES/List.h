@@ -49,6 +49,10 @@ void libVES_List_remove(struct libVES_List *lst, void *entry);
 #define libVES_List_unshift(lst, entry)		libVES_List_add(lst, entry, 0)
 #define libVES_List_push(lst, entry)		libVES_List_add(lst, entry, -1)
 void *libVES_List_find(struct libVES_List *lst, void *entry);
+void **libVES_List_nextptr(struct libVES_List *lst, void **ptr);
+void **libVES_List_prevptr(struct libVES_List *lst, void **ptr);
+#define libVES_List_next(lst, ptr, type)	((type **)libVES_List_nextptr(lst, (void **)ptr))
+#define libVES_List_prev(lst, ptr, type)	((type **)libVES_List_prevptr(lst, (void **)ptr))
 void libVES_List_free(struct libVES_List *lst);
 
 #define libVES_List_STATIC(var, ctrl, length, ...)	const void *var ## LST[length] = { __VA_ARGS__ }; libVES_List var = { .ctl = (ctrl), .len = length, .max = 0, .list = (void **) var ## LST }

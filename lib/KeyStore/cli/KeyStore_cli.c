@@ -285,13 +285,15 @@ void *libVES_KeyStore_cli_dialog(libVES_KeyStore_dialog *dlg) {
 	    libVES_KeyStore_cli_out(ctl, ctl->locale->domain);
 	    libVES_KeyStore_cli_outv(ctl, dlg->domain);
 	    libVES_KeyStore_cli_out(ctl, ctl->locale->domain2);
-	    libVES_KeyStore_cli_out(ctl, ctl->locale->keyname);
-	    libVES_KeyStore_cli_outv(ctl, dlg->extid);
-	    libVES_KeyStore_cli_out(ctl, ctl->locale->keyname2);
+	    if (dlg->extid[0]) {
+		libVES_KeyStore_cli_out(ctl, ctl->locale->keyname);
+		libVES_KeyStore_cli_outv(ctl, dlg->extid);
+		libVES_KeyStore_cli_out(ctl, ctl->locale->keyname2);
+	    } else {
+		libVES_KeyStore_cli_out(ctl, ctl->locale->domadm);
+	    }
 	} else {
-	    libVES_KeyStore_cli_out(ctl, ctl->locale->keyname);
 	    libVES_KeyStore_cli_out(ctl, ctl->locale->primary);
-	    libVES_KeyStore_cli_out(ctl, ctl->locale->keyname2);
 	}
 	if (dlg->email) {
 	    libVES_KeyStore_cli_out(ctl, ctl->locale->user);
@@ -306,7 +308,7 @@ void *libVES_KeyStore_cli_dialog(libVES_KeyStore_dialog *dlg) {
 	libVES_KeyStore_cli_out(ctl, ctl->locale->syncode2);
     }
     if (dlg->state == LIBVES_KSD_NOUSER) {
-	libVES_KeyStore_cli_out(ctl, ctl->locale->nouser);
+	libVES_KeyStore_cli_out(ctl, dlg->email ? ctl->locale->nouser : ctl->locale->noemail);
 	dlg->state = LIBVES_KSD_DONE;
     }
     if (dlg->state == LIBVES_KSD_PINRETRY && dlg->retry) {

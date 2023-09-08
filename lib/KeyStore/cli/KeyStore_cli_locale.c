@@ -50,7 +50,9 @@ static const char *s_syncode2[] = { "\x1b[0m", "]", "\r\n",
 static const char *s_nouser[] = { "VES account is not set up.", "\r\n",
 	"* Go to https://vesvault.com", "\r\n",
 	"* Select \"", "\x1b[1;36m", "Create/Connect a VES Account", "\x1b[0m", "\" from the right menu", "\r\n", NULL };
-static const char *s_primary[] = { "\x1b[1;31m", "primary", "\x1b[0m" , NULL };
+static const char *s_noemail[] = { "Unknown VES account owner.", "\r\n", NULL };
+static const char *s_primary[] = { "\tKey:    [", "\x1b[1;31m", "primary", "\x1b[0m", "]", "\r\n", NULL };
+static const char *s_domadm[] = { "\t        [", "\x1b[1;31m", "domain admin", "\x1b[0m", "]", "\r\n", NULL };
 
 struct libVES_KeyStore_cli_locale libVES_KeyStore_cli_locale_default = {
     .head = s_head,
@@ -67,5 +69,7 @@ struct libVES_KeyStore_cli_locale libVES_KeyStore_cli_locale_default = {
     .syncode = s_syncode,
     .syncode2 = s_syncode2,
     .nouser = s_nouser,
-    .primary = s_primary
+    .noemail = s_noemail,
+    .primary = s_primary,
+    .domadm = s_domadm
 };

@@ -93,7 +93,29 @@ char *libVES_VaultItem_toURI(libVES_VaultItem *vitem);
  ***************************************************************************/
 char *libVES_VaultItem_toURIi(libVES_VaultItem *vitem);
 
+/***************************************************************************
+ * Create a new VaultItem. Use libVES_VaultItem_set*() to set the value,
+ * libVES_VaultItem_entries() to share, libVES_VaultItem_post() to commit,
+ * libVES_VaultItem_free() when done.
+ ***************************************************************************/
 libVES_VaultItem *libVES_VaultItem_create(struct libVES_Ref *ref);
+
+/***************************************************************************
+ * Returns the pointer to the raw decrypted value, not NUL terminated, the
+ * length is libVES_VaultItem_getLen()
+ ***************************************************************************/
+const char *libVES_VaultItem_getValue(libVES_VaultItem *vitem);
+
+/***************************************************************************
+ * Returns the length of the raw decrypted value, -1 if not available
+ ***************************************************************************/
+int libVES_VaultItem_getLen(libVES_VaultItem *vitem);
+
+/***************************************************************************
+ * Copy the decrypted value as a string with length, use buf = NULL to
+ * allocate a new buffer. Returns the buffer pointer, or NULL if not
+ * available
+ ***************************************************************************/
 char *libVES_VaultItem_toStringl(libVES_VaultItem *vitem, size_t *len, char *buf);
 
 /***************************************************************************
@@ -115,15 +137,46 @@ struct jVar *libVES_VaultItem_getObject(libVES_VaultItem *vitem);
 int libVES_VaultItem_setObject(libVES_VaultItem *vitem, struct jVar *obj);
 
 /***************************************************************************
+ * Prepare entries to share/unshare the Vault Item with the Vault Key,
+ * call libVES_VaultItem_post() to commit
+ ***************************************************************************/
+struct jVar *libVES_VaultItem_share(libVES_VaultItem *vitem, struct libVES_VaultKey *vkey, int flags);
+
+/***************************************************************************
  * Prepare entries to share/unshare the Vault Item with the list of Vault Keys,
  * call libVES_VaultItem_post() to commit
  ***************************************************************************/
 struct jVar *libVES_VaultItem_entries(libVES_VaultItem *vitem, struct libVES_List *share, int flags);
 
+/***************************************************************************
+ * Iterate through previously shared vault keys.
+ * ptr = NULL returns the pointer to the first shared VaultKey,
+ * returns NULL at the end of the share list.
+ ***************************************************************************/
+struct libVES_VaultKey **libVES_VaultItem_nextShare(libVES_VaultItem *vitem, struct libVES_VaultKey **ptr);
+
+/***************************************************************************
+ * Find a pointer to the shared VaultKey with the id matching vkey.
+ * NULL if not found.
+ ***************************************************************************/
+struct libVES_VaultKey **libVES_VaultItem_findShare(libVES_VaultItem *vitem, struct libVES_VaultKey *vkey);
+
+/***************************************************************************
+ * Retrieve an existing VaultItem and decrypt the value if possible. Use
+ * libVES_VaultItem_free() to deallocate. Call libVES_Ref_free(ref) before
+ * deallocating the returned VaultItem.
+ * Retunrs NULL if not available.
+ ***************************************************************************/
 libVES_VaultItem *libVES_VaultItem_get(struct libVES_Ref *ref, struct libVES *ves);
 
+/***************************************************************************
+ * Commit the changes to the VES repository. Returns true on success.
+ ***************************************************************************/
 int libVES_VaultItem_post(libVES_VaultItem *vitem, struct libVES *ves);
 
+/***************************************************************************
+ * Delete the VaultItem from the VES repository. Returns true on success.
+ ***************************************************************************/
 int libVES_VaultItem_delete(libVES_VaultItem *vitem, struct libVES *ves);
 
 /***************************************************************************
@@ -139,7 +192,7 @@ struct libVES_List *libVES_VaultItem_list(struct libVES_VaultKey *vkey);
  * If the access needs to be restricted to creator and external only -
  * use libVES_File_fetchVerifyToken(libVES_VaultItem_getFile(vitem), ves)
  ***************************************************************************/
-#define libVES_VaultItem_fetchVerifyToken(vitem, ves)	((vitem) ? libVES_fetchVerifyToken("vaultItems", (vitem)->id, ves) : NULL)
+#define libVES_VaultItem_fetchVerifyToken(vitem, ves)	libVES_fetchVerifyToken("vaultItems", libVES_VaultItem_getId(vitem), ves)
 
 /***************************************************************************
  * Send a GET request to the external url with VES authorization
@@ -149,8 +202,18 @@ struct libVES_List *libVES_VaultItem_list(struct libVES_VaultKey *vkey);
  ***************************************************************************/
 struct jVar *libVES_VaultItem_VESauthGET(struct libVES_VaultItem *vitem, struct libVES *ves, const char *url, long *pcode);
 
+/***************************************************************************
+ * Get the item metadata jVar object, do not deallocate. To alter the
+ * existing metadata, add/remove keys on the returned jVar, then call
+ * libVES_VaultItem_setMeta() with the same jVar object
+ ***************************************************************************/
 struct jVar *libVES_VaultItem_getMeta(libVES_VaultItem *vitem);
+
+/***************************************************************************
+ * Set the item metadata jVar object, do not deallocate meta after this call
+ ***************************************************************************/
 int libVES_VaultItem_setMeta(libVES_VaultItem *vitem, struct jVar *meta);
+
 const char *libVES_VaultItem_typeStr(int type);
 int libVES_VaultItem_typeFromStr(const char *str);
 #define libVES_VaultItem_isDeleted(vitem)	((vitem) ? (vitem)->flags & LIBVES_SH_DEL : 0)
@@ -159,5 +222,6 @@ int libVES_VaultItem_typeFromStr(const char *str);
 #define libVES_VaultItem_getType(vitem)		((vitem) ? (vitem)->type : -1)
 #define libVES_VaultItem_getFile(vitem)		((vitem && (vitem)->objectType == LIBVES_O_FILE) ? (vitem)->file : NULL)
 #define libVES_VaultItem_getVaultKey(vitem)	((vitem && (vitem)->objectType == LIBVES_O_VKEY) ? (vitem)->vaultKey : NULL)
+
 void libVES_VaultItem_free(libVES_VaultItem *vitem);
 

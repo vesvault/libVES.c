@@ -295,7 +295,7 @@ libVES *libVES_KeyStore_unlock(libVES_KeyStore *ks, libVES *ves, int flags) {
 #endif
     if (!ks) return NULL;
     if (!(flags & (LIBVES_KS_RESYNC | LIBVES_KS_PRIMARY))) {
-	if ((flags & LIBVES_KS_SESS) ? !!libVES_getSessionToken(ves) : !!libVES_unlock(ves, 0, NULL)) return ves;
+	if ((flags & LIBVES_KS_SESS) ? !!libVES_getSessionToken(ves) : libVES_getVaultKey(ves) && libVES_unlocked(ves)) return ves;
 	else libVES_getError(ves);
     }
     libVES_lock(ves);
@@ -315,18 +315,18 @@ libVES *libVES_KeyStore_unlock(libVES_KeyStore *ks, libVES *ves, int flags) {
 	const char *email = ext->externalId;
 	const char *at = strchr(email, '@');
 	const char *end = strchr(email, '!');
-	if (!at || (end && at > end)) return NULL;
-	char *tmp = NULL;
-	if (end) {
-	    int l = end - email;
-	    memcpy((tmp = malloc(l + 1)), email, l);
-	    tmp[l] = 0;
-	    email = tmp;
+	if (at && (!end || at < end)) {
+	    char *tmp = NULL;
+	    if (end) {
+		int l = end - email;
+		memcpy((tmp = malloc(l + 1)), email, l);
+		tmp[l] = 0;
+		email = tmp;
+	    }
+	    me = libVES_User_fromPath(&email);
+	    free(tmp);
+	    libVES_setUser(ves, me);
 	}
-	me = libVES_User_fromPath(&email);
-	free(tmp);
-	if (!me) return NULL;
-	libVES_setUser(ves, me);
     }
     libVES_KeyStore_dialog dlg = {
 	.len = sizeof(libVES_KeyStore_dialog),
@@ -347,7 +347,7 @@ libVES *libVES_KeyStore_unlock(libVES_KeyStore *ks, libVES *ves, int flags) {
 	    ks->deletefn(ks, dlg.domain, dlg.extid, flags);
 	    if (!(flags & LIBVES_KS_NOPIN)) ks->deletefn(ks, dlg.domain, dlg.extid, flags | LIBVES_KS_NOPIN);
 	}
-	if (!(flags & LIBVES_KS_SESS)) {
+	if (!(flags & LIBVES_KS_SESS) && dlg.email) {
 	    ks->deletefn(ks, NULL, dlg.email, flags);
 	    if (!(flags & LIBVES_KS_NOPIN)) {
 		ks->deletefn(ks, NULL, dlg.email, flags | LIBVES_KS_NOPIN);
@@ -376,7 +376,7 @@ libVES *libVES_KeyStore_unlock(libVES_KeyStore *ks, libVES *ves, int flags) {
 	}
     }
     buf.veskey.keylen = 0;
-    if (!(flags & (LIBVES_KS_RESYNC)) && ((l = ks->getfn(ks, NULL, dlg.email, buf.sess, sizeof(buf.sess) - 1, flags | (LIBVES_KS_SESS | LIBVES_KS_NOPIN)))) > 0) {
+    if (!(flags & (LIBVES_KS_RESYNC)) && dlg.email && ((l = ks->getfn(ks, NULL, dlg.email, buf.sess, sizeof(buf.sess) - 1, flags | (LIBVES_KS_SESS | LIBVES_KS_NOPIN)))) > 0) {
 	buf.sess[l] = 0;
 	l = ks->getfn(ks, NULL, dlg.email, buf.veskey.veskey, sizeof(buf.buf), (flags & ~LIBVES_KS_SESS) | LIBVES_KS_NOPIN);
 	if (l > 0) {
@@ -387,18 +387,18 @@ libVES *libVES_KeyStore_unlock(libVES_KeyStore *ks, libVES *ves, int flags) {
 		buf.entry[l] = 0;
 		if (!libVES_KeyStore_dialog_decrypt(&dlg, buf.entry, &buf.veskey, sizeof(buf.buf), buf.entry, NULL, &libVES_KeyStore_entryfn)) {
 		    libVES_setError(dlg.ves, LIBVES_E_DIALOG, "KeyStore PIN dialog failed");
-		    buf.veskey.keylen = 0;
-		    buf.entry[0] = 0;
 		    return NULL;
 		}
 	    }
 	}
     }
-    libVES_VaultKey *cur = libVES_User_primary(me, NULL, NULL, ves);
+    libVES_VaultKey *cur;
     char impd = 0;
-    if (!cur) {
-	dlg.state = LIBVES_KSD_NOUSER;
-	libVES_KeyStore_dialog_close(&dlg);
+    if (!me || !(cur = libVES_User_primary(me, NULL, NULL, ves))) {
+	if (me) {
+	    dlg.state = LIBVES_KSD_NOUSER;
+	    libVES_KeyStore_dialog_close(&dlg);
+	}
     } else if (!buf.veskey.keylen && !(flags & LIBVES_KS_NOSYNC)) {
 	impd = !!libVES_KeyStore_dialog_import(&dlg, cur->id, buf.sess, &buf.veskey, sizeof(buf.buf), (flags & LIBVES_KS_NOPIN) ? NULL : buf.entry);
 	if (!impd) {
@@ -409,18 +409,22 @@ libVES *libVES_KeyStore_unlock(libVES_KeyStore *ks, libVES *ves, int flags) {
     }
     void *rs = NULL;
     if (buf.veskey.keylen) {
+	char *sess = libVES_getSessionToken(ves);
+	if (sess) sess = strdup(sess);
 	libVES_setSessionToken(ves, buf.sess);
 	if (libVES_VaultKey_unlock(cur, &buf.veskey)) {
 	    rs = ves;
+	    char fdom = !dlg.extid[0];
 	    if (buf.entry[0]) ks->putfn(ks, NULL, dlg.email, buf.entry, strlen(buf.entry), (flags & ~LIBVES_KS_SESS & ~LIBVES_KS_NOPIN));
 	    if (impd) ks->putfn(ks, NULL, dlg.email, buf.sess, strlen(buf.sess), (flags | LIBVES_KS_SESS) & ~LIBVES_KS_NOPIN);
-	    if (ves->external && libVES_unlock(ves, 0, NULL) && !(flags & LIBVES_KS_PRIMARY)) {
-		char *sess = NULL;
-		if ((flags & LIBVES_KS_SESS) && (flags & (LIBVES_KS_SAVE | LIBVES_KS_PERSIST))) {
+	    if (ves->external && (fdom || libVES_unlock(ves, 0, NULL)) && !(flags & LIBVES_KS_PRIMARY)) {
+		if (!sess && (flags & LIBVES_KS_SESS) && ((flags & (LIBVES_KS_SAVE | LIBVES_KS_PERSIST)) || fdom)) {
 		    char uri[80];
-		    sprintf(uri, "vaultKeys/%lld?fields=encPersistentSessionToken", ves->vaultKey->id);
+		    const char *fld = (flags & (LIBVES_KS_SAVE | LIBVES_KS_PERSIST)) ? "encPersistentSessionToken" : "encSessionToken";
+		    if (fdom) sprintf(uri, "domains/%.48s?fields=%s", dlg.domain, fld);
+		    else sprintf(uri, "vaultKeys/%lld?fields=%s", ves->vaultKey->id, fld);
 		    jVar *rsp = libVES_REST(ves, uri, NULL);
-		    const char *esess = jVar_getStringP(jVar_get(rsp, "encPersistentSessionToken"));
+		    const char *esess = jVar_getStringP(jVar_get(rsp, fld));
 		    if (esess && ((l = libVES_VaultKey_decrypt(cur, esess, &sess))) > 0) sess = realloc(sess, l + 1), sess[l] = 0;
 		    jVar_free(rsp);
 		    if (sess) {
@@ -430,12 +434,12 @@ libVES *libVES_KeyStore_unlock(libVES_KeyStore *ks, libVES *ves, int flags) {
 		}
 		if (!sess) {
 		    char *esess = NULL;
+		    libVES_setSessionToken(ves, NULL);
 		    libVES_VaultKey_free(libVES_VaultKey_get2(ves->external, ves, NULL, &esess, LIBVES_O_GET));
 		    if (esess && ((l = libVES_VaultKey_decrypt(ves->vaultKey, esess, &sess))) > 0) sess = realloc(sess, l + 1), sess[l] = 0;
 		    free(esess);
 		    if (sess) libVES_setSessionToken(ves, sess);
 		}
-		free(sess);
 		if (dlg.domain && (flags & (LIBVES_KS_SAVE | LIBVES_KS_SESS)) == LIBVES_KS_SAVE) {
 		    libVES_veskey *vk = libVES_VaultKey_getVESkey(ves->vaultKey);
 		    if (vk) ks->putfn(ks, dlg.domain, dlg.extid, vk->veskey, vk->keylen, (flags & ~LIBVES_KS_SESS) | LIBVES_KS_NOPIN);
@@ -444,8 +448,9 @@ libVES *libVES_KeyStore_unlock(libVES_KeyStore *ks, libVES *ves, int flags) {
 	    }
 	    if (!(flags & LIBVES_KS_PRIMARY)) libVES_VaultKey_lock(cur);
 	}
+	free(sess);
     }
-    if (!rs && ves->error != LIBVES_E_DIALOG) libVES_setError(ves, LIBVES_E_NOTFOUND, "Key not found in the Key Store");
+    if (!rs && !ves->error) libVES_setError(ves, LIBVES_E_INCORRECT, "Key not found in the Key Store");
     return rs;
 }
 

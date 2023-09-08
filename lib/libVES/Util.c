@@ -42,6 +42,10 @@
 
 
 size_t libVES_b64decode(const char *b64, char **dec) {
+    return libVES_b64decodel(b64, -1, dec);
+}
+
+size_t libVES_b64decodel(const char *b64, int len, char **dec) {
     static const unsigned char map[0x60] = {
 	0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0x3e,0xff,0x3e,0xff,0x3f,
 	0x34,0x35,0x36,0x37,0x38,0x39,0x3a,0x3b,0x3c,0x3d,0xff,0xff,0xff,0xff,0xff,0xff,
@@ -52,12 +56,13 @@ size_t libVES_b64decode(const char *b64, char **dec) {
     };
     const char *p = b64;
     unsigned char c;
-    if (!*dec) *dec = malloc(libVES_b64decsize(strlen(b64)));
+    const char *tail = len >= 0 ? b64 + len : NULL;
+    if (!*dec) *dec = malloc(libVES_b64decsize(tail ? tail - b64 : strlen(b64)));
     char *d = *dec;
     assert(d);
     int sh = 16;
     int a = 0;
-    while ((c = *p++)) if (c >= 0x20 && c < 0x80) {
+    while ((!tail || p < tail) && (c = *p++)) if (c >= 0x20 && c < 0x80) {
 	unsigned char m = map[c - 0x20];
 	if (m == 0xff) continue;
 	sh -= 6;
@@ -193,4 +198,15 @@ char *libVES_buildURI(int argc, ...) {
     *p = 0;
     va_end(ar);
     return strdup(buf);
+}
+
+long long libVES_date2usec(const char *date) {
+    if (!date) return 0;
+    unsigned short tm_year, tm_mon, tm_mday, tm_hour = 0, tm_min = 0, tm_sec = 0;
+    float tm_usec = 0;
+    if (sscanf(date, "%hu-%hu-%huT%hu:%hu:%hu%fZ", &tm_year, &tm_mon, &tm_mday, &tm_hour, &tm_min, &tm_sec, &tm_usec) < 3) return 0;
+    return ((((((long long)tm_year - (tm_mon >= 3 ? 0 : 1)) * 1461 / 4 - 1968 * 1461 / 4\
+	+ ((long long)(tm_mon >= 3 ? tm_mon - 3 : tm_mon + 9) * 3059 + 51) / 100\
+	+ tm_mday - 657 - (tm_year - (tm_mon >= 3 ? 0 : 1) + 100) / 100 * 3 / 4)\
+	* 24 + tm_hour) * 60 + tm_min) * 60 + tm_sec) * 1000000 + (long long)(tm_usec * 1000000);
 }

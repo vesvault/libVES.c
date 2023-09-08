@@ -342,6 +342,7 @@ int main(int argc, char **argv) {
 			in.ptr = (void *) &params.share;
 			in.flags |= PF_VI_WR;
 			in.putfn = &put_share;
+			in.outfn = &out_share;
 			break;
 		    case o_r:
 			in.ptr = (void **) &params.share;
@@ -352,6 +353,7 @@ int main(int argc, char **argv) {
 			in.ptr = (void *) &params.share;
 			in.flags |= PF_VI_WR;
 			in.putfn = &put_setshare;
+			in.outfn = &out_share;
 			break;
 		    case o_apiurl:
 			in.ptr = (void **) &params.apiUrl;
@@ -492,7 +494,8 @@ int main(int argc, char **argv) {
 	.ves = NULL,
 	.vitem = NULL,
 	.ci = NULL,
-	.vkey = NULL
+	.vkey = NULL,
+	.domain = NULL
     };
     libVES_init(VESUTIL_VERSION_SHORT);
     ctx.ves = libVES_new(params.user);
@@ -500,6 +503,7 @@ int main(int argc, char **argv) {
 	if (params.debug >= 0) fprintf(stderr, "Invalid app key reference: %s\n", params.user);
 	return E_PARAM;
     }
+    if (ctx.ves->external && !ctx.ves->external->externalId[0]) ctx.domain = ctx.ves->external->domain;
     ctx.ves->httpInitFn = &hook_httpInitFn;
     if (params.debug > 0) ctx.ves->debug = params.debug;
     if (params.apiUrl) ctx.ves->apiUrl = params.apiUrl;
@@ -519,10 +523,19 @@ int main(int argc, char **argv) {
 	if (!u) return_VESerror("[primary]");
 	if (!libVES_KeyStore_unlock(NULL, ctx.ves, params.ks_flags)) return_VESerror("[libVES_KeyStore_unlock]");
 	if (!params.user && !params.key && ctx.ves->me) ctx.vkey = ctx.ves->me->primary;
-    } else if (params.uveskey) {
+    } else if (params.uveskey || (params.flags & PF_NEW)) {
 	libVES_veskey *v = params.uveskey;
-	if (!libVES_unlock(ctx.ves, v->keylen, v->veskey)) return_VESerror("[libVES_unlock]");
+	libVES_veskey *newv = NULL;
+	if (params.flags & PF_NEW) {
+	    libVES_VaultKey *vk = libVES_createVaultKey(ctx.ves);
+	    if (!vk) return_VESerror("[libVES_createVaultKey]");
+	    if (!v) v = params.veskey;
+	    if (!v) v = newv = libVES_VaultKey_getVESkey(vk);
+	} else {
+	    if (!libVES_unlock(ctx.ves, v->keylen, v->veskey)) return_VESerror("[libVES_unlock]");
+	}
 	if ((params.ks_flags & LIBVES_KS_SAVE) && !libVES_KeyStore_savekey(NULL, ctx.ves->external, v->keylen, v->veskey)) return_VESerror("[libVES_KeyStore_savekey]");
+	if (newv) libVES_veskey_free(newv);
     } else if (params.flags & PF_KEYSTORE) {
 	if (!libVES_KeyStore_unlock(NULL, ctx.ves, params.ks_flags)) return_VESerror("[libVES_KeyStore_unlock]");
     }
@@ -546,7 +559,7 @@ int main(int argc, char **argv) {
 	if (!libVES_VaultKey_unlock(ctx.vkey, NULL)) libVES_getError(ctx.ves);
 	if (libVES_VaultKey_isNew(ctx.vkey)) params.flags |= PF_VK_WR;
 	params.flags |= PF_VK_FR;
-    } else if (!ctx.vkey && ((params.flags & (PF_VK_RD | PF_VK_WR)) || params.user || params.primary) && !(ctx.vkey = params.flags & PF_NEW ? libVES_createVaultKey(ctx.ves) : libVES_getVaultKey(ctx.ves))) return_VESerror("[libVES_getVaultKey]");
+    } else if (!ctx.vkey && !ctx.domain && ((params.flags & (PF_VK_RD | PF_VK_WR)) || params.user || params.primary) && !(ctx.vkey = libVES_getVaultKey(ctx.ves))) return_VESerror("[libVES_getVaultKey]");
     
     /****************************
      * Perform update actions

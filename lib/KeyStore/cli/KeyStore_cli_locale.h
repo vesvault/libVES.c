@@ -46,5 +46,7 @@ struct libVES_KeyStore_cli_locale {
     const char **syncode;
     const char **syncode2;
     const char **nouser;
+    const char **noemail;
     const char **primary;
+    const char **domadm;
 };

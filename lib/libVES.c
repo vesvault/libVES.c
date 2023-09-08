@@ -48,7 +48,7 @@
 #include "libVES.h"
 
 
-const char *libVES_errorMsgs[13] = {
+const char *libVES_errorMsgs[14] = {
     NULL,
     "Bad parameters",
     "Communication with the API server failed",
@@ -61,7 +61,8 @@ const char *libVES_errorMsgs[13] = {
     "Unsupported algorithm",
     "Incorrect operation",
     "Internal assertion failed",
-    "Dialog failed"
+    "Dialog failed",
+    "Quota exceeded"
 };
 
 const char *libVES_appName = "(unspecified app)";
@@ -100,7 +101,69 @@ libVES *libVES_fromRef(libVES_Ref *ref) {
     ves->unlockedKeys = libVES_List_new(&libVES_VaultKey_ListCtlU);
     (void)libVES_REFUP(List, ves->unlockedKeys);
     ves->sessionTimeout = LIBVES_SESS_TMOUT;
+    ves->pollUrl = LIBVES_POLL_URL;
     return ves;
+}
+
+libVES *libVES_child(libVES *pves) {
+    if (!pves) return NULL;
+    libVES *ves = malloc(sizeof(libVES));
+    if (!ves) return NULL;
+    memcpy(ves, pves, sizeof(libVES));
+    ves->curl = NULL;
+    (void)libVES_REFUP(Ref, ves->external);
+    (void)libVES_REFUP(VaultKey, ves->vaultKey);
+    (void)libVES_REFUP(User, ves->me);
+    ves->error = LIBVES_E_OK;
+    ves->errorMsg = ves->errorBuf = NULL;
+    if (ves->sessionToken) ves->sessionToken = strdup(ves->sessionToken);
+    ves->unlockedKeys = libVES_List_new(&libVES_VaultKey_ListCtlU);
+    (void)libVES_REFUP(List, ves->unlockedKeys);
+    libVES_VaultKey **pvk = NULL;
+    while ((pvk = libVES_List_next(pves->unlockedKeys, pvk, libVES_VaultKey))) {
+	libVES_List_push(ves->unlockedKeys, *pvk);
+    }
+    return ves;
+}
+
+static void **libVES_optionPtr(libVES *ves, int optn) {
+    switch (optn) {
+	case LIBVES_O_APIURL: return (void **)&ves->apiUrl;
+	case LIBVES_O_POLLURL: return (void **)&ves->pollUrl;
+	case LIBVES_O_APPNAME: return (void **)&ves->appName;
+	case LIBVES_O_ATTNFN: return (void **)&ves->attnFn;
+	case LIBVES_O_HTTPINITFN: return (void **)&ves->httpInitFn;
+	case LIBVES_O_GENFN: return (void **)&ves->genVaultKeyFn;
+	case LIBVES_O_CURL: return (void **)&ves->curl;
+	case LIBVES_O_CIPHERALGO: return (void **)&ves->cipherAlgo;
+	case LIBVES_O_KEYALGO: return (void **)&ves->keyAlgo;
+	case LIBVES_O_REF: return &ves->ref;
+	default: return NULL;
+    }
+}
+
+void *libVES_getOption(libVES *ves, int optn) {
+    if (!ves) return NULL;
+    switch (optn) {
+	case LIBVES_O_DEBUG: return (void *)(long long)ves->debug;
+	case LIBVES_O_SESSTMOUT: return (void *)(long long)ves->sessionTimeout;
+	case LIBVES_O_VESKEYLEN: return (void *)(long long)ves->veskeyLen;
+	default: break;
+    }
+    void **ptr = libVES_optionPtr(ves, optn);
+    return ptr ? *ptr : NULL;
+}
+
+int libVES_setOption(libVES *ves, int optn, void *val) {
+    if (!ves) return 0;
+    switch (optn) {
+	case LIBVES_O_DEBUG: return ves->debug = (long long)val, 1;
+	case LIBVES_O_SESSTMOUT: return ves->sessionTimeout = (long long)val, 1;
+	case LIBVES_O_VESKEYLEN: return ves->veskeyLen = (long long)val, 1;
+	default: break;
+    }
+    void **ptr = libVES_optionPtr(ves, optn);
+    return ptr ? (*ptr = val, 1) : 0;
 }
 
 int libVES_getError(libVES *ves) {
@@ -249,9 +312,39 @@ void libVES_setSessionExpire(libVES *ves) {
 }
 
 libVES_VaultKey *libVES_unlock(libVES *ves, size_t keylen, const char *key) {
+    libVES_veskey *veskey = key ? libVES_veskey_new(keylen, key) : NULL;
+    libVES_VaultKey *vkey = libVES_unlock_veskey(ves, veskey);
+    libVES_veskey_free(veskey);
+    return vkey;
+}
+
+libVES_VaultKey *libVES_unlock_veskey(libVES *ves, const libVES_veskey *veskey) {
     if (!ves) return NULL;
-    char *sesstkn = NULL;
-    if (!ves->sessionToken) {
+    void *res;
+    if (libVES_getVaultKey(ves)) {
+	res = libVES_VaultKey_unlock(ves->vaultKey, veskey);
+    } else if (!ves->external) {
+	libVES_User *me = libVES_me(ves);
+	res = NULL;
+	if (me) {
+	    libVES_List *lst = libVES_List_new(&libVES_VaultKey_ListCtl);
+	    if (libVES_User_vaultKeys(me, lst, ves)) {
+		libVES_VaultKey **pvk = NULL;
+		while ((pvk = libVES_List_next(lst, pvk, libVES_VaultKey))) {
+		    if (!res) {
+			res = libVES_VaultKey_unlock(*pvk, veskey);
+			if (res) {
+			    ves->vaultKey = libVES_REFUP(VaultKey, *pvk);
+			    break;
+			}
+		    }
+		}
+	    }
+	    libVES_List_free(lst);
+	}
+    }
+    if (res && !ves->sessionToken) {
+	char *sesstkn = NULL;
 	libVES_VaultKey *vkey = libVES_VaultKey_get2(ves->external, ves, NULL, &sesstkn, LIBVES_O_GET);
 	if (vkey) {
 	    if (ves->vaultKey) {
@@ -265,49 +358,20 @@ libVES_VaultKey *libVES_unlock(libVES *ves, size_t keylen, const char *key) {
 		libVES_VaultKey_free(vkey);
 	    } else ves->vaultKey = libVES_REFUP(VaultKey, vkey);
 	}
-	if (!sesstkn) return NULL;
-    }
-    void *res;
-    libVES_veskey *veskey = key ? libVES_veskey_new(keylen, key) : NULL;
-    if (libVES_getVaultKey(ves)) {
-	res = libVES_VaultKey_unlock(ves->vaultKey, veskey);
-    } else if (!ves->external) {
-	libVES_User *me = libVES_me(ves);
-	res = NULL;
-	if (me) {
-	    libVES_List *lst = libVES_List_new(&libVES_VaultKey_ListCtl);
-	    if (libVES_User_vaultKeys(me, lst, ves)) {
-		int i;
-		for (i = 0; i < lst->len; i++) {
-		    libVES_VaultKey *vk = lst->list[i];
-		    if (!res) {
-			res = libVES_VaultKey_unlock(vk, veskey);
-			if (res) {
-			    ves->vaultKey = libVES_REFUP(VaultKey, vk);
-			    break;
-			}
-		    }
-		}
-	    }
-	    libVES_List_free(lst);
-	}
-    }
-    if (sesstkn) {
-	if (res) {
+	if (sesstkn) {
 	    int l = libVES_VaultKey_decrypt(ves->vaultKey, sesstkn, &ves->sessionToken);
 	    if (l > 0) {
 		ves->sessionToken[l] = 0;
 		libVES_setSessionExpire(ves);
-		ves->attnFn = &libVES_defaultAttn;
+		if (!ves->attnFn) ves->attnFn = &libVES_defaultAttn;
 	    } else {
 		free(ves->sessionToken);
 		ves->sessionToken = NULL;
 		res = NULL;
 	    }
-	}
-	free(sesstkn);
+	    free(sesstkn);
+	} else res = NULL;
     }
-    libVES_veskey_free(veskey);
     return res ? ves->vaultKey : NULL;
 }
 
@@ -371,15 +435,13 @@ void libVES_attn(libVES *ves) {
 void libVES_lock(libVES *ves) {
     if (!ves) return;
     libVES_chkAttn(ves);
-    int i = 0;
-    libVES_List *unl = ves->unlockedKeys;
-    while (i < unl->len) {
-	libVES_VaultKey *vkey = unl->list[i];
-	libVES_VaultKey_lock(vkey);
-	if (!unl->list) break;
-	if (unl->list[i] == vkey) i++;
+    libVES_VaultKey *vk = NULL;
+    libVES_VaultKey **pvk;
+    while ((pvk = libVES_List_next(ves->unlockedKeys, NULL, libVES_VaultKey)) && *pvk != vk) {
+	vk = *pvk;
+	if (vk->ves == ves) libVES_VaultKey_lock(vk);
     }
-    if (ves->vaultKey) libVES_VaultKey_lock(ves->vaultKey);
+    if (ves->vaultKey && ves->vaultKey->ves == ves) libVES_VaultKey_lock(ves->vaultKey);
 }
 
 libVES_VaultKey *libVES_primary(libVES *ves, const char *email, const char *passwd) {

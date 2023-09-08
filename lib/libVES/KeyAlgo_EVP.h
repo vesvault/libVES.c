@@ -57,12 +57,12 @@ extern void *libVES_KeyAlgo_autoPEMfn;
 /***************************************************************************
  * Private PEM to EVP, use veskey if encrypted
  ***************************************************************************/
-struct evp_pkey_st *libVES_KeyAlgo_EVP_fromPEM(struct libVES_veskey *veskey, const char *pem);
+struct evp_pkey_st *libVES_KeyAlgo_EVP_fromPEM(const struct libVES_veskey *veskey, const char *pem);
 
 /***************************************************************************
  * Private EVP to PEM, encrypted if veskey != NULL
  ***************************************************************************/
-char *libVES_KeyAlgo_EVP_toPEM(struct libVES_veskey *veskey, struct evp_pkey_st *pkey);
+char *libVES_KeyAlgo_EVP_toPEM(const struct libVES_veskey *veskey, struct evp_pkey_st *pkey);
 
 
 int libVES_KeyAlgo_EVP_veskey_cb(char *buf, int size, int rwflag, void *u);

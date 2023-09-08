@@ -132,6 +132,10 @@ libVES_Seek *libVES_Cipher_seek(libVES_Cipher *ci, libVES_Seek *sk) {
     return ci->algo->seekfn(ci, sk);
 }
 
+const libVES_CiAlgo *libVES_Cipher_getAlgo(libVES_Cipher *ci) {
+    return ci ? ci->algo : NULL;
+}
+
 struct jVar *libVES_Cipher_getMeta(libVES_Cipher *ci) {
     return ci ? ci->meta : NULL;
 }

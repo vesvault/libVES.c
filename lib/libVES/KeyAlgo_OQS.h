@@ -32,11 +32,11 @@
 /***************************************************************************
  * libOQS KEM Wrapper
  ***************************************************************************/
-struct libVES_KeyAlgo_OQS {
+typedef struct libVES_KeyAlgo_OQS_Key {
     struct OQS_KEM *kem;
     void *pub;
     void *priv;
-};
+} libVES_KeyAlgo_OQS_Key;
 
 extern const struct libVES_KeyAlgo libVES_KeyAlgo_OQS;
 #define libVES_KeyAlgo_OQS_defaultAlgo		"Kyber768"
