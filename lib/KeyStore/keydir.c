@@ -46,24 +46,30 @@
 #include "keydir.h"
 
 
-static int libVES_KeyStore_keydir_badchrs(const char *s) {
+static int libVES_KeyStore_keydir_badchrs(char *s) {
     char c;
-    if (s) while ((c = *s++)) if (c < 0x20 || strchr("\"\'`:;,[](){}<>|^/\\*?\x7f", c)) return 1;
-    return 0;
+    int ct = 0;
+    if (s) while ((c = *s++)) if (c < 0x20 || strchr("\"\'`:;,[](){}<>|^/\\*?\x7f", c)) {
+	ct++;
+	s[-1] = '.';
+    }
+    return ct;
 }
 
 static char *libVES_KeyStore_keydir_filepath(libVES_KeyStore *ks, const char *path, const char *domain, const char *extid, int flags) {
-    if (!path || libVES_KeyStore_keydir_badchrs(domain) || libVES_KeyStore_keydir_badchrs(extid)) return NULL;
+    if (!path) return NULL;
     int pl = strlen(path);
     int dl = domain ? strlen(domain) : 0;
-    char *fname = malloc(pl + dl + strlen(extid) + 6);
+    char *fname = malloc(pl + dl + strlen(extid) + 16);
     memcpy(fname, path, pl);
     if (domain) {
-	memcpy(fname + pl, domain, dl);
+	strcpy(fname + pl, domain);
+	libVES_KeyStore_keydir_badchrs(fname + pl);
 	pl += dl;
 	fname[pl++] = '^';
     }
     strcpy(fname + pl, extid);
+    libVES_KeyStore_keydir_badchrs(fname + pl);
     strcat(fname + pl, ((flags & LIBVES_KS_SESS) ? ".ses" : ((flags & LIBVES_KS_NOPIN) ? ".key" : ".lkr")));
     return fname;
 }

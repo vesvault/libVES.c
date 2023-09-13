@@ -66,6 +66,7 @@ const char *libVES_errorMsgs[14] = {
 };
 
 const char *libVES_appName = "(unspecified app)";
+const char *libVES_version = LIBVES_VERSION_CODE;
 
 void libVES_init(const char *appName) {
     if (appName) libVES_appName = appName;

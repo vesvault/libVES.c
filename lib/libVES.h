@@ -28,8 +28,8 @@
  * libVES.h                   libVES: Main header
  *
  ***************************************************************************/
-#define LIBVES_VERSION_NUMBER	0x01020500L
-#define LIBVES_VERSION_CODE	"1.25"
+#define LIBVES_VERSION_NUMBER	0x01020600L
+#define LIBVES_VERSION_CODE	"1.26"
 #define LIBVES_VERSION_STR	"libVES.c " LIBVES_VERSION_CODE " (c) 2018 - 2023 VESvault Corp"
 #define LIBVES_VERSION_SHORT	"libVES/" LIBVES_VERSION_CODE
 
@@ -106,6 +106,8 @@ enum { LIBVES_O_APIURL, LIBVES_O_APPNAME, LIBVES_O_ATTNFN, LIBVES_O_CURL, LIBVES
 #ifndef LIBVES_SESS_TMOUT
 #define LIBVES_SESS_TMOUT	28800
 #endif
+
+extern const char *libVES_version;
 
 /***************************************************************************
  * Global initialization. Optionally, call libVES_init() before creating any
