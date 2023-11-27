@@ -213,7 +213,7 @@ libVES_VaultKey *libVES_VaultKey_get2(libVES_Ref *ref, libVES *ves, libVES_User 
 	}
 	if (user) jVar_put(vkey_req, "user", jVar_put(libVES_User_toJVar(user), "$op", jVar_string("fetch")));
 	jVar_put(vkey_req, "$op", jVar_string("fetch"));
-	jVar *vkey_res = libVES_REST(ves, (sesstkn ? "vaultKeys?fields=id,algo,type,publicKey,privateKey,encSessionToken" : "vaultKeys?fields=id,type,algo,publicKey,externals"), vkey_req);
+	jVar *vkey_res = libVES_REST(ves, (sesstkn ? "vaultKeys?fields=id,algo,type,publicKey,privateKey,user(id,email,firstName,lastName),encSessionToken" : "vaultKeys?fields=id,type,algo,publicKey,externals"), vkey_req);
 	jVar_free(vkey_req);
 	if (vkey_res) {
 	    vkey = libVES_VaultKey_fromJVar(vkey_res, ves);
@@ -321,6 +321,7 @@ void libVES_VaultKey_parseJVar(libVES_VaultKey *vkey, jVar *jvar) {
 	    libVES_VaultItem_free(vitem);
 	}
     }
+    if (!vkey->user) vkey->user = libVES_User_fromJVar(jVar_get(jvar, "user"));
 }
 
 char *libVES_VaultKey_getPrivateKey(libVES_VaultKey *vkey) {
@@ -328,7 +329,7 @@ char *libVES_VaultKey_getPrivateKey(libVES_VaultKey *vkey) {
     if (!vkey->privateKey) {
 	if (!vkey->id) return NULL;
 	char uri[160];
-	sprintf(uri, "vaultKeys/%lld?fields=privateKey,vaultItems(id,type,vaultEntries(vaultKey(id),encData))", vkey->id);
+	sprintf(uri, "vaultKeys/%lld?fields=privateKey,vaultItems(id,type,vaultEntries(vaultKey(id),encData)),user(id,email,firstName,lastName)", vkey->id);
 	jVar *rsp = libVES_REST(vkey->ves, uri, NULL);
 	if (!rsp) return NULL;
 	libVES_VaultKey_parseJVar(vkey, rsp);
@@ -340,7 +341,7 @@ char *libVES_VaultKey_getPrivateKey(libVES_VaultKey *vkey) {
 
 libVES_User *libVES_VaultKey_getUser(libVES_VaultKey *vkey) {
     if (!vkey) return NULL;
-    if (!vkey->user) {
+    if (!vkey->user && !vkey->privateKey) {
 	if (!vkey->id) return NULL;
 	char uri[160];
 	sprintf(uri, "vaultKeys/%lld?fields=user(id,email,firstName,lastName)", vkey->id);
