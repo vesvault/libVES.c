@@ -42,8 +42,9 @@ typedef struct libVES_Watch {
     long long lastId;
     char uri[64];
     const struct libVES_WatchCtl *ctl;
-    long long (* tmoutfn)(struct libVES_Watch *);
+    long long (* tmoutfn)(struct libVES_Watch *, void *);
     int flags;
+    void *tmoutarg;
 } libVES_Watch;
 
 typedef struct libVES_WatchCtl {
@@ -60,6 +61,7 @@ typedef struct libVES_WatchCtl {
 #define	LIBVES_WATCH_TMOUT	900000000
 
 libVES_Watch *libVES_Watch_new(const struct libVES_WatchCtl *ctl, struct libVES *ves);
+void libVES_Watch_setTimeoutFn(libVES_Watch *watch, long long (* tmoutfn)(libVES_Watch *, void *), void *arg);
 
 libVES_Watch *libVES_Watch_VaultKey_events(struct libVES *ves);
 libVES_Watch *libVES_Watch_User_events(struct libVES *ves);

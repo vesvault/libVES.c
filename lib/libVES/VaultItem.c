@@ -471,6 +471,46 @@ struct libVES_VaultKey **libVES_VaultItem_findShare(libVES_VaultItem *vitem, str
     return NULL;
 }
 
+int libVES_VaultItem_isDeleted(libVES_VaultItem *vitem) {
+    return vitem ? vitem->flags & LIBVES_SH_DEL : 0;
+}
+
+int libVES_VaultItem_force(libVES_VaultItem *vitem) {
+    return vitem ? vitem->flags |= LIBVES_SH_UPD : 0;
+}
+
+long long libVES_VaultItem_getId(libVES_VaultItem *vitem) {
+    return vitem ? vitem->id : 0;
+}
+
+int libVES_VaultItem_getType(libVES_VaultItem *vitem) {
+    return vitem ? vitem->type : -1;
+}
+
+struct libVES_User *libVES_VaultItem_getCreator(libVES_VaultItem *vitem) {
+    return vitem && vitem->objectType == LIBVES_O_FILE && vitem->file ? vitem->file->creator : NULL;
+}
+
+struct libVES_Ref *libVES_VaultItem_getExternal(libVES_VaultItem *vitem) {
+    return vitem && vitem->objectType == LIBVES_O_FILE && vitem->file ? vitem->file->external : NULL;
+}
+
+struct libVES_File *libVES_VaultItem_getFile(libVES_VaultItem *vitem) {
+    return vitem && vitem->objectType == LIBVES_O_FILE ? vitem->file : NULL;
+}
+
+struct libVES_VaultKey *libVES_VaultItem_getVaultKey(libVES_VaultItem *vitem) {
+    return vitem && vitem->objectType == LIBVES_O_VKEY ? vitem->vaultKey : NULL;
+}
+
+libVES_VaultItem *libVES_VaultItem_refup(libVES_VaultItem *obj) {
+    return libVES_REFUP(VaultItem, obj);
+}
+
+libVES_VaultItem *libVES_VaultItem_refdn(libVES_VaultItem *obj) {
+    return libVES_REFDN(VaultItem, obj) ? NULL : obj;
+}
+
 void libVES_VaultItem_free(libVES_VaultItem *vitem) {
     if (libVES_REFBUSY(vitem)) return;
     jVar_free(vitem->meta);

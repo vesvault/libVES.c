@@ -216,12 +216,26 @@ int libVES_VaultItem_setMeta(libVES_VaultItem *vitem, struct jVar *meta);
 
 const char *libVES_VaultItem_typeStr(int type);
 int libVES_VaultItem_typeFromStr(const char *str);
-#define libVES_VaultItem_isDeleted(vitem)	((vitem) ? (vitem)->flags & LIBVES_SH_DEL : 0)
-#define libVES_VaultItem_force(vitem)		((vitem) ? (vitem)->flags |= LIBVES_SH_UPD : 0)
-#define libVES_VaultItem_getId(vkey)		((vitem) ? (vitem)->id : 0)
-#define libVES_VaultItem_getType(vitem)		((vitem) ? (vitem)->type : -1)
-#define libVES_VaultItem_getFile(vitem)		((vitem && (vitem)->objectType == LIBVES_O_FILE) ? (vitem)->file : NULL)
-#define libVES_VaultItem_getVaultKey(vitem)	((vitem && (vitem)->objectType == LIBVES_O_VKEY) ? (vitem)->vaultKey : NULL)
+
+int libVES_VaultItem_isDeleted(libVES_VaultItem *vitem);
+int libVES_VaultItem_force(libVES_VaultItem *vitem);
+long long libVES_VaultItem_getId(libVES_VaultItem *vkey);
+int libVES_VaultItem_getType(libVES_VaultItem *vitem);
+struct libVES_User *libVES_VaultItem_getCreator(libVES_VaultItem *vitem);
+struct libVES_Ref *libVES_VaultItem_getExternal(libVES_VaultItem *vitem);
+struct libVES_File *libVES_VaultItem_getFile(libVES_VaultItem *vitem);
+struct libVES_VaultKey *libVES_VaultItem_getVaultKey(libVES_VaultItem *vitem);
+
+/***************************************************************************
+ * App level refcount management. After calling refup() any calls to
+ * *_free() on obj will be ignored. Call refdn() to automatically
+ * deallocate the object.
+ * refup() returns obj, refdn returns obj or NULL if the object have been
+ * deallocated by the call.
+ * Both calls are NULL safe.
+ ***************************************************************************/
+libVES_VaultItem *libVES_VaultItem_refup(libVES_VaultItem *obj);
+libVES_VaultItem *libVES_VaultItem_refdn(libVES_VaultItem *obj);
 
 void libVES_VaultItem_free(libVES_VaultItem *vitem);
 

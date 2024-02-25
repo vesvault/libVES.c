@@ -236,6 +236,17 @@ int libVES_VaultKey_dump(libVES_VaultKey *vkey, int fd, int flags);
  ***************************************************************************/
 int libVES_VaultKey_setAppUrl(libVES_VaultKey *vkey, const char *url);
 
+/***************************************************************************
+ * App level refcount management. After calling refup() any calls to
+ * *_free() on obj will be ignored. Call refdn() to automatically
+ * deallocate the object.
+ * refup() returns obj, refdn returns obj or NULL if the object have been
+ * deallocated by the call.
+ * Both calls are NULL safe.
+ ***************************************************************************/
+libVES_VaultKey *libVES_VaultKey_refup(libVES_VaultKey *obj);
+libVES_VaultKey *libVES_VaultKey_refdn(libVES_VaultKey *obj);
+
 void libVES_VaultKey_free(libVES_VaultKey *vkey);
 
 /***************************************************************************

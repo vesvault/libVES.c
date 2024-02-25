@@ -614,6 +614,14 @@ int libVES_VaultKey_dump(libVES_VaultKey *vkey, int fd, int flags) {
     return vkey->algo->dumpfn(vkey, fd, flags);
 }
 
+libVES_VaultKey *libVES_VaultKey_refup(libVES_VaultKey *obj) {
+    return libVES_REFUP(VaultKey, obj);
+}
+
+libVES_VaultKey *libVES_VaultKey_refdn(libVES_VaultKey *obj) {
+    return libVES_REFDN(VaultKey, obj) ? NULL : obj;
+}
+
 void libVES_VaultKey_free(libVES_VaultKey *vkey) {
     if (libVES_REFBUSY(vkey)) return;
     libVES_VaultKey_lock(vkey);

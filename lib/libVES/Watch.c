@@ -95,6 +95,13 @@ libVES_Watch *libVES_Watch_new(const libVES_WatchCtl *ctl, libVES *ves) {
     return w;
 }
 
+void libVES_Watch_setTimeoutFn(libVES_Watch *watch, long long (* tmoutfn)(libVES_Watch *, void *), void *arg) {
+    if (!watch) return;
+    watch->tmoutfn = tmoutfn;
+    watch->tmoutarg = arg;
+}
+
+
 libVES_Watch *libVES_Watch_VaultKey_events(struct libVES *ves) {
     libVES_VaultKey *vkey = libVES_getVaultKey(ves);
     if (!vkey) return NULL;
@@ -139,7 +146,7 @@ libVES_List *libVES_Watch_load(libVES_Watch *watch, long long start, int ct, int
     watch->list = NULL;
     char url[480];
     int fpoll = (flags & watch->flags & LIBVES_W_POLL) && !(flags & LIBVES_W_REV);
-    long long poll = fpoll ? (watch->tmoutfn ? watch->tmoutfn(watch) : LIBVES_WATCH_TMOUT) : 0;
+    long long poll = fpoll ? (watch->tmoutfn ? watch->tmoutfn(watch, watch->tmoutarg) : LIBVES_WATCH_TMOUT) : 0;
     char *d = url;
     d += sprintf(d, "%s%s?fields=%s%s%%5B",
 	(poll > 0 ? watch->ves->pollUrl : watch->ves->apiUrl),
