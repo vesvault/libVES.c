@@ -414,7 +414,7 @@ libVES *libVES_KeyStore_unlock(libVES_KeyStore *ks, libVES *ves, int flags) {
 	libVES_setSessionToken(ves, buf.sess);
 	if (libVES_VaultKey_unlock(cur, &buf.veskey)) {
 	    rs = ves;
-	    char fdom = !dlg.extid[0];
+	    char fdom = dlg.extid && !dlg.extid[0];
 	    if (buf.entry[0]) ks->putfn(ks, NULL, dlg.email, buf.entry, strlen(buf.entry), (flags & ~LIBVES_KS_SESS & ~LIBVES_KS_NOPIN));
 	    if (impd) ks->putfn(ks, NULL, dlg.email, buf.sess, strlen(buf.sess), (flags | LIBVES_KS_SESS) & ~LIBVES_KS_NOPIN);
 	    if (ves->external && (fdom || libVES_unlock(ves, 0, NULL)) && !(flags & LIBVES_KS_PRIMARY)) {

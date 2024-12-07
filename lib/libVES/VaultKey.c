@@ -284,7 +284,8 @@ libVES_VaultItem *libVES_VaultKey_propagate(libVES_VaultKey *vkey) {
     if (vkey->type == LIBVES_VK_TEMP) libVES_List_push(share, vkey->ves->vaultKey);
     char ok = libVES_User_activeVaultKeys(vkey->user, share, vkey->ves) || libVES_checkError(vkey->ves, LIBVES_E_NOTFOUND) ? 1 : 0;
     libVES_VaultKey *u_vkey = vkey->ves->vaultKey;
-    if (ok && u_vkey && vkey->user->id != u_vkey->user->id) ok = libVES_User_activeVaultKeys(u_vkey->user, share, vkey->ves) ? 1 : 0;
+    libVES_User *user = libVES_VaultKey_getUser(u_vkey);
+    if (ok && user && vkey->user && vkey->user->id != user->id) ok = libVES_User_activeVaultKeys(user, share, vkey->ves) ? 1 : 0;
     if (ok && vkey->id && vkey->external && vkey->type == LIBVES_VK_TEMP) {
 	jVar *req = jVar_put(jVar_put(jVar_object(), "type", jVar_string(libVES_VaultKey_types[LIBVES_VK_SECONDARY])), "$op", jVar_string("fetch"));
 	libVES_Ref_toJVar(vkey->external, req);
@@ -341,8 +342,9 @@ char *libVES_VaultKey_getPrivateKey(libVES_VaultKey *vkey) {
 
 libVES_User *libVES_VaultKey_getUser(libVES_VaultKey *vkey) {
     if (!vkey) return NULL;
-    if (!vkey->user && !vkey->privateKey) {
+    if (!vkey->user) {
 	if (!vkey->id) return NULL;
+        if (vkey->external && vkey->external->externalId[0] == '!') return NULL; // Anonymous key
 	char uri[160];
 	sprintf(uri, "vaultKeys/%lld?fields=user(id,email,firstName,lastName)", vkey->id);
 	jVar *rsp = libVES_REST(vkey->ves, uri, NULL);

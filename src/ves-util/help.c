@@ -138,7 +138,7 @@ const char *VEShelp =
        "\n"
        "Action Modifiers:\n"
        "  -p, --print                   Print the current value of the preceding option.\n"
-       "  -f FILE, --flie=...           Read a value from, or write to, a file.\n"
+       "  -f FILE, --file=...           Read a value from, or write to, a file.\n"
        "  -F FDESC, --fd=...            Read a value from, or write to, a file descriptor,\n"
        "                                (can be used anywhere instead of -f)"
        "\n"
