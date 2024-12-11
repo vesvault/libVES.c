@@ -523,7 +523,10 @@ int main(int argc, char **argv) {
 	if (!u) return_VESerror("[primary]");
 	if (!libVES_KeyStore_unlock(NULL, ctx.ves, params.ks_flags)) return_VESerror("[libVES_KeyStore_unlock]");
 	if (!params.user && !params.key && ctx.ves->me) ctx.vkey = ctx.ves->me->primary;
-    } else if (params.uveskey || (params.flags & PF_NEW)) {
+    } else if ((params.flags & PF_KEYSTORE) && !(params.flags & PF_NEW) && !params.uveskey) {
+	if (!libVES_KeyStore_unlock(NULL, ctx.ves, params.ks_flags)) return_VESerror("[libVES_KeyStore_unlock]");
+    }
+    if (params.uveskey || (params.flags & PF_NEW)) {
 	libVES_veskey *v = params.uveskey;
 	libVES_veskey *newv = NULL;
 	if (params.flags & PF_NEW) {
@@ -536,8 +539,6 @@ int main(int argc, char **argv) {
 	}
 	if ((params.ks_flags & LIBVES_KS_SAVE) && !libVES_KeyStore_savekey(NULL, ctx.ves->external, v->keylen, v->veskey)) return_VESerror("[libVES_KeyStore_savekey]");
 	if (newv) libVES_veskey_free(newv);
-    } else if (params.flags & PF_KEYSTORE) {
-	if (!libVES_KeyStore_unlock(NULL, ctx.ves, params.ks_flags)) return_VESerror("[libVES_KeyStore_unlock]");
     }
     if (params.flags & PF_LCK) libVES_lock(ctx.ves);
 

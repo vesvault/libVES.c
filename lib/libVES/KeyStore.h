@@ -38,6 +38,7 @@
 #define	LIBVES_KS_RESYNC	0x20
 #define	LIBVES_KS_FORGET	0x40
 #define	LIBVES_KS_PRIMARY	0x80
+#define	LIBVES_KS_ELEVATE	0x0100
 
 struct libVES_KeyStore_dialog;
 struct libVES_Ref;

@@ -335,6 +335,7 @@ jVar *libVES_VaultItem_entries(libVES_VaultItem *vitem, libVES_List *share, int 
     if (vitem->flags & LIBVES_SH_UPD) {
 	vitem->flags &= ~LIBVES_SH_UPD;
 	vitem->flags |= LIBVES_SH_CLN;
+	if (vitem->objectType == LIBVES_O_FILE) libVES_File_setCreator(vitem->file, NULL);
     }
     jVar_free(vitem->entries);
     free(shflags);

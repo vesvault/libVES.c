@@ -65,6 +65,14 @@ libVES_File *libVES_File_fromJVar(jVar *data) {
     return libVES_REFINIT(file);
 }
 
+int libVES_File_setCreator(libVES_File *file, struct libVES_User *user) {
+    if (!file) return 0;
+    libVES_User *old = file->creator;
+    file->creator = libVES_REFUP(User, user);
+    libVES_REFDN(User, old);
+    return 1;
+}
+
 jVar *libVES_File_toJVar(libVES_File *file) {
     if (!file) return NULL;
     jVar *res = jVar_object();

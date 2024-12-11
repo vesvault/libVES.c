@@ -56,4 +56,6 @@ char *libVES_File_toURI(libVES_File *file);
 
 #define libVES_File_getCreator(file)	((file) ? (file)->creator : NULL)
 
+int libVES_File_setCreator(libVES_File *file, struct libVES_User *user);
+
 void libVES_File_free(libVES_File *file);

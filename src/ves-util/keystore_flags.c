@@ -47,5 +47,6 @@ struct keystore_flag keystore_flags[] = {
     { .val = LIBVES_KS_RESYNC, .tag = "resync", "Force VES account syncing" },
     { .val = LIBVES_KS_PRIMARY, .tag = "primary", "Use the primary session token and keep the primary vault unlocked" },
     { .val = LIBVES_KS_PERSIST, .tag = "persist", "Obtain a persistent non-expiring session token. This is implied in `sess,save`" },
+    { .val = LIBVES_KS_ELEVATE, .tag = "elevate", "Elevated authorization for the primary key, required for managing secondary keys" },
     { .tag = NULL }
 };

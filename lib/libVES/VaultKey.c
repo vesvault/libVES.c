@@ -169,7 +169,9 @@ jVar *libVES_VaultKey_toJVar(libVES_VaultKey *vkey) {
 	if (vkey->user) jVar_put(res, "user", libVES_User_toJVar(vkey->user));
 	if (vkey->vitem && vkey->vitem->entries) jVar_put(res, "vaultItems", jVar_push(jVar_array(), libVES_VaultItem_toJVar(vkey->vitem)));
 	if (vkey->type == LIBVES_VK_TEMP) {
-	    jVar_put(res, "creator", libVES_User_toJVar(libVES_VaultKey_getUser(vkey->ves->vaultKey)));
+	    libVES_User *u = libVES_VaultKey_getUser(vkey->ves->vaultKey);
+	    if (!u) u = libVES_me(vkey->ves);
+	    if (u) jVar_put(res, "creator", libVES_User_toJVar(u));
 	    if (vkey->appUrl) jVar_put(res, "appUrl", jVar_string(vkey->appUrl));
 	}
 	if (vkey->external) libVES_Ref_toJVar(vkey->external, res);
@@ -246,7 +248,7 @@ libVES_VaultKey *libVES_VaultKey_create(libVES_Ref *ref, libVES *ves, libVES_Use
     else {
 	if (!user) libVES_throw(ves, LIBVES_E_PARAM, "Cannot generate a vault key for an unspecified user", NULL);
 	libVES_User *me = libVES_me(ves);
-	if (me && me->id == user->id) type = ref ? LIBVES_VK_SECONDARY : LIBVES_VK_CURRENT;
+	if (me && me->id && me->id == user->id) type = ref ? LIBVES_VK_SECONDARY : LIBVES_VK_CURRENT;
 	else type = LIBVES_VK_TEMP;
     }
     libVES_VaultKey *vkey = ves->genVaultKeyFn(ves, type, ref, user);
@@ -285,7 +287,8 @@ libVES_VaultItem *libVES_VaultKey_propagate(libVES_VaultKey *vkey) {
     char ok = libVES_User_activeVaultKeys(vkey->user, share, vkey->ves) || libVES_checkError(vkey->ves, LIBVES_E_NOTFOUND) ? 1 : 0;
     libVES_VaultKey *u_vkey = vkey->ves->vaultKey;
     libVES_User *user = libVES_VaultKey_getUser(u_vkey);
-    if (ok && user && vkey->user && vkey->user->id != user->id) ok = libVES_User_activeVaultKeys(user, share, vkey->ves) ? 1 : 0;
+    if (!user) user = vkey->ves->me;
+    if (ok && user && vkey->user && (!vkey->user->id || vkey->user->id != user->id)) ok = libVES_User_activeVaultKeys(user, share, vkey->ves) ? 1 : 0;
     if (ok && vkey->id && vkey->external && vkey->type == LIBVES_VK_TEMP) {
 	jVar *req = jVar_put(jVar_put(jVar_object(), "type", jVar_string(libVES_VaultKey_types[LIBVES_VK_SECONDARY])), "$op", jVar_string("fetch"));
 	libVES_Ref_toJVar(vkey->external, req);

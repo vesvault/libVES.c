@@ -447,6 +447,17 @@ libVES *libVES_KeyStore_unlock(libVES_KeyStore *ks, libVES *ves, int flags) {
 		}
 	    }
 	    if (!(flags & LIBVES_KS_PRIMARY)) libVES_VaultKey_lock(cur);
+	    if (flags & LIBVES_KS_ELEVATE) {
+		char uri[80];
+		sprintf(uri, "vaultKeys/%lld?fields=encSessionToken", cur->id);
+		jVar *rsp = libVES_REST(ves, uri, NULL);
+		const char *esess = jVar_getStringP(jVar_get(rsp, "encSessionToken"));
+		char *elev = NULL;
+		if (esess && ((l = libVES_VaultKey_decrypt(cur, esess, &elev))) > 0) elev = realloc(elev, l + 1), elev[l] = 0;
+		jVar_free(rsp);
+		if (elev) libVES_setSessionToken(ves, elev);
+		free(elev);
+	    }
 	}
 	free(sess);
     }
