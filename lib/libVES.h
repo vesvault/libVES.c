@@ -28,9 +28,9 @@
  * libVES.h                   libVES: Main header
  *
  ***************************************************************************/
-#define LIBVES_VERSION_NUMBER	0x01030000L
-#define LIBVES_VERSION_CODE	"1.30"
-#define LIBVES_VERSION_STR	"libVES.c " LIBVES_VERSION_CODE " (c) 2018 - 2024 VESvault Corp"
+#define LIBVES_VERSION_NUMBER	0x01030100L
+#define LIBVES_VERSION_CODE	"1.31"
+#define LIBVES_VERSION_STR	"libVES.c " LIBVES_VERSION_CODE " (c) 2018 - 2026 VESvault Corp"
 #define LIBVES_VERSION_SHORT	"libVES/" LIBVES_VERSION_CODE
 
 struct libVES_Ref;
@@ -90,6 +90,7 @@ enum { LIBVES_O_APIURL, LIBVES_O_APPNAME, LIBVES_O_ATTNFN, LIBVES_O_CURL, LIBVES
 
 #define LIBVES_O_NEW		0x10
 #define LIBVES_O_GET		0x20
+#define LIBVES_O_FORCE		0x40
 
 #ifndef LIBVES_API_URL
 #define LIBVES_API_URL		"https://api.ves.host/v1/"

@@ -151,18 +151,20 @@ libVES_User *libVES_User_fromPath(const char **path) {
 }
 
 void libVES_User_parseJVar(libVES_User *user, jVar *data) {
-    user->email = jVar_getString0(jVar_get(data, "email"));
-    user->firstName = jVar_getString0(jVar_get(data, "firstName"));
-    user->lastName = jVar_getString0(jVar_get(data, "lastName"));
+    if (!user->id) user->id = jVar_getInt(jVar_get(data, "id"));
+    if (!user->email) user->email = jVar_getString0(jVar_get(data, "email"));
+    if (!user->firstName) user->firstName = jVar_getString0(jVar_get(data, "firstName"));
+    if (!user->lastName) user->lastName = jVar_getString0(jVar_get(data, "lastName"));
 }
 
 libVES_User *libVES_User_fromJVar(jVar *data) {
     if (!data) return NULL;
     libVES_User *user = malloc(sizeof(libVES_User));
     if (!user) return NULL;
-    user->id = jVar_getInt(jVar_get(data, "id"));
-    libVES_User_parseJVar(user, data);
+    user->id = 0;
+    user->email = user->firstName = user->lastName = NULL;
     user->primary = NULL;
+    libVES_User_parseJVar(user, data);
     return libVES_REFINIT(user);
 }
 
@@ -229,12 +231,19 @@ libVES_VaultKey *libVES_User_primary(libVES_User *user, const char *passwd, char
 }
 
 libVES_User *libVES_User_loadFields(libVES_User *user, libVES *ves) {
-    if (!user || !user->id) return NULL;
-    if (user->email) return user;
-    if (!ves) return NULL;
+    if (!user) return NULL;
+    if (user->id && user->email) return user;
+    if (!ves || (!user->id && !user->email)) return NULL;
     char uri[160];
-    sprintf(uri, "users/%lld?fields=email,firstName,lastName", user->id);
-    jVar *rsp = libVES_REST(ves, uri, NULL);
+    jVar *req;
+    if (user->id) {
+        sprintf(uri, "users/%lld?fields=email,firstName,lastName", user->id);
+        req = NULL;
+    } else {
+        req = jVar_put(libVES_User_toJVar(user), "$op", jVar_string("fetch"));
+    }
+    jVar *rsp = libVES_REST(ves, (req ? "users?fields=id,firstName,lastName" : uri), req);
+    jVar_free(req);
     if (!rsp) return NULL;
     libVES_User_parseJVar(user, rsp);
     jVar_free(rsp);
@@ -262,6 +271,12 @@ libVES_User *libVES_User_copy(libVES_User *user) {
     res->id = user->id;
     res->email = res->firstName = res->lastName = NULL;
     return libVES_REFINIT(res);
+}
+
+int libVES_User_eq(libVES_User *user1, libVES_User *user2) {
+    if (!user1 || !user2) return 0;
+    if (user1->id && user2->id) return user1->id == user2->id;
+    return user1->email && user2->email ? !libVES_stricmp(user1->email, user2->email) : 0;
 }
 
 void libVES_User_free(libVES_User *user) {

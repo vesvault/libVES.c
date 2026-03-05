@@ -241,6 +241,7 @@ void libVES_defaultAttn(libVES *ves, jVar *attn) {
     int i;
     for (i = 0; i < jVar_count(vks); i++) {
 	libVES_VaultKey *vk = libVES_VaultKey_fromJVar(jVar_index(vks, i), ves);
+        if (ves->debug > 1) fprintf(stderr, "(attn Vault Key %lld)\n", vk->id);
 	libVES_User *u = libVES_VaultKey_getUser(vk);
 	if (u) {
 	    if (u->id == me->id) libVES_VaultKey_rekey(vk);

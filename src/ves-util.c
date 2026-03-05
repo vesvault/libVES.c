@@ -279,7 +279,7 @@ int main(int argc, char **argv) {
 		    case o_delete:
 			if (in.delflags) params.flags |= in.delflags;
 			else {
-			    fprintf(stderr, "'-D' cannot be used in this context\n");
+			    fprintf(stderr, "'--delete' cannot be used in this context\n");
 			    op = o_error;
 			}
 			break;
@@ -523,26 +523,26 @@ int main(int argc, char **argv) {
 	if (!u) return_VESerror("[primary]");
 	if (!libVES_KeyStore_unlock(NULL, ctx.ves, params.ks_flags)) return_VESerror("[libVES_KeyStore_unlock]");
 	if (!params.user && !params.key && ctx.ves->me) ctx.vkey = ctx.ves->me->primary;
-    } else if ((params.flags & PF_KEYSTORE) && !(params.flags & PF_NEW) && !params.uveskey) {
+    } else if ((params.flags & PF_KEYSTORE) && params.user && (params.key || !(params.flags & PF_NEW)) && !params.uveskey) {
 	if (!libVES_KeyStore_unlock(NULL, ctx.ves, params.ks_flags)) return_VESerror("[libVES_KeyStore_unlock]");
     }
     if (params.uveskey || (params.flags & PF_NEW)) {
 	libVES_veskey *v = params.uveskey;
 	libVES_veskey *newv = NULL;
-	if (params.flags & PF_NEW) {
+	if ((params.flags & PF_NEW) && !params.key) {
 	    libVES_VaultKey *vk = libVES_createVaultKey(ctx.ves);
 	    if (!vk) return_VESerror("[libVES_createVaultKey]");
 	    if (!v) v = params.veskey;
 	    if (!v) v = newv = libVES_VaultKey_getVESkey(vk);
-	} else {
+	} else if (v) {
 	    if (!libVES_unlock(ctx.ves, v->keylen, v->veskey)) return_VESerror("[libVES_unlock]");
 	}
-	if ((params.ks_flags & LIBVES_KS_SAVE) && !libVES_KeyStore_savekey(NULL, ctx.ves->external, v->keylen, v->veskey)) return_VESerror("[libVES_KeyStore_savekey]");
+//	if (v && (params.ks_flags & LIBVES_KS_SAVE) && !libVES_KeyStore_savekey(NULL, ctx.ves->external, v->keylen, v->veskey)) return_VESerror("[libVES_KeyStore_savekey]");
 	if (newv) libVES_veskey_free(newv);
     }
     if (params.flags & PF_LCK) libVES_lock(ctx.ves);
 
-    if (params.debug >= 0 && !params.out && !(params.flags & (PF_VK_RD | PF_VK_WR | PF_VI_RD | PF_VI_WR | PF_CI_RD | PF_CI_WR))) {
+    if (params.debug >= 0 && !params.out && !(params.flags & (PF_VK_RD | PF_VK_WR | PF_VI_RD | PF_VI_WR | PF_CI_RD | PF_CI_WR | PF_DEL))) {
 	set_out(&out_explore);
 	params.flags |= PF_RD;
     }
@@ -555,7 +555,7 @@ int main(int argc, char **argv) {
 
     if (params.key) {
 	const char *s = params.key;
-	ctx.vkey = libVES_VaultKey_fromURI(&s, ctx.ves);
+        ctx.vkey = libVES_objectFromURI(&s, ctx.ves, LIBVES_O_VKEY | LIBVES_O_GET | (params.flags & PF_NEW ? LIBVES_O_NEW | LIBVES_O_FORCE : 0), NULL);
 	if (!ctx.vkey) return_VESerror("[libVES_VaultKey_fromURI]");
 	if (!libVES_VaultKey_unlock(ctx.vkey, NULL)) libVES_getError(ctx.ves);
 	if (libVES_VaultKey_isNew(ctx.vkey)) params.flags |= PF_VK_WR;
@@ -568,6 +568,8 @@ int main(int argc, char **argv) {
     if (params.flags & PF_DEL) {
 	if (ctx.vitem) {
 	    if (!libVES_VaultItem_delete(ctx.vitem, ctx.ves)) return_VESerror("[libVES_VaultItem_delete]");
+	} else if (ctx.vkey) {
+	    if (!libVES_VaultKey_delete(ctx.vkey)) return_VESerror("[libVES_VaultKey_delete]");
 	}
     }
     if ((params.value || params.meta) && ctx.vitem->type == LIBVES_VI_FILE && !(params.flags & PF_FRC)) {
@@ -695,13 +697,19 @@ int main(int argc, char **argv) {
     if (params.flags & PF_VK_WR) {
 	if (libVES_VaultKey_isNew(ctx.vkey)) {
 	    if (!libVES_VaultKey_post(ctx.vkey)) return_VESerror("[libVES_VaultKey_post]");
+            if ((params.ks_flags & LIBVES_KS_SAVE) && (ctx.vkey->type == LIBVES_VK_SECONDARY)) {
+                libVES_veskey *v = libVES_VaultKey_getVESkey(ctx.vkey);
+                int ok = v && libVES_KeyStore_savekey(NULL, ctx.vkey->external, v->keylen, v->veskey);
+                libVES_veskey_free(v);
+                if (!ok) return_VESerror("[libVES_KeyStore_savekey]");
+            }
 	}
     }
     
     /************************************
      * Output
      */
-    if (params.debug >= 0 && !params.out && !(params.flags & (PF_VK_RD | PF_VK_WR | PF_VI_RD | PF_VI_WR | PF_CI_RD | PF_CI_WR))) set_out(&out_explore);
+    if (params.debug >= 0 && !params.out && !(params.flags & (PF_VK_RD | PF_VK_WR | PF_VI_RD | PF_VI_WR | PF_CI_RD | PF_CI_WR | PF_DEL))) set_out(&out_explore);
     if (params.out) {
 	int i;
 	for (i = 0; i < params.out->len; i++) {

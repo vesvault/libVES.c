@@ -247,6 +247,8 @@ int libVES_VaultKey_setAppUrl(libVES_VaultKey *vkey, const char *url);
 libVES_VaultKey *libVES_VaultKey_refup(libVES_VaultKey *obj);
 libVES_VaultKey *libVES_VaultKey_refdn(libVES_VaultKey *obj);
 
+int libVES_VaultKey_delete(libVES_VaultKey *vkey);
+
 void libVES_VaultKey_free(libVES_VaultKey *vkey);
 
 /***************************************************************************

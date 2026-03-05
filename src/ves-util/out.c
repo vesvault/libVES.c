@@ -298,8 +298,20 @@ int out_email(int fd, struct ctx_st *ctx) {
 
 int out_veskey(int fd, struct ctx_st *ctx) {
     libVES_veskey *veskey = libVES_VaultKey_getVESkey(ctx->vkey);
-    if (!veskey) return_VESerror2("[out_veskey]", ctx->ves);
-    int e = write(fd, veskey->veskey, veskey->keylen);
+    libVES_veskey *vk = veskey;
+    if (!veskey) {
+        if (!ctx->vkey || !ctx->vkey->external) {
+            VES_throw("[out_veskey]", "", "VESkeys for primary vaults are not returned from the key store", E_PARAM);
+        } else if (ctx->vkey == ctx->ves->vaultKey) {
+            if (params.uveskey) vk = params.uveskey;
+            else if (ctx->vkey->external->externalId[0] == '!') {
+                VES_throw("[out_veskey]", "", "VESkeys for anonymous vaults are not returned from the key store", E_PARAM);
+            } else {
+                VES_throw("[out_veskey]", "", "Use `-E primary` to retrieve the plaintext VESkey from the key store", E_PARAM);
+            }
+        } else return_VESerror2("[out_veskey]", ctx->ves);
+    }
+    int e = write(fd, vk->veskey, vk->keylen);
     libVES_veskey_free(veskey);
     OUT_IO_assert("[out_veskey]", e);
     return 0;

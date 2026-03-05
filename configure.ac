@@ -3,7 +3,7 @@
 
 
 AC_PREREQ([2.69])
-AC_INIT([VES], [1.30], [bugs@vesvault.com])
+AC_INIT([VES], [1.31], [bugs@vesvault.com])
 AC_CONFIG_SRCDIR([src/ves-util.c])
 AC_CONFIG_HEADERS([src/config.h])
 
@@ -22,7 +22,7 @@ AC_PROG_RANLIB
 # Checks for libraries.
 AC_ARG_WITH([oqs],
     [AS_HELP_STRING([--with-oqs],
-          [enable experimental support for liboqs])],
+          [enable support for liboqs])],
     [],
     [])
 LIBOQS=
@@ -33,7 +33,7 @@ LIBOQS=
                     [Define if you have liboqs])
 		AM_CONDITIONAL([HAVE_LIBOQS], [test 1])
             ],
-            [AS_IF([test "x$with_oqs" == x], [], [AC_MSG_FAILURE(
+            [AS_IF([test "x$with_oqs" == x], [AM_CONDITIONAL([HAVE_LIBOQS], [test])], [AC_MSG_FAILURE(
                 [--with-oqs was given, but test for liboqs failed])])],
             [-lcrypto]
         )],

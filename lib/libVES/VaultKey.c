@@ -223,7 +223,7 @@ libVES_VaultKey *libVES_VaultKey_get2(libVES_Ref *ref, libVES *ves, libVES_User 
 	    if (!vkey->external && ref->domain) vkey->external = libVES_REFUP(Ref, ref);
 	    if (!vkey->user) vkey->user = libVES_REFUP(User, user);
 	} else {
-	    if (!(flags & LIBVES_O_NEW) || !user || sesstkn) return NULL;
+	    if (!(flags & LIBVES_O_NEW) || (!user && !(flags & LIBVES_O_FORCE)) || sesstkn) return NULL;
 	    if (!libVES_checkError(ves, LIBVES_E_NOTFOUND)) return NULL;
 	    vkey = libVES_VaultKey_create(ref, ves, user);
 	}
@@ -244,11 +244,12 @@ libVES_VaultKey *libVES_VaultKey_free_ref_user(libVES_VaultKey *vkey, libVES_Ref
 libVES_VaultKey *libVES_VaultKey_create(libVES_Ref *ref, libVES *ves, libVES_User *user) {
     if (!ves) return NULL;
     int type;
-    if (ves->external) type = (ref && (ref->domain && ref->domain == ves->external->domain && !strcmp(ref->externalId, ves->external->externalId))) ? LIBVES_VK_SECONDARY : LIBVES_VK_TEMP;
-    else {
-	if (!user) libVES_throw(ves, LIBVES_E_PARAM, "Cannot generate a vault key for an unspecified user", NULL);
+    if (ves->external) {
+        int extl = strlen(ves->external->externalId);
+        type = (ref && (ref->domain && ref->domain == ves->external->domain && !strncmp(ref->externalId, ves->external->externalId, extl) && (ref->externalId[extl] == '!' || !ref->externalId[extl]))) ? LIBVES_VK_SECONDARY : LIBVES_VK_TEMP;
+    } else {
 	libVES_User *me = libVES_me(ves);
-	if (me && me->id && me->id == user->id) type = ref ? LIBVES_VK_SECONDARY : LIBVES_VK_CURRENT;
+	if (!user || (me && me->id && me->id == user->id)) type = ref ? LIBVES_VK_SECONDARY : LIBVES_VK_CURRENT;
 	else type = LIBVES_VK_TEMP;
     }
     libVES_VaultKey *vkey = ves->genVaultKeyFn(ves, type, ref, user);
@@ -275,6 +276,7 @@ libVES_VaultKey *libVES_VaultKey_createFrom(libVES_VaultKey *vkey) {
 
 libVES_VaultItem *libVES_VaultKey_propagate(libVES_VaultKey *vkey) {
     if (!vkey) return NULL;
+    if (vkey->ves->debug > 1) fprintf(stderr, "(propagate %lld)\n", vkey->id);
     if (!vkey->user) libVES_throw(vkey->ves, LIBVES_E_PARAM, "Cannot propagate a vault key to an unspecified user", NULL);
     if (!vkey->vitem) {
 	free(vkey->privateKey);
@@ -283,13 +285,22 @@ libVES_VaultItem *libVES_VaultKey_propagate(libVES_VaultKey *vkey) {
     }
     if (!vkey->vitem) libVES_throw(vkey->ves, LIBVES_E_PARAM, "Cannot propagate a vault key without a password VaultItem", NULL);
     libVES_List *share = libVES_List_new(&libVES_VaultKey_ListCtl);
-    if (vkey->type == LIBVES_VK_TEMP) libVES_List_push(share, vkey->ves->vaultKey);
-    char ok = libVES_User_activeVaultKeys(vkey->user, share, vkey->ves) || libVES_checkError(vkey->ves, LIBVES_E_NOTFOUND) ? 1 : 0;
+    const char *suffix = vkey->external && vkey->external->externalId[0] ? strchr(vkey->external->externalId + 1, '!') : NULL;
+    if (suffix) {
+        libVES_Ref *mainx = libVES_Ref_copy(vkey->external);
+        mainx->externalId[suffix - vkey->external->externalId] = 0;
+        libVES_VaultKey *maink;
+        if (vkey->ves->external && vkey->ves->external->domain == mainx->domain && !strcmp(vkey->ves->external->externalId, mainx->externalId)) maink = NULL;
+        else maink = libVES_VaultKey_get(mainx, vkey->ves, vkey->user);
+        libVES_List_push(share, maink ? maink : vkey->ves->vaultKey);
+        libVES_Ref_free(mainx);
+    } else if (vkey->type == LIBVES_VK_TEMP) libVES_List_push(share, vkey->ves->vaultKey);
+    char ok = suffix || libVES_User_activeVaultKeys(vkey->user, share, vkey->ves) || libVES_checkError(vkey->ves, LIBVES_E_NOTFOUND) ? 1 : 0;
     libVES_VaultKey *u_vkey = vkey->ves->vaultKey;
     libVES_User *user = libVES_VaultKey_getUser(u_vkey);
     if (!user) user = vkey->ves->me;
-    if (ok && user && vkey->user && (!vkey->user->id || vkey->user->id != user->id)) ok = libVES_User_activeVaultKeys(user, share, vkey->ves) ? 1 : 0;
-    if (ok && vkey->id && vkey->external && vkey->type == LIBVES_VK_TEMP) {
+    if (ok && user && vkey->user && !libVES_User_eq(vkey->user, user)) ok = libVES_User_activeVaultKeys(user, share, vkey->ves) ? 1 : 0;
+    if (ok && vkey->id && vkey->external && vkey->type == LIBVES_VK_TEMP && !suffix) {
 	jVar *req = jVar_put(jVar_put(jVar_object(), "type", jVar_string(libVES_VaultKey_types[LIBVES_VK_SECONDARY])), "$op", jVar_string("fetch"));
 	libVES_Ref_toJVar(vkey->external, req);
 	jVar *rsp = libVES_REST(vkey->ves, "vaultKeys?fields=id,type,algo,publicKey", req);
@@ -325,7 +336,10 @@ void libVES_VaultKey_parseJVar(libVES_VaultKey *vkey, jVar *jvar) {
 	    libVES_VaultItem_free(vitem);
 	}
     }
-    if (!vkey->user) vkey->user = libVES_User_fromJVar(jVar_get(jvar, "user"));
+    if (!vkey->user) {
+        vkey->user = libVES_User_fromJVar(jVar_get(jvar, "user"));
+        libVES_REFUP(User, vkey->user);
+    }
 }
 
 char *libVES_VaultKey_getPrivateKey(libVES_VaultKey *vkey) {
@@ -333,7 +347,7 @@ char *libVES_VaultKey_getPrivateKey(libVES_VaultKey *vkey) {
     if (!vkey->privateKey) {
 	if (!vkey->id) return NULL;
 	char uri[160];
-	sprintf(uri, "vaultKeys/%lld?fields=privateKey,vaultItems(id,type,vaultEntries(vaultKey(id),encData)),user(id,email,firstName,lastName)", vkey->id);
+	sprintf(uri, "vaultKeys/%lld?fields=type,algo,privateKey,vaultItems(id,type,vaultEntries(vaultKey(id),encData)),user(id,email,firstName,lastName)", vkey->id);
 	jVar *rsp = libVES_REST(vkey->ves, uri, NULL);
 	if (!rsp) return NULL;
 	libVES_VaultKey_parseJVar(vkey, rsp);
@@ -390,7 +404,8 @@ libVES_veskey *libVES_VaultKey_getVESkey(libVES_VaultKey *vkey) {
 	vkey->privateKey = NULL;
 	if (!libVES_VaultKey_getPrivateKey(vkey) || !vkey->vitem) return NULL;
     }
-    if (!vkey->vitem->value || vkey->vitem->type != LIBVES_VI_PASSWORD) return NULL;
+    if (!vkey->vitem->value) libVES_throw(vkey->ves, LIBVES_E_UNLOCK, "VESkey cannot be decrypted, unlock the vault", NULL);
+    if (vkey->vitem->type != LIBVES_VI_PASSWORD) libVES_throw(vkey->ves, LIBVES_E_INTERNAL, "Expected: password vaultItem", NULL);
     return libVES_veskey_new(vkey->vitem->len, vkey->vitem->value);
 }
 
@@ -500,6 +515,7 @@ char *libVES_VaultKey_encrypt(libVES_VaultKey *vkey, const char *plaintext, size
 
 jVar *libVES_VaultKey_rekeyFrom(libVES_VaultKey *vkey, libVES_VaultKey *from, int flags) {
     if (!vkey || !from) return NULL;
+    if (vkey->ves->debug > 1) fprintf(stderr, "(rekey %lld << %lld, flags=%x)\n", vkey->id, from->id, flags);
     char uri[160];
     sprintf(uri, "vaultKeys/%lld?fields=vaultEntries(encData,vaultItem(id))", from->id);
     jVar *rsp = libVES_REST(vkey->ves, uri, NULL);
@@ -543,8 +559,17 @@ jVar *libVES_VaultKey_rekeyFrom(libVES_VaultKey *vkey, libVES_VaultKey *from, in
 
 int libVES_VaultKey_rekey(libVES_VaultKey *vkey) {
     if (!vkey) return 0;
+    if (vkey->ves->debug > 1) fprintf(stderr, "(rekeying Vault Key %lld)\n", vkey->id);
     if (vkey->external) {
 	libVES_VaultKey *activekey = libVES_VaultKey_get(vkey->external, vkey->ves, NULL);
+        if (activekey && activekey->type == LIBVES_VK_TEMP) {
+            libVES_VaultKey_free(activekey);
+            activekey = NULL;
+            if (vkey->ves->external && vkey->external->domain == vkey->ves->external->domain) {
+                int l = strlen(vkey->ves->external->externalId);
+                if (!strncmp(vkey->ves->external->externalId, vkey->external->externalId, l) && vkey->external->externalId[l] == '!') activekey = libVES_VaultKey_createFrom(vkey);
+            }
+        }
 	if (!activekey) return 0;
 	int ok = vkey->id == activekey->id || (libVES_VaultKey_rekeyFrom(activekey, vkey, 0) && libVES_VaultKey_post(activekey));
 	libVES_VaultKey_free(activekey);
@@ -608,6 +633,20 @@ const libVES_KeyAlgo *libVES_VaultKey_algoFromStr(const char *str) {
 const char *libVES_VaultKey_typeStr(int type) {
     return libVES_lookupStr(type, libVES_VaultKey_types);
 }
+
+int libVES_VaultKey_delete(libVES_VaultKey *vkey) {
+    if (!vkey) return 0;
+    jVar *req = jVar_put(libVES_VaultKey_toJVar(vkey), "$op", jVar_string("delete"));
+    if (!req) return 0;
+    jVar *rsp = libVES_REST(vkey->ves, "vaultKeys", req);
+    jVar_free(req);
+    if (!rsp) return 0;
+    jVar *jv = jVar_get(rsp, "type");
+    if (jv) vkey->type = jVar_getEnum(jv, libVES_VaultKey_types);
+    jVar_free(rsp);
+    return 1;
+}
+
 
 int libVES_VaultKey_dump(libVES_VaultKey *vkey, int fd, int flags) {
     if (!vkey || !vkey->algo) return 0;

@@ -210,3 +210,14 @@ long long libVES_date2usec(const char *date) {
 	+ tm_mday - 657 - (tm_year - (tm_mon >= 3 ? 0 : 1) + 100) / 100 * 3 / 4)\
 	* 24 + tm_hour) * 60 + tm_min) * 60 + tm_sec) * 1000000 + (long long)(tm_usec * 1000000);
 }
+
+int libVES_stricmp(const char *s1, const char *s2) {
+    while (1) {
+        unsigned char c1 = *s1++;
+        unsigned char c2 = *s2++;
+        if (!c1) return c2 ? -1 : 0;
+        else if (!c2) return 1;
+        short d = (short)c1 - c2 + (c1 >= 'A' && c1 <= 'Z' ? 0x20 : 0) - (c2 >= 'A' && c2 <= 'Z' ? 0x20 : 0);
+        if (d) return d > 0 ? 1 : -1;
+    }
+}

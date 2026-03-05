@@ -74,4 +74,5 @@ libVES_User *libVES_User_loadFields(libVES_User *user, struct libVES *ves);
 #define libVES_User_getLastName(user)		((user) ? (user)->lastName : NULL)
 char *libVES_User_getName1(libVES_User *user);
 libVES_User *libVES_User_copy(libVES_User *user);
+int libVES_User_eq(libVES_User *user1, libVES_User *user2);
 void libVES_User_free(libVES_User *user);

@@ -55,6 +55,8 @@ char *libVES_buildURI(int argc, ...);
 
 long long libVES_date2usec(const char *date);
 
+int libVES_stricmp(const char *s1, const char *s2);
+
 
 #define libVES_REFINIT(ptr)			((void)((ptr) && ((ptr)->refct = 0)), (ptr))
 #define libVES_REFUP(type, ptr)			((void)((ptr) && ((libVES_ ## type *)(ptr))->refct++), (ptr))

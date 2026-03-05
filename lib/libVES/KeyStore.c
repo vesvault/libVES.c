@@ -42,6 +42,7 @@
 #include <jVar.h>
 #include "../libVES.h"
 #include "VaultKey.h"
+#include "VaultItem.h"
 #include "Ref.h"
 #include "User.h"
 #include "List.h"
@@ -438,7 +439,10 @@ libVES *libVES_KeyStore_unlock(libVES_KeyStore *ks, libVES *ves, int flags) {
 		    libVES_VaultKey_free(libVES_VaultKey_get2(ves->external, ves, NULL, &esess, LIBVES_O_GET));
 		    if (esess && ((l = libVES_VaultKey_decrypt(ves->vaultKey, esess, &sess))) > 0) sess = realloc(sess, l + 1), sess[l] = 0;
 		    free(esess);
-		    if (sess) libVES_setSessionToken(ves, sess);
+		    if (sess) {
+                        libVES_setSessionToken(ves, sess);
+                        if (!ves->attnFn) ves->attnFn = &libVES_defaultAttn;
+                    }
 		}
 		if (dlg.domain && (flags & (LIBVES_KS_SAVE | LIBVES_KS_SESS)) == LIBVES_KS_SAVE) {
 		    libVES_veskey *vk = libVES_VaultKey_getVESkey(ves->vaultKey);
@@ -446,7 +450,13 @@ libVES *libVES_KeyStore_unlock(libVES_KeyStore *ks, libVES *ves, int flags) {
 		    libVES_veskey_free(vk);
 		}
 	    }
-	    if (!(flags & LIBVES_KS_PRIMARY)) libVES_VaultKey_lock(cur);
+	    if (!(flags & LIBVES_KS_PRIMARY)) {
+                libVES_VaultKey_lock(cur);
+                if (ves->vaultKey) {
+                    (void)libVES_REFDN(VaultItem, ves->vaultKey->vitem);
+                    ves->vaultKey->vitem = NULL;
+                }
+            }
 	    if (flags & LIBVES_KS_ELEVATE) {
 		char uri[80];
 		sprintf(uri, "vaultKeys/%lld?fields=encSessionToken", cur->id);
@@ -455,7 +465,10 @@ libVES *libVES_KeyStore_unlock(libVES_KeyStore *ks, libVES *ves, int flags) {
 		char *elev = NULL;
 		if (esess && ((l = libVES_VaultKey_decrypt(cur, esess, &elev))) > 0) elev = realloc(elev, l + 1), elev[l] = 0;
 		jVar_free(rsp);
-		if (elev) libVES_setSessionToken(ves, elev);
+		if (elev) {
+                    libVES_setSessionToken(ves, elev);
+                    if (!ves->attnFn) ves->attnFn = &libVES_defaultAttn;
+                }
 		free(elev);
 	    }
 	}
