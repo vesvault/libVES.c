@@ -404,7 +404,16 @@ libVES_veskey *libVES_VaultKey_getVESkey(libVES_VaultKey *vkey) {
 	vkey->privateKey = NULL;
 	if (!libVES_VaultKey_getPrivateKey(vkey) || !vkey->vitem) return NULL;
     }
-    if (!vkey->vitem->value) libVES_throw(vkey->ves, LIBVES_E_UNLOCK, "VESkey cannot be decrypted, unlock the vault", NULL);
+    if (!vkey->vitem->value) {
+        libVES_Ref *ref = libVES_Ref_new(vkey->vitem->id);
+        libVES_VaultItem *vitem = libVES_VaultItem_get(ref, vkey->ves);
+        libVES_Ref_free(ref);
+        if (vitem) {
+            libVES_REFDN(VaultItem, vkey->vitem);
+            vkey->vitem = libVES_REFUP(VaultItem, vitem);
+        }
+        if (!vitem || !vitem->value) libVES_throw(vkey->ves, LIBVES_E_UNLOCK, "VESkey cannot be decrypted, unlock the vault", NULL);
+    }
     if (vkey->vitem->type != LIBVES_VI_PASSWORD) libVES_throw(vkey->ves, LIBVES_E_INTERNAL, "Expected: password vaultItem", NULL);
     return libVES_veskey_new(vkey->vitem->len, vkey->vitem->value);
 }
