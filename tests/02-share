@@ -1,0 +1,75 @@
+#!/bin/bash
+
+DIR=$(dirname $(realpath $0))
+
+. $DIR/vestest.inc.sh
+. $DIR/vestest.conf
+
+vestest_init $EMAIL
+vestest_init $EMAIL2
+
+vestest_head Creating item $OBJ owned by a section vault - error expected because the section vault doesn\'t exist yet
+vestest 7 -a //$DOM/$EMAIL/ -o $OBJ -i test -s $EMAIL$SEC/ -E save
+
+vestest_head Creating item $OBJ owned by a section vault, passing the owner email in the vault URI to implicitly create if doesn\' exist - error expected because the section vault doesn\'t exist yet
+vestest 0 -a //$DOM/$EMAIL/ -o $OBJ -i test -s $EMAIL$SEC/$EMAIL -E save
+
+vestest_head Retrieving the value of $OBJ through the section vault, VES PIN request expected
+vestest - <<TEST -a //$DOM/$EMAIL$SEC/ -o $OBJ -ip -E save
+test
+TEST
+
+vestest_head Deleting $OBJ through the section vault - error expected because section vault sessions are read-only
+vestest 6 -a //$DOM/$EMAIL$SEC/ -o $OBJ --delete -E
+
+vestest_head Overwriting $OBJ through the section vault - error expected because section vault sessions are read-only
+vestest 6 -a //$DOM/$EMAIL$SEC/ -o $OBJ -i test2 -E
+
+vestest_head Sharing $OBJ with a section vault of a different user - error expected because sharing with different users\' sections is not permitted by default
+vestest 6 -a //$DOM/$EMAIL/ -o $OBJ -s $EMAIL2$SEC/$EMAIL2 -E
+
+vestest_head Sharing $OBJ with a $EMAIL2
+vestest 0 -a //$DOM/$EMAIL/ -o $OBJ -s $EMAIL2/ -E
+
+vestest_head Retrieving $OBJ through $EMAIL2
+vestest - <<TEST -a //$DOM/$EMAIL2/ -o $OBJ -ip -E save
+test
+TEST
+
+vestest_head Overwriting $OBJ through $EMAIL2 - error expected because the user doesn\'t have admin permission on the item
+vestest 6 -a //$DOM/$EMAIL2/ -o $OBJ -i test2 -E
+
+vestest_head Granting admin permission on $OBJ to $EMAIL2
+vestest 0 -a //$DOM/$EMAIL/ -o $OBJ -s //.admin/$EMAIL2/ -E
+
+vestest_head Overwriting $OBJ through $EMAIL2
+vestest 0 -a //$DOM/$EMAIL2/ -o $OBJ -i test2 -E
+
+vestest_head Retrieving the value of $OBJ through the section vault
+vestest - <<TEST -a //$DOM/$EMAIL$SEC/ -o $OBJ -ip -E
+test2
+TEST
+
+vestest_head Revoking admin permission on $OBJ - error expected because $EMAIL does not have adin permissions on the overwritten item
+vestest 6 -a //$DOM/$EMAIL/ -o $OBJ -r //.admin/$EMAIL2/ -E
+
+vestest_head Removing $OBJ from the section vault
+vestest 0 -a //$DOM/$EMAIL2/ -o $OBJ -r $EMAIL$SEC/ -E
+
+vestest_head Retrieving $OBJ through the section vault - error expected because the section vault doesn\'t have access to the item anymore
+vestest 66 -a //$DOM/$EMAIL$SEC/ -o $OBJ -ip -E
+
+vestest_head Sharing with and granting admin permission to $EMAIL on $OBJ
+vestest 0 -a //$DOM/$EMAIL2/ -o $OBJ -s //.admin/$EMAIL/,$EMAIL/ -E
+
+vestest_head Sharing with a new user - error expected because the new user\'s vault doesn\'t exist
+vestest 7 -a //$DOM/$EMAIL2/ -o $OBJ -s $NEWEMAIL/ -E
+
+vestest_head Sharing with a new user, passing the user\'s email as a suffix in the vault URI to implicitly create the temp vault
+vestest 0 -a //$DOM/$EMAIL2/ -o $OBJ -s $NEWEMAIL/$NEWEMAIL -E
+
+vestest_head Deleting $OBJ
+vestest 0 -a //$DOM/$EMAIL/ -o $OBJ --delete -E
+
+vestest_head Retrieving $OBJ - error expected because the item was deleted
+vestest 7 -a //$DOM/$EMAIL$SEC/ -o $OBJ -ip -E

@@ -1,0 +1,52 @@
+#!/bin/bash
+
+DIR=$(dirname $(realpath $0))
+
+. $DIR/vestest.inc.sh
+. $DIR/vestest.conf
+
+vestest_init $EMAIL
+
+vestest_head Checking demo vault $EMAIL
+vestest 0 -a //$DOM/$EMAIL/ -E save
+
+vestest_head Creating item $OBJ with a value \"test\"
+vestest 0 -a //$DOM/$EMAIL/ -o $OBJ -i test -E
+
+vestest_head Retrieving the value of $OBJ
+vestest - <<TEST -a //$DOM/$EMAIL/ -o $OBJ -ip -E
+test
+TEST
+
+vestest_head Overwriting item $OBJ with a value \"another test\"
+vestest 0 -a //$DOM/$EMAIL/ -o $OBJ -i "another test" -E
+
+vestest_head Retrieving the value of $OBJ
+vestest - <<TEST -a //$DOM/$EMAIL/ -o $OBJ -ip -E
+another test
+TEST
+
+vestest_head Setting plaintext metadata on $OBJ
+vestest 0 -a //$DOM/$EMAIL/ -o $OBJ -m '{"test" : 1234}' -E
+
+vestest_head Retrieving plaintext metadata on $OBJ
+vestest - <<TEST -a //$DOM/$EMAIL/ -o $OBJ -mp -E
+{"test":1234}
+TEST
+
+vestest_head Deleting $OBJ
+vestest 0 -a //$DOM/$EMAIL/ -o $OBJ --delete -E
+
+vestest_head Retrieving the value of $OBJ - error expected
+vestest 7 -a //$DOM/$EMAIL/ -o $OBJ -ip -E
+
+vestest_head Creating item $OBJ again with a value \"yet another text\"
+vestest 0 -a //$DOM/$EMAIL/ -o $OBJ -i "yet another test" -E
+
+vestest_head Retrieving the value of $OBJ
+vestest - <<TEST -a //$DOM/$EMAIL/ -o $OBJ -ip -E
+yet another test
+TEST
+
+vestest_head Deleting $OBJ
+vestest 0 -a //$DOM/$EMAIL/ -o $OBJ --delete -E

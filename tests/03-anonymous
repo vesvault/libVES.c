@@ -1,0 +1,52 @@
+#!/bin/bash
+
+DIR=$(dirname $(realpath $0))
+
+. $DIR/vestest.inc.sh
+. $DIR/vestest.conf
+
+vestest_init $EMAIL
+
+vestest_head Creating an anonymous vault
+vestest 0 -a //$DOM/$ANON/ -n -E save
+
+vestest_head Creating item $OBJ in the anonymous vault, shared with $EMAIL
+vestest 0 -a //$DOM/$ANON/ -o $OBJ -i test -s $ANON/,$EMAIL/ -E
+
+vestest_head Retrieving the vaule of $OBJ through the anonymous vault
+vestest - <<TEST -a //$DOM/$ANON/ -o $OBJ -ip -E
+test
+TEST
+
+vestest_head Retrieving the vaule of $OBJ through $EMAIL
+vestest - <<TEST -a //$DOM/$EMAIL/ -o $OBJ -ip -E save
+test
+TEST
+
+vestest_head Creating anonymous sub-vault - error expected because the parent anonymous vault authorization is needed
+vestest 6 -a //$DOM/$ANON$SEC/ -n -E save
+
+vestest_head Creating anonymous sub-vault with the parent anonymous vault authorization
+vestest 0 -a //$DOM/$ANON/ -k $ANON$SEC/ -n -E save
+
+vestest_head Creating item $OBJ2 through the sub-vault, sharing with the parent anonymous vault and a new section vault -  with the parent anonymous vault authorizationerror expected because anonymous vaults cannot create temp vaults for sharing with other users\' non-existing vaults
+vestest 6 -a //$DOM/$ANON$SEC/ -o $OBJ2 -i test2 -s $ANON/,$ANON$SEC/,$EMAIL$SEC2/$EMAIL -E
+
+vestest_head Creating item $OBJ2 through the sub-vault, sharing with the parent anonymous vault and $EMAIL, granting admin permission to the latter one
+vestest 0 -a //$DOM/$ANON$SEC/ -o $OBJ2 -i test2 -s $ANON/,$ANON$SEC/,$EMAIL/,//.admin/$EMAIL/ -E
+
+vestest_head Retrieving the value of $OBJ through the parent anonymous vault
+vestest - <<TEST -a //$DOM/$ANON/ -o $OBJ2 -ip -E
+test2
+TEST
+
+vestest_head Retrieving the value of $OBJ through $EMAIL
+vestest - <<TEST -a //$DOM/$EMAIL/ -o $OBJ2 -ip -E
+test2
+TEST
+
+vestest_head Deleting $OBJ
+vestest 0 -a //$DOM/$EMAIL/ -o $OBJ2 --delete -E
+
+vestest_head Retrieving the value of $OBJ - error expected because the item as deleted
+vestest 7 -a //$DOM/$EMAIL/ -o $OBJ2 -ip -E

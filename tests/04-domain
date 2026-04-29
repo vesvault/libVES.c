@@ -1,0 +1,60 @@
+#!/bin/bash
+
+DIR=$(dirname $(realpath $0))
+
+. $DIR/vestest.inc.sh
+. $DIR/vestest.conf
+
+vestest_init $EMAIL
+vestest_init $EMAIL2
+
+vestest_head Creating an anonymous vault in a new experimental domain - error expected because anonymous sessions cannot create experimantal domains
+vestest 6 -a //$DOM2/$ANON/ -n -E save
+
+vestest_head Creating a vault for $EMAIL in a new experimental domain, the domain will be auto-created, VES PIN entry expected
+vestest 0 -A $EMAIL -a //$DOM2/$EMAIL/ -n -E primary,elevate,save
+
+vestest_head Creating an anonymous vault in the experimental domain
+vestest 0 -a //$DOM2/$ANON/ -n -E save
+
+vestest_head Creating item $OBJ, cross-domain sharing with \'$DOM\' is expected to be permitted
+vestest 0 -a //$DOM2/$ANON/ -o $OBJ -i test -s $ANON/,$EMAIL/,//$DOM/$EMAIL/,//.admin/$EMAIL/ -E
+
+vestest_head Retrieving the value of $OBJ through the experimental domain
+vestest - <<TEST -a //$DOM2/$EMAIL/ -o $OBJ -ip -E save
+test
+TEST
+
+vestest_head Retrieving the value of $OBJ through the \'$DOM\' domain
+vestest - <<TEST -a //$DOM/$EMAIL/ -o $OBJ -ip -E save
+test
+TEST
+
+vestest_head Sharing from \'$DOM\' to the experimental domain - error expected because cross-domain sharing is not permitted by default
+vestest 6 -a //$DOM/$EMAIL/ -o $OBJ -s //$DOM2/$EMAIL2/$EMAIL2 -E
+
+vestest_head Sharing the item with $EMAIL2 in the experimental domain - error expected because the vault for $EMAIL2 doesn\'t exist yet
+vestest 7 -a //$DOM2/$EMAIL/ -o $OBJ -s //$DOM2/$EMAIL2/ -E
+
+vestest_head Sharing the item with $EMAIL2 in the experimental domain, passing the email in the vault URI for implicit temp vault auto-creation
+vestest 0 -a //$DOM2/$EMAIL/ -o $OBJ -s //$DOM2/$EMAIL2/$EMAIL2 -E
+
+vestest_head Creating the permanent app vault for $EMAIL2 in the experimental domain, VES PIN entry expected
+vestest 0 -A $EMAIL2 -a //$DOM2/$EMAIL2/ -n -E primary,elevate,save
+
+vestest_head Retrieving the value of $OBJ through $EMAIL2, temp key propagation must be accomplished at the previous step
+vestest - <<TEST -a //$DOM2/$EMAIL2/ -o $OBJ -ip -E save
+test
+TEST
+
+vestest_head Deleting $OBJ through the anonymous vault - error expected because anonymous vaults are not permitted to modify items
+vestest 6 -a //$DOM2/$ANON/ -o $OBJ --delete -E
+
+vestest_head Deleting $OBJ through $EMAIL2 - error expected because no admin permission on the item was granted
+vestest 6 -a //$DOM2/$EMAIL2/ -o $OBJ --delete -E
+
+vestest_head Deleting $OBJ through $EMAIL
+vestest 0 -a //$DOM2/$EMAIL/ -o $OBJ --delete -E
+
+vestest_head Retrieving the value of $OBJ - error expected because the item was deleted
+vestest 7 -a //$DOM/$EMAIL/ -o $OBJ -ip -E
