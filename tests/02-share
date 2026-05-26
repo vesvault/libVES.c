@@ -73,3 +73,25 @@ vestest 0 -a //$DOM/$EMAIL/ -o $OBJ --delete -E
 
 vestest_head Retrieving $OBJ - error expected because the item was deleted
 vestest 7 -a //$DOM/$EMAIL$SEC/ -o $OBJ -ip -E
+
+vestest_head Creating $OBJ2 through a section vault
+vestest 0 -a //$DOM/$EMAIL/ -o $OBJ2 -s $EMAIL$SEC/ -i test2 -E
+
+vestest_head Sharing $OBJ2 with $EMAIL
+vestest 0 -a //$DOM/$EMAIL/ -o $OBJ2 -s $EMAIL/ -E
+
+vestest_head Deleting $OBJ2
+vestest 0 -a //$DOM/$EMAIL/ -o $OBJ2 --delete -E
+
+vestest_head Sharing $OBJ2 with $EMAIL2 - error expected because the item was deleted
+vestest 1 -a //$DOM/$EMAIL/ -o $OBJ2 -s $EMAIL2/ -E
+
+vestest_head Creating $OBJ3 through $EMAIL
+vestest 0 -a //$DOM/$EMAIL/ -o $OBJ3 -s $EMAIL/ -i test3 -E
+
+vestest_head Sharing $OBJ3 with the section vault
+vestest 0 -a //$DOM/$EMAIL/ -o $OBJ3 -s $EMAIL$SEC/ -E
+
+vestest_head Deleting $OBJ3
+vestest 0 -a //$DOM/$EMAIL/ -o $OBJ3 --delete -E
+

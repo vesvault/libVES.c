@@ -15,7 +15,8 @@ libVES/Event.c \
 libVES/Session.c \
 libVES/REST.c \
 libVES/KeyStore.c \
-libVES/Watch.c
+libVES/Watch.c \
+libVES/Flow.c
 
 LIBVES_HFILES = libVES.h \
 libVES/List.h \
@@ -31,7 +32,8 @@ libVES/Event.h \
 libVES/Session.h \
 libVES/REST.h \
 libVES/KeyStore.h \
-libVES/Watch.h
+libVES/Watch.h \
+libVES/Flow.h
 
 if HAVE_LIBOQS
 LIBVES_CFILES += libVES/KeyAlgo_OQS.c
@@ -46,10 +48,14 @@ VL_CFILES = VESlocker.c
 
 VL_HFILES = VESlocker.h
 
+VF_CFILES = VESflow.c
+
+VF_HFILES = VESflow.h
+
 lib_LTLIBRARIES = libVES.la
 nobase_include_HEADERS = $(LIBVES_HFILES) $(JVAR_HFILES) $(VL_HFILES)
 
-libVES_la_SOURCES = $(LIBVES_CFILES) $(JVAR_CFILES) $(VL_CFILES) $(LIBVES_HFILES) $(JVAR_HFILES) $(VL_HFILES)
+libVES_la_SOURCES = $(LIBVES_CFILES) $(JVAR_CFILES) $(VL_CFILES) $(VF_CFILES) $(LIBVES_HFILES) $(JVAR_HFILES) $(VL_HFILES) $(VF_HFILES)
 libVES_la_LIBADD = -lcrypto -lcurl $(LIBOQS)
 libVES_la_LDFLAGS = -version-info 1:0:0
 if LIBVES_KEYSTORE

@@ -310,7 +310,10 @@ jVar *libVES_VaultItem_entries(libVES_VaultItem *vitem, libVES_List *share, int 
 	if (enc) {
 	    jVar_push(entries, jVar_put(jVar_put(jVar_object(), "vaultKey", libVES_VaultKey_toJVar(vkey)), "encData", jVar_string0(enc)));
 	} else {
-	    if (!vitem->value) libVES_setError(vkey->ves, LIBVES_E_UNLOCK, "The value of the vault item has not been decrypted");
+	    if (!vitem->value) {
+                if (vitem->sharelen) libVES_setError(vkey->ves, LIBVES_E_UNLOCK, "The value of the vault item has not been decrypted");
+                else libVES_setError(vkey->ves, LIBVES_E_PARAM, "Vault item value has not been supplied");
+            }
 	    jVar_free(entries);
 	    entries = NULL;
 	    break;
