@@ -1,0 +1,27 @@
+# Autotools generated files
+/Makefile
+/lib/Makefile
+/src/Makefile
+autom4te.cache/
+config.log
+config.status
+configure~
+/src/config.h
+/src/config.h.in~
+/src/stamp-h1
+
+# Libtool
+/libtool
+*.la
+*.lai
+*.lo
+.libs/
+.deps/
+.dirstamp
+
+# Object files and archives
+*.o
+*.a
+
+# Built CLI executable
+/src/ves

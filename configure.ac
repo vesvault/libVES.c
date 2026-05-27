@@ -3,7 +3,10 @@
 
 
 AC_PREREQ([2.69])
-AC_INIT([VES], [1.32], [bugs@vesvault.com])
+# Version is not tracked here to avoid noise in generated configure/config.h.in
+# on every bump. Source of truth: LIBVES_VERSION_CODE in lib/libVES.h and
+# VESUTIL_VERSION_CODE in src/ves-util.h.
+AC_INIT([VES], [0], [bugs@vesvault.com])
 AC_CONFIG_SRCDIR([src/ves-util.c])
 AC_CONFIG_HEADERS([src/config.h])
 

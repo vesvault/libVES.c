@@ -1,0 +1,83 @@
+#!/bin/bash
+
+# Exercises -G ALGO over every supported Vault Key algorithm family:
+# RSA, ECDH (one curve), and OQS — both ML-KEM-{512,768,1024} (standard
+# PEM via FIPS 203 / draft-ietf-lamps-kyber-certificates) and legacy
+# Kyber768 (custom VESvault OID, expandedKey-only PKCS#8).
+#
+# For each algo:
+#   - generate a section Vault Key under the primary with -G ALGO -n
+#   - confirm the algo round-trips via -Gp
+#   - encrypt/decrypt a Vault Item using that key
+#   - export+re-import the private key PEM (-yp -> -y)
+
+DIR=$(dirname $(realpath $0))
+
+. $DIR/vestest.inc.sh
+
+vestest_init $EMAIL
+
+# Algos to exercise. -Gp prints "{family}:{method}" so the expected output is
+# the same string passed to -G.
+ALGOS=(
+    "RSA:2048"
+    "ECDH:prime256v1"
+    "OQS:Kyber768"
+    "OQS:ML-KEM-512"
+    "OQS:ML-KEM-768"
+    "OQS:ML-KEM-1024"
+)
+
+for ALGO in "${ALGOS[@]}"; do
+    # A unique section key per algo. The section key's full externalId is
+    # <main>!<section>; libVES_VaultKey_propagate looks for the SECOND `!`
+    # to identify the parent vault, so the main externalId (the email) must
+    # be prefixed before the %21 section marker.
+    TAG="${ALGO//:/-}"
+    KSEC="${EMAIL}%21oqs-${TAG}-${NONCE}"
+    OBJK="//demo/oqs-${TAG}-${NONCE}"
+
+    vestest_head "[$ALGO] generate a section Vault Key under \$EMAIL with -G"
+    vestest 0 -a //$DOM/$EMAIL/ -k $KSEC/$EMAIL -G "$ALGO" -n -E save
+
+    vestest_head "[$ALGO] -Gp round-trip"
+    vestest - <<TEST -a //$DOM/$EMAIL/ -k $KSEC/ -Gp -E
+$ALGO
+TEST
+
+    vestest_head "[$ALGO] encrypt a Vault Item via the section key (sharing with self)"
+    vestest 0 -a //$DOM/$EMAIL/ -o $OBJK -i "secret-via-${ALGO}-${NONCE}" -s $KSEC/,$EMAIL/ -E
+
+    vestest_head "[$ALGO] decrypt via the section key path"
+    vestest - <<TEST -a //$DOM/$EMAIL/ -k $KSEC/ -o $OBJK -ip -E
+secret-via-${ALGO}-${NONCE}
+TEST
+
+    vestest_head "[$ALGO] decrypt via the primary (cross-key)"
+    vestest - <<TEST -a //$DOM/$EMAIL/ -o $OBJK -ip -E
+secret-via-${ALGO}-${NONCE}
+TEST
+
+    vestest_head "[$ALGO] export private key PEM"
+    PEMFILE=$(mktemp /tmp/vestest-${TAG}-${NONCE}-XXXX.pem)
+    vestest 0 -a //$DOM/$EMAIL/ -k $KSEC/ -ypf $PEMFILE -E
+
+    vestest_head "[$ALGO] re-import the PEM into a fresh section key and verify it still encrypts/decrypts"
+    KSEC2="${EMAIL}%21oqs-${TAG}-${NONCE}-reimp"
+    vestest 0 -a //$DOM/$EMAIL/ -k $KSEC2/$EMAIL -yf $PEMFILE -n -E save
+    vestest - <<TEST -a //$DOM/$EMAIL/ -k $KSEC2/ -Gp -E
+$ALGO
+TEST
+    OBJ2="//demo/oqs-${TAG}-${NONCE}-reimp"
+    vestest 0 -a //$DOM/$EMAIL/ -o $OBJ2 -i "reimport-${ALGO}-${NONCE}" -s $KSEC2/,$EMAIL/ -E
+    vestest - <<TEST -a //$DOM/$EMAIL/ -k $KSEC2/ -o $OBJ2 -ip -E
+reimport-${ALGO}-${NONCE}
+TEST
+
+    vestest_head "[$ALGO] cleanup"
+    vestest 0 -a //$DOM/$EMAIL/ -o $OBJK --delete -E
+    vestest 0 -a //$DOM/$EMAIL/ -o $OBJ2 --delete -E
+    vestest 0 -a //$DOM/$EMAIL/ -k $KSEC/ --delete -E
+    vestest 0 -a //$DOM/$EMAIL/ -k $KSEC2/ --delete -E
+    rm -f "$PEMFILE"
+done

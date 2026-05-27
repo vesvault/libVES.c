@@ -109,6 +109,20 @@ int out_keyAlgos(int fdi, struct ctx_st *ctx) {
     return 0;
 }
 
+int out_keyalgo(int fd, struct ctx_st *ctx) {
+    if (!ctx->vkey || !ctx->vkey->algo) VES_throw("[out_keyalgo]", "", "Vault key algo is not available", E_VALUE);
+    char method[160];
+    int l = libVES_KeyAlgo_keymethodstr(ctx->vkey, method, sizeof(method));
+    int n = strlen(ctx->vkey->algo->str);
+    OUT_IO_assert("[out_keyalgo]", write(fd, ctx->vkey->algo->str, n));
+    if (l > 0) {
+	OUT_IO_assert("[out_keyalgo]", write(fd, ":", 1));
+	OUT_IO_assert("[out_keyalgo]", write(fd, method, l));
+    }
+    OUT_IO_assert("[out_keyalgo]", write(fd, "\n", 1));
+    return 0;
+}
+
 int out_ciAlgos(int fdi, struct ctx_st *ctx) {
     return out_strings(fdi, &libVES_Cipher_algos), 0;
 }
@@ -345,10 +359,12 @@ void out_ansi_str(int fdi, const char *str) {
 
 int out_keystore_flags(int fd, struct ctx_st *ctx) {
     struct keystore_flag *f;
-    char buf[256];
+    char buf[32];
     for (f = keystore_flags; f->tag; f++) {
-	sprintf(buf, "%-8s  %.160s\r\n", f->tag, f->info);
-	(void)write(fd, buf, strlen(buf));
+	int l = sprintf(buf, "%-8s  ", f->tag);
+	(void)write(fd, buf, l);
+	(void)write(fd, f->info, strlen(f->info));
+	(void)write(fd, "\r\n", 2);
     }
     return 0;
 }

@@ -1,0 +1,223 @@
+#!/bin/bash
+
+# Exercises ML-KEM private key import across the three FIPS 203
+# (draft-ietf-lamps-kyber-certificates) PrivateKey CHOICE alternatives:
+#
+#   ML-KEM-PrivateKey ::= CHOICE {
+#       seed        [0] IMPLICIT OCTET STRING,
+#       expandedKey     OCTET STRING,
+#       both            SEQUENCE { seed OCTET STRING, expandedKey OCTET STRING }
+#   }
+#
+# Each format hits a different branch of libVES_KeyAlgo_MLKEM_materialize:
+#   - seed: OQS_KEM_keypair_derand (requires libOQS >= 0.13)
+#   - expandedKey: direct copy + derive pub from expanded
+#   - both: direct copy of expanded, seed ignored
+#
+# The three test keys below were pre-generated offline from a single
+# `openssl genpkey -algorithm ML-KEM-768` run (PKCS8 v0 / CHOICE = both)
+# and re-encoded into the other two CHOICE forms via raw DER edits.
+# They share the same underlying key material - importing any of them
+# should yield identical public keys. Inlined as static PEMs so the
+# test depends only on bash + the ves CLI at runtime (no openssl /
+# python required).
+
+DIR=$(dirname $(realpath $0))
+
+. $DIR/vestest.inc.sh
+
+vestest_init $EMAIL
+
+SEED=$(mktemp /tmp/vestest-mlk-seed-${NONCE}-XXXX.pem)
+EXPK=$(mktemp /tmp/vestest-mlk-exp-${NONCE}-XXXX.pem)
+BOTH=$(mktemp /tmp/vestest-mlk-both-${NONCE}-XXXX.pem)
+
+cat > $SEED <<'PEM'
+-----BEGIN PRIVATE KEY-----
+MFQCAQAwCwYJYIZIAWUDBAQCBEKAQLTRCFO/YcqrOku68jWg46LkGyoHC9IXMTk8
+7ESYt7ppHLVnZZtyLm6YUv/I8XuTToJB8l7lfiKzBIVfbL+N+Uc=
+-----END PRIVATE KEY-----
+PEM
+
+cat > $EXPK <<'PEM'
+-----BEGIN PRIVATE KEY-----
+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
+m3IubphS/8jxe5NOgkHyXuV+IrMEhV9sv435Rw==
+-----END PRIVATE KEY-----
+PEM
+
+cat > $BOTH <<'PEM'
+-----BEGIN PRIVATE KEY-----
+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
++Uc=
+-----END PRIVATE KEY-----
+PEM
+
+# Drive each format through import / -Gp round-trip / encrypt / decrypt.
+# (Loop label avoids "exp" because $EXP is reserved by vestest().)
+for FORMAT in seed expkey both; do
+    case $FORMAT in
+        seed)   IN=$SEED ;;
+        expkey) IN=$EXPK ;;
+        both)   IN=$BOTH ;;
+    esac
+    KSEC="${EMAIL}%21mlk-${FORMAT}-${NONCE}"
+    OBJK="//demo/mlk-${FORMAT}-${NONCE}"
+
+    vestest_head "[$FORMAT] import an ML-KEM-768 PEM (CHOICE = $FORMAT)"
+    vestest 0 -a //$DOM/$EMAIL/ -k $KSEC/$EMAIL -yf $IN -n -E save
+
+    vestest_head "[$FORMAT] -Gp round-trip reports OQS:ML-KEM-768"
+    vestest - <<TEST -a //$DOM/$EMAIL/ -k $KSEC/ -Gp -E
+OQS:ML-KEM-768
+TEST
+
+    # The three CHOICE forms encode the same key material, so libVES's
+    # SPKI -Yp output must be byte-identical for all of them. The expected
+    # PEM below is the deterministic SPKI for the inlined private key.
+    vestest_head "[$FORMAT] -Yp pub PEM matches the expected deterministic SPKI"
+    vestest - <<TEST -a //$DOM/$EMAIL/ -k $KSEC/ -Yp -E
+-----BEGIN PUBLIC KEY-----
+MIIEsjALBglghkgBZQMEBAIDggShAOpQL1MordMwGUj2L0HkOjg1xnQpe56gmQ0p
+EXYobT02bM16TXRQoitZNZ83NLAxwirUAL8IfOU3jMLcwn8ssXfsT9xsj44JG4Lz
+gKL0nmVwVfcZcvpkj7BkT1KbEQuILZp5EvByO22qJhnSbLISI7y1FT8ier2ZGCvI
+iehGnFsjE5CjCHchvhu3lzswpT4MAd6SPhUZP0h5jJ4CXLbWk/FVZvZXQe5nH8Ky
+w5cMuhdXQ5KJSFUECvI5n/FXyOtygdQ5hoW0H1eigMlYr4IlXtKXL9xEMXfXQFs4
+K3xIgUY1YR4XDtlkNaQ4zm68PnWTHQzqjyuHKm3wZ7zDk3CVwPTUNDyEKmPsMUmi
+IpNyb+sRJW1WbXxzrjxwnIiWeRcIq+JBW3cqpIrisEGWkxO0EBCyx4wSKamzNF1b
+gUZWue9BeY5Ew5GsIGKmJXJ2HmOErIgJbGsFK1jglgAtuC8JvBqgab+cAp+5iNpG
+oLsjZBcJTHPkLyZTt4JyPYnopsIplmvXeKJUW6LjhKL0gUlTcZiZEOGzf5Kmn/WK
+WyggTQnKFWX7s+lVov+ypH/KfTMBgy7QiSb3hbeTrlD2GMKBgV8ELERxLMd1gQGZ
+QL0CPVaDkHlHqWLqOXjSjmYZEv8Ky/hIx0OaCBMUzvlRwCmbAFMKO/z4hbjGIG6Q
+UJEBwOV1o/izmUegOLT0I5pkfvV3lmyQhsD3wWfByOl4VGVhH7upk+DcePtTDOcq
+nsh3q12wcRayrAT1tEBFTOfsxNxmgFS1qS14j5VRZcPRWiSKPkhWRdpcb3EwL/Mb
+YX7kB9ahhSGyQfcnqhTDow0zW5cmeJjBVoSLu3KhqMp8h6enYFOFKYZWL+U7KSLs
+X1aTfQG3l6HBI9BonamkhiooshFpBaT0Kn+5XTy3qTDHvxlbroAgolCrVhWkveoM
+RnAghT7Zt/YMqiMpkmz5Oaxkt8GVd6kxda8KNfskvUaMECA6QwB1rIl8sUzstvFA
+mF8khS7Vy9KLcltySRepgX72YTPGZ/d2cI+EszpRQ5qKEzQYL2AqgQZKJhInP4WA
+Z6iLuWv5t3vWUTibnmTVG+uwusDCkWChS0a2Gd5KdtXFtX16c7QmZn64VJljrW0r
+G8kztu0UNCYcQUXYNpAwqph3Xe7MQLOHjDoAmWhya0O3G4jETQnnzdS3SEObm4ys
+V8NkVXKrA84Mssj6lNi1bn8DGn5sRSf6Qq27O7fwFHOZGmqQSXiztoBnr3L0fb2Y
+Ox52K5IAkcIhj6zYYs2QCrWkksZZGrnJhO3Yu8ZbcD+nZbZpTauVD1u8wqXKJYv1
+ipr6d3Xqg89HgAkHA+Emle7sGpMxoBkFSvU2A/NoWdIros0lq1XgT6yQBgtbMY56
+AKp5ENd3V7EYa4m6NmilbMHHSKkZhvLSqCF5sRk3CEtCEogIxhlpFS2pdnn8BXDq
+danzrWI3cJIMely2Lry1RhFBP1SaHAikMxJSUOVovMf1KU7ZfRzFIi5WLvhiZRQV
+RCyhzXGIseboHZ+xQvSxkp/jn1OoX4mISjP9xWHlgI7Cb6mJFdPStj+qUF5iXTbf
+fjBa5ZUg
+-----END PUBLIC KEY-----
+TEST
+
+    vestest_head "[$FORMAT] encrypt a Vault Item via the imported section key"
+    vestest 0 -a //$DOM/$EMAIL/ -o $OBJK -i "secret-${FORMAT}-${NONCE}" -s $KSEC/,$EMAIL/ -E
+
+    vestest_head "[$FORMAT] decrypt via the imported section key"
+    vestest - <<TEST -a //$DOM/$EMAIL/ -k $KSEC/ -o $OBJK -ip -E
+secret-${FORMAT}-${NONCE}
+TEST
+
+    vestest_head "[$FORMAT] cleanup (delete item, then the section key)"
+    vestest 0 -a //$DOM/$EMAIL/ -o $OBJK --delete -E
+    vestest 0 -a //$DOM/$EMAIL/ -k $KSEC/ --delete -E
+done
+
+rm -f $SEED $EXPK $BOTH

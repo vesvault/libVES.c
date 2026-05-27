@@ -3,7 +3,6 @@
 DIR=$(dirname $(realpath $0))
 
 . $DIR/vestest.inc.sh
-. $DIR/vestest.conf
 
 vestest_init $EMAIL
 vestest_init $EMAIL2

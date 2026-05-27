@@ -3,10 +3,11 @@
 DIR=$(dirname $(realpath $0))
 
 . $DIR/vestest.inc.sh
-. $DIR/vestest.conf
 
 vestest_init $EMAIL
 vestest_init $EMAIL2
+vestest_admin_init $EMAIL
+vestest_admin_init $EMAIL2
 
 vestest_head Creating item $OBJ owned by a section vault - error expected because the section vault doesn\'t exist yet
 vestest 7 -a //$DOM/$EMAIL/ -o $OBJ -i test -s $EMAIL$SEC/ -E save

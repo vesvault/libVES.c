@@ -29,6 +29,9 @@
  *                                    via OpenSSL EVP
  *
  ***************************************************************************/
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 #include <sys/types.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -38,11 +41,15 @@
 #include <openssl/pem.h>
 #include <openssl/engine.h>
 #include <openssl/crypto.h>
+#include <openssl/err.h>
 #include "../jVar.h"
 #include "../libVES.h"
 #include "VaultKey.h"
 #include "Util.h"
 #include "KeyAlgo_EVP.h"
+#ifdef HAVE_LIBOQS
+#include "KeyAlgo_OQS.h"
+#endif
 
 
 libVES_VaultKey *libVES_KeyAlgo_autoEVP_new(const libVES_KeyAlgo *algo, void *pkey, const libVES_veskey *veskey, libVES *ves) {
@@ -57,10 +64,27 @@ libVES_VaultKey *libVES_KeyAlgo_autoEVP_new(const libVES_KeyAlgo *algo, void *pk
 
 libVES_VaultKey *libVES_KeyAlgo_autoPEM_new(const libVES_KeyAlgo *algo, void *pkey, const libVES_veskey *veskey, libVES *ves) {
     if (!pkey) libVES_throw(ves, LIBVES_E_PARAM, "PEM private key expected", NULL);
+    /* Try EVP first (RSA / EC). */
     EVP_PKEY *p = libVES_KeyAlgo_EVP_fromPEM(veskey, pkey);
-    libVES_VaultKey *vkey = libVES_KeyAlgo_autoEVP_new(algo, p, veskey, ves);
-    if (!vkey) EVP_PKEY_free(p);
-    return vkey;
+    if (p) {
+	libVES_VaultKey *vkey = libVES_KeyAlgo_autoEVP_new(algo, p, veskey, ves);
+	if (vkey) return vkey;
+	/* EVP parsed the PEM but autoEVP_new doesn't recognize the algorithm
+	 * (could be ML-KEM with newer OpenSSL provider support, OID-known but
+	 * not RSA/EC). Free the EVP_PKEY, clear the error it set, and fall
+	 * through to the OQS attempt below. */
+	EVP_PKEY_free(p);
+	(void) libVES_getError(ves);
+    }
+#ifdef HAVE_LIBOQS
+    /* The PEM may carry a non-EVP algorithm (OQS / ML-KEM).
+     * Clear OpenSSL's error queue so it doesn't leak into the OQS attempt. */
+    ERR_clear_error();
+    libVES_VaultKey stub = {.ves = ves, .algo = &libVES_KeyAlgo_OQS};
+    void *oqspkey = libVES_KeyAlgo_OQS.str2privfn(&stub, (const char *) pkey, veskey);
+    if (oqspkey) return libVES_KeyAlgo_OQS.newfn(&libVES_KeyAlgo_OQS, oqspkey, veskey, ves);
+#endif
+    libVES_throw(ves, LIBVES_E_CRYPTO, "Unsupported PEM private key (tried EVP/OQS)", NULL);
 }
 
 void *libVES_KeyAlgo_EVP_str2pub(libVES_VaultKey *vkey, const char *pub) {
@@ -265,6 +289,16 @@ int libVES_KeyAlgo_RSA_methodstr(const libVES_KeyAlgo *algo, char *buf, size_t b
     return strlen(buf);
 }
 
+int libVES_KeyAlgo_RSA_keymethodstr(libVES_VaultKey *vkey, char *buf, size_t buflen) {
+    EVP_PKEY *pkey = vkey->pPriv ? vkey->pPriv : vkey->pPub;
+    if (!pkey) return -1;
+    int bits = EVP_PKEY_bits(pkey);
+    if (bits <= 0) return -1;
+    int l = snprintf(buf, buflen, "%d", bits);
+    if (l < 0 || (size_t) l >= buflen) return 0;
+    return l;
+}
+
 
 void *libVES_KeyAlgo_ECDH_pkeygen(const libVES_KeyAlgo *algo, const char *algostr) {
     const char *s = algostr ? strchr(algostr, ':') : NULL;
@@ -382,6 +416,23 @@ int libVES_KeyAlgo_ECDH_methodstr(const libVES_KeyAlgo *algo, char *buf, size_t 
     return l;
 }
 
+int libVES_KeyAlgo_ECDH_keymethodstr(libVES_VaultKey *vkey, char *buf, size_t buflen) {
+    EVP_PKEY *pkey = vkey->pPriv ? vkey->pPriv : vkey->pPub;
+    if (!pkey) return -1;
+    EC_KEY *eckey = EVP_PKEY_get0_EC_KEY(pkey);
+    if (!eckey) return -1;
+    const EC_GROUP *grp = EC_KEY_get0_group(eckey);
+    if (!grp) return -1;
+    int nid = EC_GROUP_get_curve_name(grp);
+    if (nid == NID_undef) return -1;
+    const char *name = OBJ_nid2sn(nid);
+    if (!name) return -1;
+    size_t l = strlen(name);
+    if (l >= buflen) return 0;
+    strcpy(buf, name);
+    return (int) l;
+}
+
 
 void *libVES_KeyAlgo_autoEVPfn = (void *) &libVES_KeyAlgo_autoEVP_new;
 void *libVES_KeyAlgo_autoPEMfn = (void *) &libVES_KeyAlgo_autoPEM_new;
@@ -403,6 +454,7 @@ const libVES_KeyAlgo libVES_KeyAlgo_RSA = {
     .pkeygenfn = &libVES_KeyAlgo_RSA_pkeygen,
     .pkeyfreefn = &libVES_KeyAlgo_EVP_pkeyfree,
     .methodstrfn = &libVES_KeyAlgo_RSA_methodstr,
+    .keymethodstrfn = &libVES_KeyAlgo_RSA_keymethodstr,
     .len = sizeof(libVES_KeyAlgo)
 };
 
@@ -423,5 +475,6 @@ const libVES_KeyAlgo libVES_KeyAlgo_ECDH = {
     .pkeygenfn = &libVES_KeyAlgo_ECDH_pkeygen,
     .pkeyfreefn = &libVES_KeyAlgo_EVP_pkeyfree,
     .methodstrfn = &libVES_KeyAlgo_ECDH_methodstr,
+    .keymethodstrfn = &libVES_KeyAlgo_ECDH_keymethodstr,
     .len = sizeof(libVES_KeyAlgo)
 };

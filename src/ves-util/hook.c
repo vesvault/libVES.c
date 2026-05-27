@@ -50,6 +50,9 @@ libVES_VaultKey *hook_genVaultKey(libVES *ves, int type, libVES_Ref *ref, libVES
 	if (params.priv) pkey = algo->str2privfn((void *)((char *)&ves - offsetof(libVES_VaultKey, ves)), params.priv, params.uveskey);
 	else pkey = libVES_KeyAlgo_pkeygen(algo, params.keyAlgo);
 	if (!pkey) return NULL;
+    } else if (params.priv) {
+	/* autoPEM_new takes the PEM string itself as pkey and parses it. */
+	pkey = (void *) params.priv;
     } else pkey = NULL;
     libVES_veskey *v = params.veskey;
     if (!v && (params.flags & PF_NEW)) v = params.uveskey;

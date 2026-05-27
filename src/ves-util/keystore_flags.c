@@ -45,8 +45,8 @@ struct keystore_flag keystore_flags[] = {
     { .val = LIBVES_KS_SAVE, .tag = "save", .info = "Save a plaintext app key for further access without PIN. Use `save,sess` to save a persistent session token" },
     { .val = LIBVES_KS_FORGET, .tag = "forget", "Delete a previously synced account, a saved plaintext app key (`forget,nopin`) or a session token (`forget,sess`)" },
     { .val = LIBVES_KS_RESYNC, .tag = "resync", "Force VES account syncing" },
-    { .val = LIBVES_KS_PRIMARY, .tag = "primary", "Use the primary session token and keep the primary vault unlocked" },
+    { .val = LIBVES_KS_PRIMARY, .tag = "primary", "Use the primary session token and keep the primary vault unlocked. Typically combined with `elevate` when creating or rekeying secondary keys" },
     { .val = LIBVES_KS_PERSIST, .tag = "persist", "Obtain a persistent non-expiring session token. This is implied in `sess,save`" },
-    { .val = LIBVES_KS_ELEVATE, .tag = "elevate", "Elevated authorization for the primary key, required for managing secondary keys" },
+    { .val = LIBVES_KS_ELEVATE, .tag = "elevate", "Elevated authorization for the primary key, required for managing secondary keys. When creating a new secondary key from a synced account, combine with `primary` (e.g. `save,elevate,primary`) so the primary stays unlocked through the post" },
     { .tag = NULL }
 };

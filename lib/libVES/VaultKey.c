@@ -295,11 +295,27 @@ libVES_VaultItem *libVES_VaultKey_propagate(libVES_VaultKey *vkey) {
         libVES_List_push(share, maink ? maink : vkey->ves->vaultKey);
         libVES_Ref_free(mainx);
     } else if (vkey->type == LIBVES_VK_TEMP) libVES_List_push(share, vkey->ves->vaultKey);
-    char ok = suffix || libVES_User_activeVaultKeys(vkey->user, share, vkey->ves) || libVES_checkError(vkey->ves, LIBVES_E_NOTFOUND) ? 1 : 0;
+    char ok = 1;
+    char no_active = 0;
+    if (!suffix) {
+	if (!libVES_User_activeVaultKeys(vkey->user, share, vkey->ves)) {
+	    if (libVES_checkError(vkey->ves, LIBVES_E_NOTFOUND)) no_active = 1;
+	    else ok = 0;
+	}
+    }
     libVES_VaultKey *u_vkey = vkey->ves->vaultKey;
     libVES_User *user = libVES_VaultKey_getUser(u_vkey);
     if (!user) user = vkey->ves->me;
     if (ok && user && vkey->user && !libVES_User_eq(vkey->user, user)) ok = libVES_User_activeVaultKeys(user, share, vkey->ves) ? 1 : 0;
+    if (ok && no_active && vkey->type == LIBVES_VK_TEMP && user && !libVES_User_eq(vkey->user, user)) {
+	libVES_List *props = libVES_getPropagators(vkey->ves);
+	if (props) {
+	    libVES_VaultKey **pvk = NULL;
+	    while ((pvk = libVES_List_next(props, pvk, libVES_VaultKey))) libVES_List_push(share, *pvk);
+	} else if (!libVES_checkError(vkey->ves, LIBVES_E_NOTFOUND) && !libVES_checkError(vkey->ves, LIBVES_E_DENIED)) {
+	    ok = 0;
+	}
+    }
     if (ok && vkey->id && vkey->external && vkey->type == LIBVES_VK_TEMP && !suffix) {
 	jVar *req = jVar_put(jVar_put(jVar_object(), "type", jVar_string(libVES_VaultKey_types[LIBVES_VK_SECONDARY])), "$op", jVar_string("fetch"));
 	libVES_Ref_toJVar(vkey->external, req);

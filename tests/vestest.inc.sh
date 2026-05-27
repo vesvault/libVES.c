@@ -2,7 +2,14 @@ VES_PASS=0
 VES_FAIL=0
 VES_STEP=1
 
+# Load configuration. Always load the conf shipped next to this include
+# first; then layer ~/.vestest.conf on top if present so user-specific
+# overrides (e.g. EMAIL/EMAIL2) take effect without editing the tree.
+. "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/vestest.conf"
+[ -f "$HOME/.vestest.conf" ] && . "$HOME/.vestest.conf"
+
 vestest() {
+    local ECODE CMD RSLT RCODE OK EXP
     ECODE=$1
     shift
     CMD="$VES ${@@Q}"
@@ -22,10 +29,10 @@ vestest() {
     if [ $OK == "1" ]
     then
         echo '[[1;32mPASSED[0m]'"($RCODE)" "$CMD"
-        ((VES_PASS++))
+        ((++VES_PASS))
     else
         echo '[[1;31mFAILED[0m]'"($RCODE)" "$CMD"
-        ((VES_FAIL++))
+        ((++VES_FAIL))
         echo
         echo "$RSLT"
         echo
@@ -39,12 +46,24 @@ vestest_head() {
 }
 
 vestest_init() {
+    local ACCT
     ACCT=$1
     $VES -a //$DOM/$ACCT/ > /dev/null
     if [ $? -eq 7 ]
     then
         vestest_head Creating an app vault for $ACCT, VES PIN entry expected
         vestest 0 -A $ACCT -a //$DOM/$ACCT/ -n -E primary,elevate,save || exit 1
+    fi
+}
+
+vestest_admin_init() {
+    local ACCT
+    ACCT=$1
+    $VES -a //.admin/$ACCT/ > /dev/null 2>&1
+    if [ $? -eq 7 ]
+    then
+        vestest_head Creating an .admin vault for $ACCT, VES PIN entry expected
+        vestest 0 -A $ACCT -a //.admin/$ACCT/ -n -E primary,elevate,save || exit 1
     fi
 }
 

@@ -28,8 +28,8 @@
  * libVES.h                   libVES: Main header
  *
  ***************************************************************************/
-#define LIBVES_VERSION_NUMBER	0x01030200L
-#define LIBVES_VERSION_CODE	"1.32"
+#define LIBVES_VERSION_NUMBER	0x01030300L
+#define LIBVES_VERSION_CODE	"1.33"
 #define LIBVES_VERSION_STR	"libVES.c " LIBVES_VERSION_CODE " (c) 2018 - 2026 VESvault Corp"
 #define LIBVES_VERSION_SHORT	"libVES/" LIBVES_VERSION_CODE
 
@@ -61,12 +61,13 @@ typedef struct libVES {
     long long sessionExpire;
     const char *pollUrl;
     void *ref;
+    struct libVES_List *propagators;
 } libVES;
 
 
 enum { LIBVES_O_APIURL, LIBVES_O_APPNAME, LIBVES_O_ATTNFN, LIBVES_O_CURL, LIBVES_O_HTTPINITFN,
     LIBVES_O_GENFN, LIBVES_O_CIPHERALGO, LIBVES_O_KEYALGO, LIBVES_O_POLLURL, LIBVES_O_VESKEYLEN,
-    LIBVES_O_SESSTMOUT, LIBVES_O_DEBUG, LIBVES_O_REF };
+    LIBVES_O_SESSTMOUT, LIBVES_O_DEBUG, LIBVES_O_REF, LIBVES_O_PROPAGATORS };
 
 #define LIBVES_E_OK		0
 #define LIBVES_E_PARAM		1
@@ -253,6 +254,15 @@ struct libVES_VaultKey *libVES_primary(libVES *ves, const char *email, const cha
  * The owner of the Vault associated with ves. Do not deallocate.
  ***************************************************************************/
 struct libVES_User *libVES_me(libVES *ves);
+
+/***************************************************************************
+ * Get the list of propagator Vault Keys (domain=".propagate") for the
+ * creator of ves. Result is cached on ves and refcounted; do not deallocate.
+ * The cached list is generated based on ves->external->externalId (if it
+ * looks like an email) or libVES_me(ves)->email. Returns an empty list
+ * if no propagator key exists for the creator, or NULL on a hard error.
+ ***************************************************************************/
+struct libVES_List *libVES_getPropagators(libVES *ves);
 
 /***************************************************************************
  * Get raw string content of the Vault Item identified by uri.

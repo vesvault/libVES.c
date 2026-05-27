@@ -69,6 +69,23 @@
     in.setptr = &params.out->out[params.out->len++].set; \
 }
 
+#ifdef libVES_KeyStore_default
+static struct libVES_KeyStore_api ks_api;
+
+static char *rebase_url(const char *base, const char *defurl) {
+    size_t blen = strlen(base);
+    while (blen > 0 && base[blen - 1] == '/') blen--;
+    const char *p = strstr(defurl, "://");
+    p = p ? strchr(p + 3, '/') : defurl;
+    if (!p) p = defurl + strlen(defurl);
+    size_t plen = strlen(p);
+    char *out = malloc(blen + plen + 1);
+    memcpy(out, base, blen);
+    memcpy(out + blen, p, plen + 1);
+    return out;
+}
+#endif
+
 struct param_st params = {
     .user = NULL,
     .object = NULL,
@@ -81,6 +98,7 @@ struct param_st params = {
     .debug = 0,
     .dump = {.width = 16, .col = 4, .detect = 1},
     .apiUrl = NULL,
+    .wwwUrl = NULL,
     .itemType = -1,
     .keyAlgo = NULL,
     .ptext = {.setfn = NULL},
@@ -100,10 +118,10 @@ int main(int argc, char **argv) {
     char *arg = NULL;
     enum { o_null, o_error, o_data, o_help, o_ver, o_a, o_o, o_x, o_explore, o_v, o_q, o_s, o_r, o_setshare, o_apiurl, o_l, o_i,
 	o_delete, o_f, o_fd, o_ptext, o_ctext, o_p, o_e, o_d, o_c, o_m, o_z, o_k, o_force, o_token, o_priv, o_pub, o_u, o_g,
-	o_keyalgo, o_lock, o_pri, o_new, o_rekey, o_propagate, o_manual, o_keystore } op = o_null;
+	o_keyalgo, o_lock, o_pri, o_new, o_rekey, o_propagate, o_manual, o_keystore, o_wwwurl } op = o_null;
     const struct { char op; char *argw; } argwords[] = {
 	{o_a, "account"}, {o_o, "vault-item"}, {o_o, "object"}, {o_x, "debug"}, {o_help, "help"}, {o_p, "print"}, {o_v, "veskey"},
-	{o_v, "VESkey"}, {o_q, "quiet"}, {o_s, "share"}, {o_r, "unshare"}, {o_apiurl, "api-url"}, {o_l, "list"}, {o_i, "item"},
+	{o_v, "VESkey"}, {o_q, "quiet"}, {o_s, "share"}, {o_r, "unshare"}, {o_apiurl, "api-url"}, {o_wwwurl, "www-url"}, {o_l, "list"}, {o_i, "item"},
 	{o_delete, "delete"}, {o_f, "file"}, {o_fd, "fd"}, {o_ptext, "plaintext"}, {o_ctext, "ciphertext"}, {o_explore, "explore"},
 	{o_e, "encrypt"}, {o_d, "decrypt"}, {o_c, "cipher"}, {o_z, "cipher-meta"}, {o_k, "vault-key"}, {o_u, "unlock"},
 	{o_force, "force"}, {o_token, "token"}, {o_priv, "private-key"}, {o_pub, "public-key"}, {o_g, "generate"},
@@ -358,6 +376,9 @@ int main(int argc, char **argv) {
 		    case o_apiurl:
 			in.ptr = (void **) &params.apiUrl;
 			break;
+		    case o_wwwurl:
+			in.ptr = (void **) &params.wwwUrl;
+			break;
 		    case o_i:
 			in.ptr = (void **) &params.value;
 			in.flags |= PF_VI_WR;
@@ -425,6 +446,7 @@ int main(int argc, char **argv) {
 		    case o_keyalgo:
 			in.ptr = (void **) &params.keyAlgo;
 			in.putfn = &put_keyalgo;
+			in.outfn = &out_keyalgo;
 			break;
 		    case o_new:
 			params.flags |= PF_NEW | PF_VK_WR;
@@ -498,6 +520,16 @@ int main(int argc, char **argv) {
 	.domain = NULL
     };
     libVES_init(VESUTIL_VERSION_SHORT);
+#ifdef libVES_KeyStore_default
+    if (params.wwwUrl) {
+	libVES_KeyStore *ks = libVES_KeyStore_default;
+	ks_api.locker = rebase_url(params.wwwUrl, libVES_KeyStore_api_default.locker);
+	ks_api.msg = rebase_url(params.wwwUrl, libVES_KeyStore_api_default.msg);
+	ks_api.exportkey = rebase_url(params.wwwUrl, libVES_KeyStore_api_default.exportkey);
+	ks_api.importdone = rebase_url(params.wwwUrl, libVES_KeyStore_api_default.importdone);
+	ks->api = &ks_api;
+    }
+#endif
     ctx.ves = libVES_new(params.user);
     if (!ctx.ves) {
 	if (params.debug >= 0) fprintf(stderr, "Invalid app key reference: %s\n", params.user);
@@ -729,5 +761,11 @@ int main(int argc, char **argv) {
     libVES_VaultKey_free(ctx.vkey);
     libVES_VaultItem_free(ctx.vitem);
     libVES_free(ctx.ves);
+#ifdef libVES_KeyStore_default
+    free((void *) ks_api.locker);
+    free((void *) ks_api.msg);
+    free((void *) ks_api.exportkey);
+    free((void *) ks_api.importdone);
+#endif
     return 0;
 }

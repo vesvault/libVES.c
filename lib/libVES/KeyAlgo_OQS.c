@@ -44,6 +44,13 @@
 #include <openssl/asn1.h>
 #include <openssl/asn1t.h>
 #include <oqs/kem.h>
+#include <oqs/oqsconfig.h>
+
+/* OQS_KEM_keypair_derand and kem->length_keypair_seed appear in libOQS 0.13.0.
+ * Older builds skip the seed CHOICE code path and return an error at runtime. */
+#if defined(OQS_VERSION_MAJOR) && (OQS_VERSION_MAJOR > 0 || OQS_VERSION_MINOR >= 13)
+#define LIBVES_HAVE_OQS_DERAND 1
+#endif
 
 #include "../jVar.h"
 #include "../libVES.h"
@@ -74,6 +81,322 @@ DECLARE_ASN1_FUNCTIONS_const(libVES_KeyAlgo_OQS_PRIVATEKEY)
 DECLARE_ASN1_ENCODE_FUNCTIONS_const(libVES_KeyAlgo_OQS_PRIVATEKEY, libVES_KeyAlgo_OQS_PRIVATEKEY)
 IMPLEMENT_ASN1_FUNCTIONS_const(libVES_KeyAlgo_OQS_PRIVATEKEY)
 #endif
+
+/*
+ * ML-KEM standard PEM/DER encoding (FIPS 203, draft-ietf-lamps-kyber-certificates).
+ *   id-alg-ml-kem-{512,768,1024} = 2.16.840.1.101.3.4.4.{1,2,3} ; parameters ABSENT
+ *
+ *   ML-KEM-PrivateKey ::= CHOICE {
+ *       seed        [0] IMPLICIT OCTET STRING,
+ *       expandedKey     OCTET STRING,
+ *       both            SEQUENCE { seed OCTET STRING, expandedKey OCTET STRING }
+ *   }
+ *
+ * Export emits the expandedKey form with an outer [1] IMPLICIT BIT STRING publicKey
+ * (OneAsymmetricKey v2) so consumers don't have to re-derive at unlock time.
+ * Encrypted PEMs round-trip via PKCS8_PRIV_KEY_INFO and drop the outer publicKey;
+ * the encapsulation key is recovered from the embedded ek per FIPS 203 §7.3.
+ *
+ * Import accepts all three CHOICE forms. The seed form calls
+ * OQS_KEM_keypair_derand (requires libOQS >= 0.13).
+ */
+
+typedef struct libVES_KeyAlgo_MLKEM_PRIV_BOTH_st {
+    ASN1_OCTET_STRING *seed;
+    ASN1_OCTET_STRING *expandedKey;
+} libVES_KeyAlgo_MLKEM_PRIV_BOTH;
+
+ASN1_SEQUENCE(libVES_KeyAlgo_MLKEM_PRIV_BOTH) = {
+    ASN1_SIMPLE(libVES_KeyAlgo_MLKEM_PRIV_BOTH, seed, ASN1_OCTET_STRING),
+    ASN1_SIMPLE(libVES_KeyAlgo_MLKEM_PRIV_BOTH, expandedKey, ASN1_OCTET_STRING)
+} static_ASN1_SEQUENCE_END(libVES_KeyAlgo_MLKEM_PRIV_BOTH)
+
+typedef struct libVES_KeyAlgo_MLKEM_PRIV_st {
+    int type;
+    union {
+	ASN1_OCTET_STRING *seed;
+	ASN1_OCTET_STRING *expandedKey;
+	libVES_KeyAlgo_MLKEM_PRIV_BOTH *both;
+    } value;
+} libVES_KeyAlgo_MLKEM_PRIV;
+
+ASN1_CHOICE(libVES_KeyAlgo_MLKEM_PRIV) = {
+    ASN1_IMP(libVES_KeyAlgo_MLKEM_PRIV, value.seed, ASN1_OCTET_STRING, 0),
+    ASN1_SIMPLE(libVES_KeyAlgo_MLKEM_PRIV, value.expandedKey, ASN1_OCTET_STRING),
+    ASN1_SIMPLE(libVES_KeyAlgo_MLKEM_PRIV, value.both, libVES_KeyAlgo_MLKEM_PRIV_BOTH)
+} static_ASN1_CHOICE_END(libVES_KeyAlgo_MLKEM_PRIV)
+
+#define LIBVES_MLKEM_PRIV_SEED		0
+#define LIBVES_MLKEM_PRIV_EXPANDED	1
+#define LIBVES_MLKEM_PRIV_BOTH		2
+
+/* OneAsymmetricKey (RFC 5958) with the optional [1] IMPLICIT publicKey. */
+typedef struct libVES_KeyAlgo_MLKEM_OAK_st {
+    int32_t version;
+    X509_ALGOR *privateKeyAlgorithm;
+    ASN1_OCTET_STRING *privateKey;
+    STACK_OF(X509_ATTRIBUTE) *attributes;
+    ASN1_BIT_STRING *publicKey;
+} libVES_KeyAlgo_MLKEM_OAK;
+
+ASN1_SEQUENCE(libVES_KeyAlgo_MLKEM_OAK) = {
+    ASN1_EMBED(libVES_KeyAlgo_MLKEM_OAK, version, INT32),
+    ASN1_SIMPLE(libVES_KeyAlgo_MLKEM_OAK, privateKeyAlgorithm, X509_ALGOR),
+    ASN1_SIMPLE(libVES_KeyAlgo_MLKEM_OAK, privateKey, ASN1_OCTET_STRING),
+    ASN1_IMP_SET_OF_OPT(libVES_KeyAlgo_MLKEM_OAK, attributes, X509_ATTRIBUTE, 0),
+    ASN1_IMP_OPT(libVES_KeyAlgo_MLKEM_OAK, publicKey, ASN1_BIT_STRING, 1)
+} static_ASN1_SEQUENCE_END(libVES_KeyAlgo_MLKEM_OAK)
+
+#if OPENSSL_VERSION_NUMBER >= 0x30000000
+DECLARE_ASN1_FUNCTIONS(libVES_KeyAlgo_MLKEM_PRIV_BOTH)
+IMPLEMENT_ASN1_FUNCTIONS(libVES_KeyAlgo_MLKEM_PRIV_BOTH)
+DECLARE_ASN1_FUNCTIONS(libVES_KeyAlgo_MLKEM_PRIV)
+IMPLEMENT_ASN1_FUNCTIONS(libVES_KeyAlgo_MLKEM_PRIV)
+DECLARE_ASN1_FUNCTIONS(libVES_KeyAlgo_MLKEM_OAK)
+IMPLEMENT_ASN1_FUNCTIONS(libVES_KeyAlgo_MLKEM_OAK)
+#else
+DECLARE_ASN1_FUNCTIONS_const(libVES_KeyAlgo_MLKEM_PRIV_BOTH)
+IMPLEMENT_ASN1_FUNCTIONS_const(libVES_KeyAlgo_MLKEM_PRIV_BOTH)
+DECLARE_ASN1_FUNCTIONS_const(libVES_KeyAlgo_MLKEM_PRIV)
+IMPLEMENT_ASN1_FUNCTIONS_const(libVES_KeyAlgo_MLKEM_PRIV)
+DECLARE_ASN1_FUNCTIONS_const(libVES_KeyAlgo_MLKEM_OAK)
+IMPLEMENT_ASN1_FUNCTIONS_const(libVES_KeyAlgo_MLKEM_OAK)
+#endif
+
+void libVES_KeyAlgo_OQS_keyfree(libVES_KeyAlgo_OQS_Key *oqs);
+
+struct libVES_KeyAlgo_MLKEM_spec {
+    const char *oid;
+    const char *oqs;
+    int pub_len;
+    int priv_len;
+};
+
+static const struct libVES_KeyAlgo_MLKEM_spec libVES_KeyAlgo_MLKEM_specs[] = {
+    {"2.16.840.1.101.3.4.4.1", "ML-KEM-512",  800,  1632},
+    {"2.16.840.1.101.3.4.4.2", "ML-KEM-768",  1184, 2400},
+    {"2.16.840.1.101.3.4.4.3", "ML-KEM-1024", 1568, 3168},
+    {NULL, NULL, 0, 0}
+};
+
+static const struct libVES_KeyAlgo_MLKEM_spec *libVES_KeyAlgo_MLKEM_find_oid(const char *oid) {
+    const struct libVES_KeyAlgo_MLKEM_spec *s;
+    for (s = libVES_KeyAlgo_MLKEM_specs; s->oid; s++) if (!strcmp(s->oid, oid)) return s;
+    return NULL;
+}
+
+static const struct libVES_KeyAlgo_MLKEM_spec *libVES_KeyAlgo_MLKEM_find_algo(const char *algo) {
+    const struct libVES_KeyAlgo_MLKEM_spec *s;
+    if (!algo) return NULL;
+    for (s = libVES_KeyAlgo_MLKEM_specs; s->oid; s++) if (!strcmp(s->oqs, algo)) return s;
+    return NULL;
+}
+
+/* Build a libVES_KeyAlgo_OQS_Key with libOQS initialized for `spec` and copy in pub bytes. */
+static libVES_KeyAlgo_OQS_Key *libVES_KeyAlgo_MLKEM_oqsnew(libVES_VaultKey *vkey, const struct libVES_KeyAlgo_MLKEM_spec *spec, int want_priv) {
+    OQS_KEM *kem = OQS_KEM_new(spec->oqs);
+    if (!kem) {
+	libVES_setError(vkey->ves, LIBVES_E_CRYPTO, "libOQS does not support this ML-KEM parameter set (rebuild against libOQS >= 0.10?)");
+	return NULL;
+    }
+    if ((int)kem->length_public_key != spec->pub_len || (int)kem->length_secret_key != spec->priv_len) {
+	libVES_setError(vkey->ves, LIBVES_E_CRYPTO, "ML-KEM key length mismatch with libOQS");
+	OQS_KEM_free(kem);
+	return NULL;
+    }
+    libVES_KeyAlgo_OQS_Key *oqs = malloc(sizeof(*oqs));
+    if (!oqs) { OQS_KEM_free(kem); return NULL; }
+    oqs->kem = kem;
+    oqs->pub = malloc(kem->length_public_key);
+    oqs->priv = want_priv ? malloc(kem->length_secret_key) : NULL;
+    if (!oqs->pub || (want_priv && !oqs->priv)) {
+	free(oqs->pub); free(oqs->priv); OQS_KEM_free(kem); free(oqs);
+	return NULL;
+    }
+    return oqs;
+}
+
+/* Compose the standard ML-KEM SPKI PEM. */
+static char *libVES_KeyAlgo_MLKEM_pub2str(const struct libVES_KeyAlgo_MLKEM_spec *spec, const unsigned char *pub) {
+    char *str = NULL;
+    ASN1_OBJECT *obj = OBJ_txt2obj(spec->oid, 1);
+    if (!obj) return NULL;
+    X509_PUBKEY *pubkey = X509_PUBKEY_new();
+    if (pubkey) {
+	unsigned char *penc = malloc(spec->pub_len);
+	if (penc) {
+	    memcpy(penc, pub, spec->pub_len);
+	    if (X509_PUBKEY_set0_param(pubkey, obj, V_ASN1_UNDEF, NULL, penc, spec->pub_len) > 0) {
+		obj = NULL; penc = NULL;
+		unsigned char *asn = NULL;
+		int len = i2d_X509_PUBKEY(pubkey, &asn);
+		if (len > 0) {
+		    BIO *mem = BIO_new(BIO_s_mem());
+		    if (mem && PEM_write_bio(mem, "PUBLIC KEY", "", asn, len) > 0) {
+			char *pem;
+			int l = BIO_get_mem_data(mem, &pem);
+			if ((str = malloc(l + 1))) { memcpy(str, pem, l); str[l] = 0; }
+		    }
+		    BIO_free(mem);
+		}
+		free(asn);
+	    }
+	    free(penc);
+	}
+	X509_PUBKEY_free(pubkey);
+    }
+    if (obj) ASN1_OBJECT_free(obj);
+    return str;
+}
+
+/* Per FIPS 203 §7.3, dk = dk_PKE || ek || H(ek) || z; ek is at offset (priv_len - 64 - pub_len). */
+static const unsigned char *libVES_KeyAlgo_MLKEM_pub_from_expanded(const struct libVES_KeyAlgo_MLKEM_spec *spec, const unsigned char *expanded) {
+    return expanded + (spec->priv_len - 64 - spec->pub_len);
+}
+
+/* Materialize an ML-KEM key from a parsed CHOICE plus optional outer pub. Caller verifies sizes. */
+static libVES_KeyAlgo_OQS_Key *libVES_KeyAlgo_MLKEM_materialize(libVES_VaultKey *vkey, const struct libVES_KeyAlgo_MLKEM_spec *spec, const libVES_KeyAlgo_MLKEM_PRIV *priv, const unsigned char *outer_pub) {
+    libVES_KeyAlgo_OQS_Key *oqs = libVES_KeyAlgo_MLKEM_oqsnew(vkey, spec, 1);
+    if (!oqs) return NULL;
+    const unsigned char *expanded = NULL;
+    const unsigned char *seed = NULL;
+    int seedlen = 0;
+    switch (priv->type) {
+	case LIBVES_MLKEM_PRIV_EXPANDED:
+	    if (priv->value.expandedKey->length != spec->priv_len) {
+		libVES_setError(vkey->ves, LIBVES_E_CRYPTO, "ML-KEM expandedKey length mismatch");
+		libVES_KeyAlgo_OQS_keyfree(oqs); return NULL;
+	    }
+	    expanded = priv->value.expandedKey->data;
+	    break;
+	case LIBVES_MLKEM_PRIV_BOTH:
+	    if (priv->value.both->expandedKey->length != spec->priv_len) {
+		libVES_setError(vkey->ves, LIBVES_E_CRYPTO, "ML-KEM expandedKey length mismatch (in CHOICE both)");
+		libVES_KeyAlgo_OQS_keyfree(oqs); return NULL;
+	    }
+	    expanded = priv->value.both->expandedKey->data;
+	    break;
+	case LIBVES_MLKEM_PRIV_SEED:
+	    seed = priv->value.seed->data;
+	    seedlen = priv->value.seed->length;
+	    break;
+	default:
+	    libVES_setError(vkey->ves, LIBVES_E_CRYPTO, "Unknown ML-KEM-PrivateKey CHOICE tag");
+	    libVES_KeyAlgo_OQS_keyfree(oqs); return NULL;
+    }
+    if (expanded) {
+	memcpy(oqs->priv, expanded, spec->priv_len);
+	memcpy(oqs->pub, outer_pub ? outer_pub : libVES_KeyAlgo_MLKEM_pub_from_expanded(spec, expanded), spec->pub_len);
+    } else {
+#ifdef LIBVES_HAVE_OQS_DERAND
+	if (seedlen != (int)oqs->kem->length_keypair_seed) {
+	    libVES_setError(vkey->ves, LIBVES_E_CRYPTO, "ML-KEM seed length mismatch with libOQS length_keypair_seed");
+	    libVES_KeyAlgo_OQS_keyfree(oqs); return NULL;
+	}
+	if (OQS_KEM_keypair_derand(oqs->kem, oqs->pub, oqs->priv, seed) != OQS_SUCCESS) {
+	    libVES_setError(vkey->ves, LIBVES_E_CRYPTO, "ML-KEM seed-based key derivation failed");
+	    libVES_KeyAlgo_OQS_keyfree(oqs); return NULL;
+	}
+	if (outer_pub && memcmp(oqs->pub, outer_pub, spec->pub_len) != 0) {
+	    libVES_setError(vkey->ves, LIBVES_E_CRYPTO, "ML-KEM seed import: derived public key mismatch with outer publicKey");
+	    libVES_KeyAlgo_OQS_keyfree(oqs); return NULL;
+	}
+#else
+	(void)seed; (void)seedlen;
+	libVES_setError(vkey->ves, LIBVES_E_CRYPTO, "ML-KEM seed-only CHOICE requires libOQS >= 0.13 (this build was compiled against an older libOQS without OQS_KEM_keypair_derand)");
+	libVES_KeyAlgo_OQS_keyfree(oqs); return NULL;
+#endif
+    }
+    return oqs;
+}
+
+/* Compose the standard ML-KEM PKCS#8 v2 PEM (with optional encryption). */
+static char *libVES_KeyAlgo_MLKEM_priv2str(const struct libVES_KeyAlgo_MLKEM_spec *spec, const unsigned char *pub, const unsigned char *priv, const libVES_veskey *veskey) {
+    char *str = NULL;
+    ASN1_OCTET_STRING *priv_choice = ASN1_OCTET_STRING_new();
+    if (!priv_choice || !ASN1_OCTET_STRING_set(priv_choice, priv, spec->priv_len)) {
+	ASN1_OCTET_STRING_free(priv_choice);
+	return NULL;
+    }
+    unsigned char *choice_der = NULL;
+    int choice_len = i2d_ASN1_OCTET_STRING(priv_choice, &choice_der);
+    ASN1_OCTET_STRING_free(priv_choice);
+    if (choice_len <= 0) { OPENSSL_free(choice_der); return NULL; }
+
+    if (veskey) {
+	/* Encrypted path: PKCS8_PRIV_KEY_INFO + PKCS8_encrypt; drops the outer publicKey,
+	 * but the encapsulation key is recoverable from the embedded ek on decryption. */
+	PKCS8_PRIV_KEY_INFO *privkey = PKCS8_PRIV_KEY_INFO_new();
+	if (privkey) {
+	    ASN1_OBJECT *obj = OBJ_txt2obj(spec->oid, 1);
+	    if (obj && PKCS8_pkey_set0(privkey, obj, 0, V_ASN1_UNDEF, NULL, choice_der, choice_len)) {
+		obj = NULL; choice_der = NULL; /* ownership transferred to privkey */
+		X509_SIG *sig = PKCS8_encrypt(-1, EVP_aes_256_cbc(), veskey->veskey, veskey->keylen, NULL, 0, 0, privkey);
+		if (sig) {
+		    BIO *mem = BIO_new(BIO_s_mem());
+		    if (mem && PEM_write_bio_PKCS8(mem, sig) > 0) {
+			char *pem; int l = BIO_get_mem_data(mem, &pem);
+			if ((str = malloc(l + 1))) { memcpy(str, pem, l); str[l] = 0; }
+		    }
+		    BIO_free(mem);
+		    X509_SIG_free(sig);
+		}
+	    }
+	    if (obj) ASN1_OBJECT_free(obj);
+	    PKCS8_PRIV_KEY_INFO_free(privkey);
+	}
+    } else {
+	/* Unencrypted: emit OneAsymmetricKey v2 with the outer publicKey field. */
+	libVES_KeyAlgo_MLKEM_OAK *oak = libVES_KeyAlgo_MLKEM_OAK_new();
+	if (oak) {
+	    ASN1_OBJECT *obj = OBJ_txt2obj(spec->oid, 1);
+	    if (obj && X509_ALGOR_set0(oak->privateKeyAlgorithm, obj, V_ASN1_UNDEF, NULL)) {
+		obj = NULL;
+		if (ASN1_OCTET_STRING_set(oak->privateKey, choice_der, choice_len)) {
+		    oak->version = 1;
+		    if (!oak->publicKey) oak->publicKey = ASN1_BIT_STRING_new();
+		    if (oak->publicKey && ASN1_BIT_STRING_set(oak->publicKey, (unsigned char *)pub, spec->pub_len)) {
+			oak->publicKey->flags &= ~0x07;
+			oak->publicKey->flags |= ASN1_STRING_FLAG_BITS_LEFT;
+			unsigned char *asn = NULL;
+			int len = i2d_libVES_KeyAlgo_MLKEM_OAK(oak, &asn);
+			if (len > 0) {
+			    BIO *mem = BIO_new(BIO_s_mem());
+			    if (mem && PEM_write_bio(mem, "PRIVATE KEY", "", asn, len) > 0) {
+				char *pem; int l = BIO_get_mem_data(mem, &pem);
+				if ((str = malloc(l + 1))) { memcpy(str, pem, l); str[l] = 0; }
+			    }
+			    BIO_free(mem);
+			}
+			free(asn);
+		    }
+		}
+	    }
+	    if (obj) ASN1_OBJECT_free(obj);
+	    libVES_KeyAlgo_MLKEM_OAK_free(oak);
+	}
+    }
+    OPENSSL_free(choice_der);
+    return str;
+}
+
+/* Parse the privateKey OCTET STRING contents (the CHOICE bytes) into a libVES_KeyAlgo_OQS_Key.
+ * outer_pub may be NULL (encrypted PKCS#8 path or expandedKey-only without explicit pub). */
+static libVES_KeyAlgo_OQS_Key *libVES_KeyAlgo_MLKEM_load_priv(libVES_VaultKey *vkey, const struct libVES_KeyAlgo_MLKEM_spec *spec, const unsigned char *choice_bytes, int choice_len, const unsigned char *outer_pub, int outer_pub_len) {
+    if (outer_pub && outer_pub_len != spec->pub_len) {
+	libVES_setError(vkey->ves, LIBVES_E_CRYPTO, "ML-KEM outer publicKey length mismatch");
+	return NULL;
+    }
+    libVES_KeyAlgo_MLKEM_PRIV *priv = NULL;
+    const unsigned char *p = choice_bytes;
+    if (!d2i_libVES_KeyAlgo_MLKEM_PRIV(&priv, &p, choice_len)) {
+	libVES_setError(vkey->ves, LIBVES_E_CRYPTO, "Malformed ML-KEM-PrivateKey CHOICE");
+	return NULL;
+    }
+    libVES_KeyAlgo_OQS_Key *oqs = libVES_KeyAlgo_MLKEM_materialize(vkey, spec, priv, outer_pub);
+    libVES_KeyAlgo_MLKEM_PRIV_free(priv);
+    return oqs;
+}
 
 #define libVES_KeyAlgo_OQS_chklimits(kem)	((kem)->length_ciphertext <= LIBVES_MAXLEN_ENCDATA - 256 && (kem)->length_secret_key + (kem)->length_public_key <= LIBVES_MAXLEN_KEY * 3 / 4 - 256)
 
@@ -135,12 +458,22 @@ void *libVES_KeyAlgo_OQS_str2pub(libVES_VaultKey *vkey, const char *pub) {
 		const ASN1_OBJECT *obj;
 		const ASN1_STRING *pval;
 		int ptype;
-		char oid[24];
+		char oid[40];
 		X509_ALGOR_get0(&obj, &ptype, (const void **)&pval, algor);
 		if (OBJ_obj2txt(oid, sizeof(oid), obj, 1) > 0) {
-		    char algo[48];
-		    OQS_KEM *kem;
-		    if (!strcmp(oid, libVES_KeyAlgo_OQS_OID) && ptype == V_ASN1_OCTET_STRING && pval && pval->length < sizeof(algo)) {
+		    const struct libVES_KeyAlgo_MLKEM_spec *spec;
+		    if ((spec = libVES_KeyAlgo_MLKEM_find_oid(oid))) {
+			if (ptype != V_ASN1_UNDEF && ptype != V_ASN1_NULL) {
+			    libVES_setError(vkey->ves, LIBVES_E_CRYPTO, "ML-KEM AlgorithmIdentifier must have absent parameters");
+			} else if (len != spec->pub_len) {
+			    libVES_setError(vkey->ves, LIBVES_E_CRYPTO, "Incorrect ML-KEM public key length");
+			} else {
+			    oqs = libVES_KeyAlgo_MLKEM_oqsnew(vkey, spec, 0);
+			    if (oqs) memcpy(oqs->pub, asn2, spec->pub_len);
+			}
+		    } else if (!strcmp(oid, libVES_KeyAlgo_OQS_OID) && ptype == V_ASN1_OCTET_STRING && pval && pval->length < 48) {
+			char algo[48];
+			OQS_KEM *kem;
 			memcpy(algo, pval->data, pval->length);
 			algo[pval->length] = 0;
 			kem = OQS_KEM_new(algo);
@@ -185,6 +518,8 @@ char *libVES_KeyAlgo_OQS_pub2str(libVES_VaultKey *vkey, void *pkey) {
     ASN1_STRING *algo;
     char *str = NULL;
     if (!oqs || !oqs->kem || !oqs->pub) return NULL;
+    const struct libVES_KeyAlgo_MLKEM_spec *spec = libVES_KeyAlgo_MLKEM_find_algo(oqs->kem->method_name);
+    if (spec) return libVES_KeyAlgo_MLKEM_pub2str(spec, oqs->pub);
     if ((obj = OBJ_txt2obj(libVES_KeyAlgo_OQS_OID, 1))) {
 	if ((algo = ASN1_STRING_new())) {
 	    X509_PUBKEY *pub = X509_PUBKEY_new();
@@ -232,9 +567,11 @@ void *libVES_KeyAlgo_OQS_str2priv(libVES_VaultKey *vkey, const char *priv, const
 	PKCS8_PRIV_KEY_INFO *privkey = NULL;
 	X509_SIG *sig = NULL;
 	const unsigned char *asn1 = asn;
+	int encrypted = 0;
 	if (veskey && d2i_X509_SIG(&sig, &asn1, asnl)) {
 	    privkey = PKCS8_decrypt(sig, veskey->veskey, veskey->keylen);
 	    X509_SIG_free(sig);
+	    encrypted = 1;
 	    if (!privkey) libVES_setError(vkey->ves, LIBVES_E_CRYPTO, "Error decrypting private key (bad VESkey?)");
 	} else if (!d2i_PKCS8_PRIV_KEY_INFO(&privkey, &asn1, asnl)) {
 	    libVES_setError(vkey->ves, LIBVES_E_CRYPTO, "Malformed private key");
@@ -247,12 +584,27 @@ void *libVES_KeyAlgo_OQS_str2priv(libVES_VaultKey *vkey, const char *priv, const
 		const ASN1_OBJECT *obj;
 		const ASN1_STRING *pval;
 		int ptype;
-		char oid[24];
+		char oid[40];
 		X509_ALGOR_get0(&obj, &ptype, (const void **)&pval, algor);
 		if (OBJ_obj2txt(oid, sizeof(oid), obj, 1) > 0) {
 		    char algo[48];
 		    OQS_KEM *kem;
-		    if (!strcmp(oid, libVES_KeyAlgo_OQS_OID) && ptype == V_ASN1_OCTET_STRING && pval && pval->length < sizeof(algo)) {
+		    const struct libVES_KeyAlgo_MLKEM_spec *spec;
+		    if ((spec = libVES_KeyAlgo_MLKEM_find_oid(oid))) {
+			const unsigned char *outer_pub = NULL;
+			int outer_pub_len = 0;
+			libVES_KeyAlgo_MLKEM_OAK *oak = NULL;
+			if (!encrypted) {
+			    /* Re-parse the original DER with the OAK template to capture publicKey [1]. */
+			    const unsigned char *p = asn;
+			    if (d2i_libVES_KeyAlgo_MLKEM_OAK(&oak, &p, asnl) && oak->publicKey) {
+				outer_pub = oak->publicKey->data;
+				outer_pub_len = oak->publicKey->length;
+			    }
+			}
+			oqs = libVES_KeyAlgo_MLKEM_load_priv(vkey, spec, asn2, len, outer_pub, outer_pub_len);
+			if (oak) libVES_KeyAlgo_MLKEM_OAK_free(oak);
+		    } else if (!strcmp(oid, libVES_KeyAlgo_OQS_OID) && ptype == V_ASN1_OCTET_STRING && pval && pval->length < sizeof(algo)) {
 			memcpy(algo, pval->data, pval->length);
 			algo[pval->length] = 0;
 			kem = OQS_KEM_new(algo);
@@ -314,6 +666,8 @@ char *libVES_KeyAlgo_OQS_priv2str(libVES_VaultKey *vkey, void *pkey, const libVE
     ASN1_STRING *algo;
     char *str = NULL;
     if (!oqs || !oqs->kem || !oqs->pub || !oqs->priv) return NULL;
+    const struct libVES_KeyAlgo_MLKEM_spec *spec = libVES_KeyAlgo_MLKEM_find_algo(oqs->kem->method_name);
+    if (spec) return libVES_KeyAlgo_MLKEM_priv2str(spec, oqs->pub, oqs->priv, veskey);
     if ((obj = OBJ_txt2obj(libVES_KeyAlgo_OQS_OID, 1))) {
 	if ((algo = ASN1_STRING_new()) && ASN1_STRING_set(algo, oqs->kem->method_name, strlen(oqs->kem->method_name))) {
 	    PKCS8_PRIV_KEY_INFO *privkey = PKCS8_PRIV_KEY_INFO_new();
@@ -451,6 +805,15 @@ int libVES_KeyAlgo_OQS_methodstr(const libVES_KeyAlgo *algo, char *buf, size_t b
     return l;
 }
 
+int libVES_KeyAlgo_OQS_keymethodstr(libVES_VaultKey *vkey, char *buf, size_t buflen) {
+    libVES_KeyAlgo_OQS_Key *oqs = vkey->pPriv ? vkey->pPriv : vkey->pPub;
+    if (!oqs || !oqs->kem || !oqs->kem->method_name) return -1;
+    size_t l = strlen(oqs->kem->method_name);
+    if (l >= buflen) return 0;
+    strcpy(buf, oqs->kem->method_name);
+    return (int) l;
+}
+
 
 const libVES_KeyAlgo libVES_KeyAlgo_OQS = {
     .str = "OQS",
@@ -469,5 +832,6 @@ const libVES_KeyAlgo libVES_KeyAlgo_OQS = {
     .pkeygenfn = &libVES_KeyAlgo_OQS_pkeygen,
     .pkeyfreefn = &libVES_KeyAlgo_OQS_pkeyfree,
     .methodstrfn = &libVES_KeyAlgo_OQS_methodstr,
+    .keymethodstrfn = &libVES_KeyAlgo_OQS_keymethodstr,
     .len = sizeof(libVES_KeyAlgo)
 };

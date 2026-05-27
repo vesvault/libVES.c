@@ -103,6 +103,7 @@ libVES *libVES_fromRef(libVES_Ref *ref) {
     (void)libVES_REFUP(List, ves->unlockedKeys);
     ves->sessionTimeout = LIBVES_SESS_TMOUT;
     ves->pollUrl = LIBVES_POLL_URL;
+    ves->propagators = NULL;
     return ves;
 }
 
@@ -115,6 +116,7 @@ libVES *libVES_child(libVES *pves) {
     (void)libVES_REFUP(Ref, ves->external);
     (void)libVES_REFUP(VaultKey, ves->vaultKey);
     (void)libVES_REFUP(User, ves->me);
+    (void)libVES_REFUP(List, ves->propagators);
     ves->error = LIBVES_E_OK;
     ves->errorMsg = ves->errorBuf = NULL;
     if (ves->sessionToken) ves->sessionToken = strdup(ves->sessionToken);
@@ -149,6 +151,7 @@ void *libVES_getOption(libVES *ves, int optn) {
 	case LIBVES_O_DEBUG: return (void *)(long long)ves->debug;
 	case LIBVES_O_SESSTMOUT: return (void *)(long long)ves->sessionTimeout;
 	case LIBVES_O_VESKEYLEN: return (void *)(long long)ves->veskeyLen;
+	case LIBVES_O_PROPAGATORS: return ves->propagators;
 	default: break;
     }
     void **ptr = libVES_optionPtr(ves, optn);
@@ -161,6 +164,12 @@ int libVES_setOption(libVES *ves, int optn, void *val) {
 	case LIBVES_O_DEBUG: return ves->debug = (long long)val, 1;
 	case LIBVES_O_SESSTMOUT: return ves->sessionTimeout = (long long)val, 1;
 	case LIBVES_O_VESKEYLEN: return ves->veskeyLen = (long long)val, 1;
+	case LIBVES_O_PROPAGATORS:
+	    if ((libVES_List *) val != ves->propagators) {
+		libVES_REFDN(List, ves->propagators);
+		ves->propagators = libVES_REFUP(List, (libVES_List *) val);
+	    }
+	    return 1;
 	default: break;
     }
     void **ptr = libVES_optionPtr(ves, optn);
@@ -470,6 +479,56 @@ libVES_User *libVES_me(libVES *ves) {
     return ves->me;
 }
 
+libVES_List *libVES_getPropagators(libVES *ves) {
+    if (!ves) return NULL;
+    if (ves->propagators) return ves->propagators;
+    const char *src = NULL;
+    int from_external = 0;
+    if (ves->external && ves->external->domain && ves->external->externalId[0]) {
+	const char *xid = ves->external->externalId;
+	const char *at = strchr(xid, '@');
+	const char *bang = strchr(xid, '!');
+	if (at && (!bang || at < bang)) {
+	    src = xid;
+	    from_external = 1;
+	}
+    }
+    if (!src) {
+	libVES_User *me = libVES_me(ves);
+	if (me) src = libVES_User_getEmail(me);
+	if (!src) libVES_getError(ves);
+    }
+    libVES_List *list = libVES_List_new(&libVES_VaultKey_ListCtl);
+    if (!list) libVES_throw(ves, LIBVES_E_INTERNAL, "Out of memory", NULL);
+    if (src) {
+	char *xid = strdup(src);
+	if (!xid) {
+	    libVES_List_free(list);
+	    libVES_throw(ves, LIBVES_E_INTERNAL, "Out of memory", NULL);
+	}
+	char *bang = strchr(xid, '!');
+	if (bang) *bang = 0;
+	if (!from_external) {
+	    char *p;
+	    for (p = xid; *p; p++) if (*p >= 'A' && *p <= 'Z') *p += 'a' - 'A';
+	}
+	libVES_Ref *ref = libVES_External_new(".propagate", xid);
+	free(xid);
+	if (ref) {
+	    libVES_VaultKey *prop = libVES_VaultKey_get2(ref, ves, NULL, NULL, LIBVES_O_GET);
+	    libVES_Ref_free(ref);
+	    if (prop) {
+		libVES_List_push(list, prop);
+	    } else if (!libVES_checkError(ves, LIBVES_E_NOTFOUND) && !libVES_checkError(ves, LIBVES_E_DENIED)) {
+		libVES_List_free(list);
+		return NULL;
+	    }
+	}
+    }
+    ves->propagators = libVES_REFUP(List, list);
+    return ves->propagators;
+}
+
 char *libVES_fetchVerifyToken(const char *objuri, long long int objid, libVES *ves) {
     if (!objuri || !objid) return NULL;
     char uri[64];
@@ -490,6 +549,7 @@ void libVES_free(libVES *ves) {
     libVES_REFDN(Ref, ves->external);
     libVES_REFDN(VaultKey, ves->vaultKey);
     libVES_REFDN(List, ves->unlockedKeys);
+    libVES_REFDN(List, ves->propagators);
     free(ves);
 }
 

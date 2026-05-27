@@ -89,6 +89,7 @@ typedef struct libVES_KeyAlgo {
     void *(*pkeygenfn)(const struct libVES_KeyAlgo *algo, const char *algostr);
     void (*pkeyfreefn)(const struct libVES_KeyAlgo *algo, void *pkey);
     int (*methodstrfn)(const struct libVES_KeyAlgo *algo, char *buf, size_t buflen, int idx);
+    int (*keymethodstrfn)(struct libVES_VaultKey *vkey, char *buf, size_t buflen);
 } libVES_KeyAlgo;
 
 #define libVES_KeyAlgo_pseudo(newfn_ptr)		(*((libVES_KeyAlgo *) (((char *) &newfn_ptr) - offsetof(libVES_KeyAlgo, newfn))))
@@ -96,6 +97,7 @@ typedef struct libVES_KeyAlgo {
 #define libVES_KeyAlgo_pkeygen(algo, algostr)		(algo)->pkeygenfn(algo, algostr)
 #define libVES_KeyAlgo_pkeyfree(algo, algostr)		(algo)->pkeyfreefn(algo, algostr)
 #define libVES_KeyAlgo_methodstr(algo, buf, buflen, idx)	(libVES_KeyAlgo_callable(algo, methodstrfn) ? (algo)->methodstrfn(algo, buf, buflen, idx) : -1)
+#define libVES_KeyAlgo_keymethodstr(vkey, buf, buflen)	(libVES_KeyAlgo_callable((vkey)->algo, keymethodstrfn) ? (vkey)->algo->keymethodstrfn(vkey, buf, buflen) : -1)
 
 extern const char *libVES_VaultKey_types[];
 extern struct libVES_List libVES_VaultKey_algos;
