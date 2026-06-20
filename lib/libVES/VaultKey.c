@@ -17,13 +17,18 @@
  * (c) 2018 VESvault Corp
  * Jim Zubov <jz@vesvault.com>
  *
- * GNU General Public License v3
- * You may opt to use, copy, modify, merge, publish, distribute and/or sell
- * copies of the Software, and permit persons to whom the Software is
- * furnished to do so, under the terms of the COPYING file.
+ * SPDX-License-Identifier: Apache-2.0
  *
- * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
- * KIND, either express or implied.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License in the accompanying LICENSE
+ * file, or at http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+ * implied.  See the License for the specific language governing
+ * permissions and limitations under the License.
  *
  * libVES/VaultKey.c          libVES: Vault Key object
  *
@@ -40,6 +45,7 @@
 #include <openssl/pem.h>
 #include <openssl/engine.h>
 #include <openssl/crypto.h>
+#include <openssl/rand.h>
 #include "../jVar.h"
 #include "../libVES.h"
 #include "VaultKey.h"
@@ -285,6 +291,14 @@ libVES_VaultItem *libVES_VaultKey_propagate(libVES_VaultKey *vkey) {
     }
     if (!vkey->vitem) libVES_throw(vkey->ves, LIBVES_E_PARAM, "Cannot propagate a vault key without a password VaultItem", NULL);
     libVES_List *share = libVES_List_new(&libVES_VaultKey_ListCtl);
+    libVES_List *props = NULL;
+    /* share is a freeing list (libVES_VaultKey_ListCtl): it owns and frees the
+     * freshly-fetched keys pushed into it. The cached ves->propagators entries
+     * are borrowed (baseline refct 0, owned by that list), so ref-hold them
+     * while they sit in share to make libVES_List_free(share) skip them via
+     * REFBUSY; the extra ref is dropped afterward. Without this they get freed
+     * here and double-freed when ves->propagators is freed. (ves->vaultKey is
+     * already refct-held by the ves, so freeLST skips it without our help.) */
     const char *suffix = vkey->external && vkey->external->externalId[0] ? strchr(vkey->external->externalId + 1, '!') : NULL;
     if (suffix) {
         libVES_Ref *mainx = libVES_Ref_copy(vkey->external);
@@ -308,10 +322,10 @@ libVES_VaultItem *libVES_VaultKey_propagate(libVES_VaultKey *vkey) {
     if (!user) user = vkey->ves->me;
     if (ok && user && vkey->user && !libVES_User_eq(vkey->user, user)) ok = libVES_User_activeVaultKeys(user, share, vkey->ves) ? 1 : 0;
     if (ok && no_active && vkey->type == LIBVES_VK_TEMP && user && !libVES_User_eq(vkey->user, user)) {
-	libVES_List *props = libVES_getPropagators(vkey->ves);
+	props = libVES_getPropagators(vkey->ves);
 	if (props) {
 	    libVES_VaultKey **pvk = NULL;
-	    while ((pvk = libVES_List_next(props, pvk, libVES_VaultKey))) libVES_List_push(share, *pvk);
+	    while ((pvk = libVES_List_next(props, pvk, libVES_VaultKey))) libVES_List_push(share, libVES_REFUP(VaultKey, *pvk));
 	} else if (!libVES_checkError(vkey->ves, LIBVES_E_NOTFOUND) && !libVES_checkError(vkey->ves, LIBVES_E_DENIED)) {
 	    ok = 0;
 	}
@@ -328,6 +342,15 @@ libVES_VaultItem *libVES_VaultKey_propagate(libVES_VaultKey *vkey) {
     }
     if (ok && !libVES_VaultItem_entries(vkey->vitem, share, LIBVES_SH_ADD)) ok = 0;
     libVES_List_free(share);
+    /* Drop the temporary refs taken on the borrowed propagator keys. They have
+     * a baseline refct of 0 and are owned by ves->propagators, which frees them
+     * later; so just release the extra ref with a plain decrement. NOT
+     * libVES_REFDN (it frees on reaching 0, re-introducing the double free) and
+     * NOT libVES_REFRM (it nulls the pointer, which here is a live list slot). */
+    if (props) {
+	libVES_VaultKey **pvk = NULL;
+	while ((pvk = libVES_List_next(props, pvk, libVES_VaultKey))) if (*pvk) (*pvk)->refct--;
+    }
     return ok ? vkey->vitem : NULL;
 }
 
@@ -371,6 +394,14 @@ char *libVES_VaultKey_getPrivateKey(libVES_VaultKey *vkey) {
 	if (!vkey->privateKey) libVES_throw(vkey->ves, LIBVES_E_DENIED, "Cannot load encrypted private key", NULL);
     }
     return vkey->privateKey;
+}
+
+libVES_VaultItem *libVES_VaultKey_getVaultItem(libVES_VaultKey *vkey) {
+    if (!vkey) return NULL;
+    if (!vkey->vitem) {
+	if (!libVES_VaultKey_getPrivateKey(vkey)) return NULL;
+    }
+    return vkey->vitem;
 }
 
 libVES_User *libVES_VaultKey_getUser(libVES_VaultKey *vkey) {
@@ -634,6 +665,32 @@ int libVES_VaultKey_apply(libVES_VaultKey *vkey) {
     if (libVES_getVaultKey(vkey->ves) || !vkey->pPriv) return 0;
     vkey->ves->vaultKey = vkey;
     return 1;
+}
+
+int libVES_VaultKey_elevate(libVES_VaultKey *vkey, libVES *ves) {
+    if (!vkey || !ves || !vkey->id) return 0;
+    char uri[80];
+    sprintf(uri, "vaultKeys/%lld?fields=encSessionToken", vkey->id);
+    jVar *rsp = libVES_REST(ves, uri, NULL);
+    if (!rsp) return 0;
+    const char *esess = jVar_getStringP(jVar_get(rsp, "encSessionToken"));
+    int ok = 0;
+    if (esess) {
+	char *elev = NULL;
+	int l = libVES_VaultKey_decrypt(vkey, esess, &elev);
+	if (l > 0) {
+	    elev = realloc(elev, l + 1);
+	    if (elev) {
+		elev[l] = 0;
+		libVES_setSessionToken(ves, elev);
+		if (!ves->attnFn) ves->attnFn = &libVES_defaultAttn;
+		ok = 1;
+	    }
+	}
+	free(elev);
+    }
+    jVar_free(rsp);
+    return ok;
 }
 
 

@@ -17,13 +17,18 @@
  * (c) 2026 VESvault Corp
  * Jim Zubov <jz@vesvault.com>
  *
- * GNU General Public License v3
- * You may opt to use, copy, modify, merge, publish, distribute and/or sell
- * copies of the Software, and permit persons to whom the Software is
- * furnished to do so, under the terms of the COPYING file.
+ * SPDX-License-Identifier: Apache-2.0
  *
- * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
- * KIND, either express or implied.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License in the accompanying LICENSE
+ * file, or at http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+ * implied.  See the License for the specific language governing
+ * permissions and limitations under the License.
  *
  * libVES/Flow.c              libVES: VESflow e2ee VES authentication
  *
@@ -105,9 +110,10 @@ const char *libVES_Flow_start(struct libVES_Flow *flow, const char *url) {
     flow->rwurl = NULL;
     int arglen = strlen(flow->domain) + strlen(flow->localurl) + 32;
     if (flow->externalId) arglen += strlen(flow->externalId) + 16;
-    char *authurl = malloc(strlen(flow->flowurl) + 3 * arglen + (url ? strlen(url) : 0));
+    char *flowurl = libVES_resolveUrl(flow->ves, flow->flowurl);
+    char *authurl = malloc(strlen(flowurl) + 3 * arglen + (url ? strlen(url) : 0));
     char *d = authurl;
-    const char *base = !url || url[0] == '?' || url[0] == '#' ? flow->flowurl : NULL;
+    const char *base = !url || url[0] == '?' || url[0] == '#' ? flowurl : NULL;
     struct libVES_Flow_urlp bp, up;
     char qc = '?';
     libVES_Flow_parseurl(&bp, base);
@@ -138,6 +144,7 @@ const char *libVES_Flow_start(struct libVES_Flow *flow, const char *url) {
     *d = 0;
     int rs = VESflow_send(flow->flow, authurl, &flow->rwurl, NULL);
     free(authurl);
+    free(flowurl);
     if (rs == VESFLOW_E_OK) return flow->rwurl;
     return libVES_Flow_setError(flow, rs), NULL;
 }

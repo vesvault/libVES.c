@@ -17,13 +17,18 @@
  * (c) 2023 VESvault Corp
  * Jim Zubov <jz@vesvault.com>
  *
- * GNU General Public License v3
- * You may opt to use, copy, modify, merge, publish, distribute and/or sell
- * copies of the Software, and permit persons to whom the Software is
- * furnished to do so, under the terms of the COPYING file.
+ * SPDX-License-Identifier: Apache-2.0
  *
- * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
- * KIND, either express or implied.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License in the accompanying LICENSE
+ * file, or at http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+ * implied.  See the License for the specific language governing
+ * permissions and limitations under the License.
  *
  * libVES/Watch.h              libVES: Event Watch
  *
@@ -64,6 +69,7 @@ libVES_Watch *libVES_Watch_new(const struct libVES_WatchCtl *ctl, struct libVES 
 void libVES_Watch_setTimeoutFn(libVES_Watch *watch, long long (* tmoutfn)(libVES_Watch *, void *), void *arg);
 
 libVES_Watch *libVES_Watch_VaultKey_events(struct libVES *ves);
+libVES_Watch *libVES_Watch_VaultKey_events_for(struct libVES *ves, struct libVES_VaultKey *vkey);
 libVES_Watch *libVES_Watch_User_events(struct libVES *ves);
 libVES_Watch *libVES_Watch_Domain_events(struct libVES *ves);
 libVES_Watch *libVES_Watch_VaultItem_events(struct libVES *ves, struct libVES_VaultItem *vitem);

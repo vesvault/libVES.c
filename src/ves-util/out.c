@@ -17,13 +17,18 @@
  * (c) 2018 VESvault Corp
  * Jim Zubov <jz@vesvault.com>
  *
- * GNU General Public License v3
- * You may opt to use, copy, modify, merge, publish, distribute and/or sell
- * copies of the Software, and permit persons to whom the Software is
- * furnished to do so, under the terms of the COPYING file.
+ * SPDX-License-Identifier: Apache-2.0
  *
- * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
- * KIND, either express or implied.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License in the accompanying LICENSE
+ * file, or at http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+ * implied.  See the License for the specific language governing
+ * permissions and limitations under the License.
  *
  * ves-util/out.c             VES Utility: Output handlers
  *
@@ -41,6 +46,8 @@
 #include <unistd.h>
 #endif
 #include <stdio.h>
+#include <time.h>
+#include <sys/time.h>
 #include <libVES.h>
 #include <libVES/List.h>
 #include <libVES/VaultItem.h>
@@ -48,6 +55,9 @@
 #include <libVES/Ref.h>
 #include <libVES/VaultKey.h>
 #include <libVES/User.h>
+#include <libVES/Session.h>
+#include <libVES/Event.h>
+#include <libVES/Watch.h>
 #include <jVar.h>
 #include "../ves-util.h"
 #include "out.h"
@@ -234,6 +244,173 @@ int out_explore(int fdi, struct ctx_st *ctx) {
 	fflush(fd);
 	libVES_VaultKey_dump(vkey, fdi, 0);
     }
+    return 0;
+}
+
+static int out_event_cmpId(const void *a, const void *b) {
+    long long ia = (*(libVES_Event *const *) a)->id;
+    long long ib = (*(libVES_Event *const *) b)->id;
+    return ia < ib ? -1 : (ia > ib ? 1 : 0);
+}
+
+static long long out_event_now() {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (long long) tv.tv_sec * 1000000 + tv.tv_usec;
+}
+
+static long long out_event_poll_tmout(libVES_Watch *w, void *arg) {
+    long long deadline = *(long long *) arg;
+    if (!deadline) return LIBVES_WATCH_TMOUT;
+    long long rem = deadline - out_event_now();
+    if (rem <= 0) return 1;
+    return rem < LIBVES_WATCH_TMOUT ? rem : LIBVES_WATCH_TMOUT;
+}
+
+static char *out_event_ts(long long usec, char *buf) {
+    time_t secs = (time_t) (usec / 1000000);
+    struct tm *tm = gmtime(&secs);
+    size_t n = tm ? strftime(buf, 24, "%Y-%m-%dT%H:%M:%S", tm) : 0;
+    if (n) sprintf(buf + n, ".%03dZ", (int)(usec % 1000000) / 1000);
+    else *buf = 0;
+    return buf;
+}
+
+static void out_event_user(FILE *fd, const char *label, libVES_User *u) {
+    if (!u) return;
+    fprintf(fd, "%s#%lld", label, u->id);
+    if (u->email) fprintf(fd, " <%s>", u->email);
+    fprintf(fd, "\n");
+}
+
+static void out_event_uri(FILE *fd, char *uri) {
+    if (uri) {
+	fprintf(fd, "%s", uri);
+	free(uri);
+    }
+    fprintf(fd, "\t");
+}
+
+static void out_event_line(FILE *fd, libVES_Event *ev) {
+    char ts[28], type[32];
+    fprintf(fd, "%lld\t%s\t%s\t", ev->id, out_event_ts(ev->recordedAt, ts), libVES_Event_typeStr(ev->type, type));
+    if (ev->vkey) fprintf(fd, "%lld", ev->vkey->id);
+    fprintf(fd, "\t");
+    if (ev->vitem) fprintf(fd, "%lld", ev->vitem->id);
+    fprintf(fd, "\t");
+    libVES_User *u = ev->creator ? ev->creator : ev->user;
+    if (u) fprintf(fd, "%s", u->email ? u->email : "");
+    fprintf(fd, "\t");
+    out_event_uri(fd, ev->vkey ? libVES_VaultKey_toURI(ev->vkey) : NULL);
+    out_event_uri(fd, ev->vitem ? libVES_VaultItem_toURI(ev->vitem) : NULL);
+    if (ev->session) fprintf(fd, "%lld", ev->session->id);
+    fprintf(fd, "\n");
+}
+
+static void out_event_verbose(FILE *fd, libVES_Event *ev) {
+    char ts[28], type[32];
+    fprintf(fd, "Event #%lld [%s] %s\n", ev->id, libVES_Event_typeStr(ev->type, type), out_event_ts(ev->recordedAt, ts));
+    if (ev->vkey) {
+	fprintf(fd, " Vault Key: ");
+	out_vkey_line(fd, ev->vkey);
+    }
+    if (ev->vitem) {
+	char *uri = libVES_VaultItem_toURIi(ev->vitem);
+	fprintf(fd, " Vault Item: %s [%s]", (uri ? uri : "?"), libVES_VaultItem_typeStr(ev->vitem->type));
+	free(uri);
+	if ((uri = libVES_VaultItem_toURI(ev->vitem))) fprintf(fd, " \"%s\"", uri);
+	free(uri);
+	fprintf(fd, "\n");
+    }
+    out_event_user(fd, " User: ", ev->user);
+    out_event_user(fd, " Creator: ", ev->creator);
+    if (ev->session) {
+	libVES_Session *s = ev->session;
+	fprintf(fd, " Session: #%lld", s->id);
+	if (s->remote) fprintf(fd, " %s", s->remote);
+	if (s->userAgent) fprintf(fd, " \"%s\"", s->userAgent);
+	fprintf(fd, "\n");
+    }
+}
+
+int out_events(int fdi, struct ctx_st *ctx) {
+    FILE *fd = fdopen(fdi, "a");
+    void (*printfn)(FILE *, libVES_Event *) = (params.flags & PF_EXPLORE) ? &out_event_verbose : &out_event_line;
+    libVES_Watch *w;
+    if (ctx->vitem) w = libVES_Watch_VaultItem_events(ctx->ves, ctx->vitem);
+    else if (params.key && ctx->vkey) w = libVES_Watch_VaultKey_events_for(ctx->ves, ctx->vkey);
+    else if (params.primary) w = libVES_Watch_User_events(ctx->ves);
+    else if (ctx->domain) w = libVES_Watch_Domain_events(ctx->ves);
+    else if (params.user) w = libVES_Watch_VaultKey_events(ctx->ves);
+    else VES_throw("[out_events]", "", "No scope to watch, specify -o, -k, -A or -a", E_PARAM);
+    if (!w) return_VESerror2("[out_events]", ctx->ves);
+
+    /* Discard any non-fatal error left over from context setup (e.g. vault key
+     * user info) so the !lst checks below reflect only the event load itself */
+    libVES_getError(ctx->ves);
+
+    long long startId = params.watch.startId;
+    int count = params.watch.count;
+    int follow = params.watch.follow;
+    if (count < 0) count = follow ? 0 : 16;
+    long long maxId = 0;
+
+    /* Historical window */
+    libVES_List *lst = NULL;
+    if (startId > 0) lst = libVES_Watch_load(w, startId, count, 0);
+    else if (count > 0) lst = libVES_Watch_load(w, 0, count, LIBVES_W_REV);
+    else if (follow) {
+	/* discover the latest id to follow "from now", without printing */
+	libVES_List *last = libVES_Watch_load(w, 0, 1, LIBVES_W_REV);
+	if (last && last->len > 0) maxId = ((libVES_Event *) last->list[last->len - 1])->id;
+    }
+    if (!lst && ctx->ves->error != LIBVES_E_OK) {
+	libVES_Watch_free(w);
+	return_VESerror2("[out_events]", ctx->ves);
+    }
+    if (lst && lst->len > 0) {
+	qsort(lst->list, lst->len, sizeof(*lst->list), &out_event_cmpId);
+	int i;
+	for (i = 0; i < lst->len; i++) {
+	    libVES_Event *ev = lst->list[i];
+	    printfn(fd, ev);
+	    if (ev->id > maxId) maxId = ev->id;
+	}
+	fflush(fd);
+    }
+
+    /* Follow / long-poll for new events, one bounded poll per iteration so a
+     * total wall-clock timeout (params.watch.timeout, seconds) can be honored */
+    if (follow) {
+	libVES_List_free(w->list);
+	w->list = NULL;
+	w->lastptr = NULL;
+	w->firstId = w->lastId = 0;
+	w->flags = 0;
+	long long deadline = params.watch.timeout > 0 ? out_event_now() + (long long) params.watch.timeout * 1000000 : 0;
+	libVES_Watch_setTimeoutFn(w, &out_event_poll_tmout, &deadline);
+	while (!deadline || out_event_now() < deadline) {
+	    libVES_List *l = libVES_Watch_load(w, maxId + 1, 0, LIBVES_W_POLL);
+	    if (!l) {
+		if (ctx->ves->error != LIBVES_E_OK) {
+		    libVES_Watch_free(w);
+		    return_VESerror2("[out_events]", ctx->ves);
+		}
+		break;
+	    }
+	    if (l->len > 0) {
+		qsort(l->list, l->len, sizeof(*l->list), &out_event_cmpId);
+		int i;
+		for (i = 0; i < l->len; i++) {
+		    libVES_Event *ev = l->list[i];
+		    printfn(fd, ev);
+		    if (ev->id > maxId) maxId = ev->id;
+		}
+		fflush(fd);
+	    }
+	}
+    }
+    libVES_Watch_free(w);
     return 0;
 }
 

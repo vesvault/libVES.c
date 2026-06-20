@@ -1,0 +1,345 @@
+.\" Manual page for the ves command line interface to libVES.
+.\" Keep in sync with the VEShelp string in src/ves-util/help.c and with the
+.\" option parser in src/ves-util.c.  Version: VESUTIL_VERSION_CODE.
+.TH VES 1 "2026-06-17" "ves 1.08" "VES Manual"
+.SH NAME
+ves \- command line interface to libVES (VESvault encrypt\-everything API)
+.SH SYNOPSIS
+.B ves
+.RI [ authentication ]
+.IR operation " [" operation " ...]"
+.SH DESCRIPTION
+.B ves
+is the command line interface to
+.BR libVES ,
+the VESvault API library for end\-to\-end encryption.  It performs key
+management and exchange, Vault Item encryption and sharing, and stream
+encryption against a VES repository.
+.PP
+A typical invocation first authenticates and selects a Vault \(em
+.B \-A
+for a VES account / Primary Vault, or
+.B \-a
+for an App Vault \(em optionally unlocking it with a local Encryption Key
+Store
+.RB ( \-E )
+or a VESkey
+.RB ( \-u ),
+then performs one or more operations on Vault Items
+.RB ( \-o ),
+Vault Keys
+.RB ( \-k ),
+or stream ciphers.
+.PP
+Most options that set a value have a corresponding
+.B \-p
+form that prints the current value instead (for example
+.B \-ip
+prints a Vault Item's content), and an
+.BI \- X pf
+.I FILE
+form that reads the value from, or writes it to, a file.
+.SH OPTIONS
+.SS Authentication and Vault Management
+.TP
+\fB\-a\fP \fIURI\fP, \fB\-\-account=\fP\fIURI\fP
+Select an App Vault.
+.br
+\fIURI\fP = "[ves:]//domain/externalId/"
+.TP
+\fB\-A\fP \fIEMAIL\fP, \fB\-\-primary\-account=\fP\fIEMAIL\fP
+Select a VES Account / Primary Vault.
+.br
+\fIEMAIL\fP = "email" | "ves:////email"
+.TP
+\fB\-E\fP [\fIflag\fP[,\fIflag\fP...]], \fB\-\-keystore\fP[=\fIflag\fP,...]
+Use a local Encryption Key Store.  Use
+.B \-El
+to list the available Key Store flags.
+.TP
+\fB\-u\fP \fIVESKEY\fP, \fB\-\-unlock=\fP\fIVESKEY\fP
+Unlock the App Vault using \fIVESKEY\fP.  \fB\-uf\fP \fIFILE\fP reads the
+VESkey from \fIFILE\fP; \fB\-up\fP, \fB\-upf\fP \fIFILE\fP print the App
+Vault VESkey (\fB\-A\fP required).
+.TP
+\fB\-T\fP \fITOKEN\fP, \fB\-\-token=\fP\fITOKEN\fP
+Apply a Session Token.  \fB\-Tp\fP, \fB\-Tpf\fP \fIFILE\fP print the current
+Session Token.
+.TP
+\fB\-L\fP, \fB\-\-lock\fP
+Keep the Vault locked.
+.TP
+\fB\-n\fP, \fB\-\-new\fP
+Create a new App Vault (\fB\-a\fP & \fB\-A\fP required; \fB\-G\fP | \fB\-y\fP
+| \fB\-u\fP are used if provided).
+.SS Vault Item Operations
+.TP
+\fB\-o\fP \fIURI\fP, \fB\-\-vault\-item=\fP\fIURI\fP
+Select a Vault Item.
+.br
+\fIURI\fP = "[ves:][//domain/]externalId"
+.TP
+\fB\-i\fP \fIDATA\fP, \fB\-\-item=\fP\fIDATA\fP
+Set the raw content of the Vault Item.  \fB\-if\fP \fIFILE\fP takes the
+content from \fIFILE\fP (size limits apply; use \fB\-P\fP & \fB\-C\fP for
+large files); \fB\-ip\fP, \fB\-ipf\fP \fIFILE\fP print the raw content.
+.TP
+\fB\-s\fP \fIURI\fP[,\fIURI\fP...], \fB\-\-share=\fP\fIURI\fP[,...]
+Share the Vault Item with the specified Vaults; any existing shares remain
+intact.
+.br
+\fIURI\fP = "[ves:][//domain/]externalId/[userRef]"
+.TP
+\fB\-r\fP \fIURI\fP[,\fIURI\fP...], \fB\-\-unshare=\fP\fIURI\fP[,...]
+Stop sharing the Vault Item with the specified Vaults.
+.TP
+\fB\-S\fP \fIURI\fP[,\fIURI\fP...], \fB\-\-set\-share=\fP\fIURI\fP[,...]
+Share the Vault Item with the specified Vaults; any other shares are
+removed.  \fB\-Sp\fP, \fB\-Spf\fP \fIFILE\fP print the share list, one
+entry per line:
+.br
+key_id <SP> key_uri <SP> key_type
+.TP
+\fB\-m\fP \fIJSON\fP, \fB\-\-meta=\fP\fIJSON\fP
+Specify plaintext metadata for the Vault Item.  \fB\-mp\fP, \fB\-mpf\fP
+\fIFILE\fP print the plaintext metadata as JSON.
+.TP
+\fB\-\-delete\fP
+Delete the Vault Item.
+.TP
+\fB\-U\fP, \fB\-\-force\fP
+Force the update of the Vault Item; undelete a deleted Vault Item.
+.TP
+\fB\-X\fP, \fB\-\-explore\fP
+Print human\-readable information about the Vault Item.
+.SS Stream Cipher Operations
+All stream cipher actions require a
+.B \-o
+Vault Item that stores the symmetric cipher key, and may be combined with
+the appropriate Vault Item options.
+.TP
+\fB\-c\fP \fIALGO\fP, \fB\-\-cipher=\fP\fIALGO\fP
+Create a new stream cipher key for \fIALGO\fP (combine with \fB\-i\fP to
+supply a raw key).  \fB\-cp\fP, \fB\-cpf\fP \fIFILE\fP print the algorithm
+of the cipher key, if any; \fB\-cl\fP lists the supported algorithms.
+.TP
+\fB\-z\fP \fIJSON\fP, \fB\-\-cipher\-meta=\fP\fIJSON\fP
+Specify secret metadata for the cipher key.  \fB\-zp\fP, \fB\-zpf\fP
+\fIFILE\fP print the secret metadata as JSON.
+.TP
+\fB\-e\fP, \fB\-\-encrypt\fP
+Stream encryption: \fB\-P\fP \(rt\(rt \fB\-C\fP, or stdin \(rt\(rt stdout.
+.TP
+\fB\-d\fP, \fB\-\-decrypt\fP
+Stream decryption: \fB\-C\fP \(rt\(rt \fB\-P\fP, or stdin \(rt\(rt stdout.
+.TP
+\fB\-P\fP[\fBf\fP] \fIFILE\fP, \fB\-\-plaintext=\fP\fIFILE\fP
+Plaintext file for \fB\-e\fP | \fB\-d\fP.
+.TP
+\fB\-C\fP[\fBf\fP] \fIFILE\fP, \fB\-\-ciphertext=\fP\fIFILE\fP
+Ciphertext file for \fB\-e\fP | \fB\-d\fP.
+.SS Vault Key Operations
+.TP
+\fB\-k\fP \fIURI\fP, \fB\-\-vault\-key=\fP\fIURI\fP
+Select a Vault Key.
+.br
+\fIURI\fP = "[ves:][//domain/]externalId/[userRef]"
+.TP
+\fB\-l\fP, \fB\-\-list\fP
+List the Vault Items shared with the Vault Key (may be used without
+.B \-k
+to act on \fB\-a\fP | \fB\-A\fP).
+.TP
+\fB\-v\fP \fIVESKEY\fP, \fB\-\-veskey=\fP\fIVESKEY\fP
+Supply a VESkey for a generated Vault Key, or for \fB\-k\fP.  \fB\-vp\fP,
+\fB\-vpf\fP \fIFILE\fP print the current VESkey for \fB\-k\fP.
+.TP
+\fB\-g\fP, \fB\-\-generate\fP
+Generate or re\-generate the Vault Key.
+.TP
+\fB\-y\fP \fIKEY\fP, \fB\-\-private\-key=\fP\fIKEY\fP
+Supply a PEM private key to create the Vault Key.  \fB\-yf\fP \fIFILE\fP
+reads the private key from the PEM \fIFILE\fP; \fB\-yp\fP, \fB\-ypf\fP
+\fIFILE\fP print the PEM private key \(em non\-encrypted if the key is
+unlocked, encrypted otherwise.
+.TP
+\fB\-Y\fP[\fBp\fP], \fB\-\-public\-key\fP, \fB\-Ypf\fP \fIFILE\fP
+Print a PEM public key.
+.TP
+\fB\-G\fP \fIALGO\fP, \fB\-\-key\-algo=\fP\fIALGO\fP
+Algorithm to generate the Vault Key.  \fB\-Gp\fP, \fB\-Gpf\fP \fIFILE\fP
+print the algorithm name; \fB\-Gl\fP lists the supported algorithms.
+.TP
+\fB\-\-delete\fP
+Delete the Vault Key (API restrictions apply).
+.TP
+\fB\-R\fP, \fB\-\-rekey\fP
+Share all Vault Items on the key with the active key for the matching
+Vault.
+.TP
+\fB\-K\fP, \fB\-\-propagate\fP
+Share the VESkey vault item with the owner's respective Primary and/or App
+Vault.
+.TP
+\fB\-\-manual\fP
+Disable automatic propagation and rekeying for Temporary Vault Keys.
+.TP
+\fB\-X\fP, \fB\-\-explore\fP
+Print human\-readable information about the Vault Key.
+.SS Event Tracking
+.TP
+\fB\-W\fP [\fISPEC\fP], \fB\-\-events\fP[=\fISPEC\fP]
+Track events.  The scope follows the selected object:
+.B \-o
+item,
+.B \-k
+key,
+.B \-A
+user, or
+.B \-a
+App Vault (use \fB//\fP\fIdomain\fP\fB//\fP for domain\-wide events).
+.IP
+\fISPEC\fP = [\fICOUNT\fP | =\fIID\fP[:\fICOUNT\fP]][+[\fISECONDS\fP]]
+.RS
+.TP 12
+(none)
+the last 16 events
+.TP
+\fICOUNT\fP
+the last \fICOUNT\fP events
+.TP
+=\fIID\fP
+events from event id \fIID\fP (up to 16)
+.TP
+=\fIID\fP:\fICOUNT\fP
+\fICOUNT\fP events from event id \fIID\fP
+.TP
++
+follow: keep streaming new events
+.TP
++\fISECONDS\fP
+follow, but stop after \fISECONDS\fP
+.TP
+\fICOUNT\fP+
+the last \fICOUNT\fP events, then follow
+.RE
+.IP
+The default output is one tab\-separated line per event:
+.IP
+id <TAB> time <TAB> type <TAB> key_id <TAB> item_id <TAB> actor <TAB>
+vault_uri <TAB> item_uri <TAB> ref_id <LF>
+.IP
+\fItime\fP is an ISO\-8601 UTC timestamp with milliseconds; \fIref_id\fP is
+the session id, when available.  Combine with
+.B \-X
+for verbose, human\-readable output.
+.SS Action Modifiers
+.TP
+\fB\-p\fP, \fB\-\-print\fP
+Print the current value of the preceding option.
+.TP
+\fB\-f\fP \fIFILE\fP, \fB\-\-file=\fP\fIFILE\fP
+Read a value from, or write a value to, a file.
+.TP
+\fB\-F\fP \fIFDESC\fP, \fB\-\-fd=\fP\fIFDESC\fP
+Read a value from, or write a value to, a file descriptor (may be used
+anywhere instead of \fB\-f\fP).
+.SS Miscellaneous
+.TP
+\fB\-x\fP, \fB\-\-debug\fP
+Display debugging messages.  \fB\-xx\fP enables more detailed debugging.
+.TP
+\fB\-q\fP, \fB\-\-quiet\fP
+Suppress error messages except for argument errors; return error codes
+only.  May be used with
+.B \-o
+without authentication to check whether a Vault Item exists, by exit code.
+.TP
+\fB\-V\fP, \fB\-\-version\fP
+Print version information and exit.
+.TP
+\fB\-h\fP, \fB\-\-help\fP
+Print the help screen and exit.
+.SH EXIT STATUS
+.B ves
+returns 0 on success and a non\-zero libVES error code on failure.  With
+.BR \-q ,
+no messages are printed and only the exit code is returned, which makes
+.B "\-q \-o"
+.I URI
+usable as a Vault Item existence check.
+.SH ENVIRONMENT
+.TP
+.B VES_KEYSTORE
+Colon\-separated list of Encryption Key Store directories.  When set, it
+overrides the default per\-user location.
+.TP
+.B HOME
+Used to locate the default key store at \fI~/.ves/\fP when
+.B VES_KEYSTORE
+is not set.
+.SH FILES
+.TP
+.I ~/.ves/
+Per\-user Encryption Key Store (used by
+.BR \-E ).
+.TP
+.I /usr/share/ves/
+System\-wide Key Store, searched after the per\-user store.
+.SH EXAMPLES
+Store text in a Vault Item and read it back:
+.PP
+.RS
+.EX
+ves \-a //demo/me@example.com/ \-E \-o note\-1 \-i "hello"
+ves \-a //demo/me@example.com/ \-E \-o note\-1 \-ip
+.EE
+.RE
+.PP
+Share a Vault Item with another user:
+.PP
+.RS
+.EX
+ves \-a //demo/me@example.com/ \-E \-o note\-1 \e
+    \-s //demo/friend@example.com/
+.EE
+.RE
+.PP
+Stream\-encrypt and decrypt a file with a cipher key stored in a Vault Item
+(list algorithms with \fBves \-cl\fP):
+.PP
+.RS
+.EX
+ves \-a //demo/me@example.com/ \-E \-o backup \-c AES256GCM1K \e
+    \-e \-Pf data.tar \-Cf data.tar.ves
+ves \-a //demo/me@example.com/ \-E \-o backup \e
+    \-d \-Cf data.tar.ves \-Pf data.tar
+.EE
+.RE
+.PP
+Follow account events, showing the last 20 then streaming new ones:
+.PP
+.RS
+.EX
+ves \-A me@example.com \-E \-W 20+
+.EE
+.RE
+.PP
+Check whether a Vault Item exists, by exit code only:
+.PP
+.RS
+.EX
+ves \-q \-o //demo/note\-1
+.EE
+.RE
+.SH SEE ALSO
+More comprehensive documentation is available at
+.UR https://ves.host/docs/ves-util
+.UE .
+.SH AUTHOR
+Jim Zubov <jz@vesvault.com>, VESvault Corp.
+.SH COPYRIGHT
+Copyright \(co 2018\-2026 VESvault Corp.  Licensed under the Apache License,
+Version 2.0.  This is free software: you are free to use, modify, and
+redistribute it under that license.  There is NO WARRANTY, to the extent
+permitted by law.

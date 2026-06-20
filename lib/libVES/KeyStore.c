@@ -17,13 +17,18 @@
  * (c) 2023 VESvault Corp
  * Jim Zubov <jz@vesvault.com>
  *
- * GNU General Public License v3
- * You may opt to use, copy, modify, merge, publish, distribute and/or sell
- * copies of the Software, and permit persons to whom the Software is
- * furnished to do so, under the terms of the COPYING file.
+ * SPDX-License-Identifier: Apache-2.0
  *
- * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
- * KIND, either express or implied.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License in the accompanying LICENSE
+ * file, or at http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+ * implied.  See the License for the specific language governing
+ * permissions and limitations under the License.
  *
  * KeyStore.c                    libVES: Local key storage
  *
@@ -48,6 +53,7 @@
 #include "List.h"
 #include "REST.h"
 #include "Util.h"
+#include "KeyAlgo_EVP.h"
 #include "KeyStore.h"
 
 #ifdef NO_VESLOCKER
@@ -58,10 +64,10 @@
 #include "../VESlocker.h"
 
 struct libVES_KeyStore_api libVES_KeyStore_api_default = {
-    .locker = "https://www.vesvault.com/api/VESlocker",
-    .msg = "https://www.vesvault.com/api/msg",
-    .exportkey = "https://www.vesvault.com/vv/exportkey",
-    .importdone = "https://www.vesvault.com/vv/import_done/"
+    .locker = "/api/VESlocker",
+    .msg = "/api/msg",
+    .exportkey = "/vv/exportkey",
+    .importdone = "/vv/import_done/"
 };
 
 static void libVES_KeyStore_VLhttpInitFn(VESlocker *vl) {
@@ -125,7 +131,9 @@ static VESlocker_entry *libVES_KeyStore_importfn(void *arg, const char *vlentry,
     strcpy(d, "&id=");
     d += 4;
     d += strlen(strcpy(im->idenc, libVES_b64encode_web(entryid, sizeof(entryid), d)));
-    jVar *xrsp = libVES_KeyStore_wwwPost0(im->dlg->ves, im->dlg->api->exportkey, xbuf, d - xbuf, NULL);
+    char *xurl = libVES_resolveUrl(im->dlg->ves, im->dlg->api->exportkey);
+    jVar *xrsp = libVES_KeyStore_wwwPost0(im->dlg->ves, xurl, xbuf, d - xbuf, NULL);
+    free(xurl);
     jVar *xpin = jVar_get(xrsp, "xpin");
     if (jVar_getBool(jVar_get(xrsp, "expire"))) {
 	im->dlg->state = LIBVES_KSD_EXPIRE;
@@ -158,7 +166,8 @@ int libVES_KeyStore_dialog_decrypt(struct libVES_KeyStore_dialog *dlg, const cha
     while (dlg->state != LIBVES_KSD_DONE) {
 	dlg->ks->dialogfn(dlg);
 	if (dlg->state != LIBVES_KSD_PIN || !pin[0]) continue;
-	VESlocker *vl = VESlocker_new(dlg->api->locker);
+	char *locker_url = libVES_resolveUrl(dlg->ves, dlg->api->locker);
+	VESlocker *vl = VESlocker_new(locker_url);
 	vl->httpInitFn = &libVES_KeyStore_VLhttpInitFn;
 	vl->ref = dlg->ves;
 	strcpy(decpin, pin);
@@ -188,6 +197,7 @@ int libVES_KeyStore_dialog_decrypt(struct libVES_KeyStore_dialog *dlg, const cha
 	}
 	VESlocker_entry_free(e);
 	VESlocker_free(vl);
+	free(locker_url);
 	OPENSSL_cleanse(pin, sizeof(pin));
 	OPENSSL_cleanse(decpin, sizeof(decpin));
     }
@@ -213,7 +223,8 @@ static int libVES_KeyStore_dialog_urlencode(const char *src, char *dst) {
 
 int libVES_KeyStore_dialog_import(libVES_KeyStore_dialog *dlg, long long key_id, char *sess, libVES_veskey *veskey, int maxlen, char *newentry) {
     if (!dlg->ks->dialogfn || !dlg->ks->dialogfn(dlg)) return 0;
-    libVES_VaultKey *ekey = dlg->ves->genVaultKeyFn(dlg->ves, LIBVES_VK_TEMP, NULL, NULL);
+    const libVES_KeyAlgo *algo = dlg->ks->keyAlgo ? dlg->ks->keyAlgo : &libVES_KeyAlgo_ECDH;
+    libVES_VaultKey *ekey = libVES_VaultKey_new(LIBVES_VK_TEMP, algo, NULL, NULL, dlg->ves);
     if (!ekey) return 0;
     char *pub = libVES_VaultKey_getPublicKey(ekey);
     if (!pub) return libVES_VaultKey_free(ekey), 0;
@@ -221,7 +232,8 @@ int libVES_KeyStore_dialog_import(libVES_KeyStore_dialog *dlg, long long key_id,
     sprintf(buf, "vaultKeyId=%lld&publicKey=", key_id);
     char *d = buf + strlen(buf);
     d += libVES_KeyStore_dialog_urlencode(pub, d);
-    jVar *msg = libVES_KeyStore_wwwPost0(dlg->ves, dlg->api->msg, buf, d - buf, NULL);
+    char *msg_url = libVES_resolveUrl(dlg->ves, dlg->api->msg);
+    jVar *msg = libVES_KeyStore_wwwPost0(dlg->ves, msg_url, buf, d - buf, NULL);
     char *code = jVar_getString0(jVar_get(msg, "code"));
     jVar_free(msg);
     int rs = 0;
@@ -232,7 +244,7 @@ int libVES_KeyStore_dialog_import(libVES_KeyStore_dialog *dlg, long long key_id,
 	char *encdata = NULL;
 	while (!encdata) {
 	    long code;
-	    msg = libVES_KeyStore_wwwPost0(dlg->ves, dlg->api->msg, strdup(post), strlen(post), &code);
+	    msg = libVES_KeyStore_wwwPost0(dlg->ves, msg_url, strdup(post), strlen(post), &code);
 	    if (!msg && code != 304) break;
 	    encdata = jVar_getString0(jVar_get(msg, "encData"));
 	    jVar_free(msg);
@@ -258,7 +270,9 @@ int libVES_KeyStore_dialog_import(libVES_KeyStore_dialog *dlg, long long key_id,
 		    sprintf(buf, "Cookie: KDsessId=%s", sess);
 		    struct curl_slist *hdrs = curl_slist_append(NULL, buf);
 		    long code;
-		    sprintf(buf, "%.192s%s", dlg->api->importdone, im.idenc);
+		    char *donebase = libVES_resolveUrl(dlg->ves, dlg->api->importdone);
+		    snprintf(buf, sizeof(buf), "%s%s", donebase, im.idenc);
+		    free(donebase);
 		    jVar *rsp = libVES_REST_req(dlg->ves, buf, NULL, hdrs, &code);
 		    jVar_free(rsp);
 		    if (code == 302 || code == 200) rs = 1;
@@ -270,6 +284,7 @@ int libVES_KeyStore_dialog_import(libVES_KeyStore_dialog *dlg, long long key_id,
 	free(encdata);
     }
     free(code);
+    free(msg_url);
     libVES_VaultKey_free(ekey);
     return rs;
 }

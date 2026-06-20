@@ -17,13 +17,18 @@
  * (c) 2018 VESvault Corp
  * Jim Zubov <jz@vesvault.com>
  *
- * GNU General Public License v3
- * You may opt to use, copy, modify, merge, publish, distribute and/or sell
- * copies of the Software, and permit persons to whom the Software is
- * furnished to do so, under the terms of the COPYING file.
+ * SPDX-License-Identifier: Apache-2.0
  *
- * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
- * KIND, either express or implied.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License in the accompanying LICENSE
+ * file, or at http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+ * implied.  See the License for the specific language governing
+ * permissions and limitations under the License.
  *
  * ves-util.c                 VES Utility Main File
  *
@@ -69,23 +74,6 @@
     in.setptr = &params.out->out[params.out->len++].set; \
 }
 
-#ifdef libVES_KeyStore_default
-static struct libVES_KeyStore_api ks_api;
-
-static char *rebase_url(const char *base, const char *defurl) {
-    size_t blen = strlen(base);
-    while (blen > 0 && base[blen - 1] == '/') blen--;
-    const char *p = strstr(defurl, "://");
-    p = p ? strchr(p + 3, '/') : defurl;
-    if (!p) p = defurl + strlen(defurl);
-    size_t plen = strlen(p);
-    char *out = malloc(blen + plen + 1);
-    memcpy(out, base, blen);
-    memcpy(out + blen, p, plen + 1);
-    return out;
-}
-#endif
-
 struct param_st params = {
     .user = NULL,
     .object = NULL,
@@ -101,6 +89,7 @@ struct param_st params = {
     .wwwUrl = NULL,
     .itemType = -1,
     .keyAlgo = NULL,
+    .watch = {.startId = 0, .count = -1, .follow = 0, .timeout = 0},
     .ptext = {.setfn = NULL},
     .ctext = {.setfn = NULL},
     .out = NULL,
@@ -118,15 +107,16 @@ int main(int argc, char **argv) {
     char *arg = NULL;
     enum { o_null, o_error, o_data, o_help, o_ver, o_a, o_o, o_x, o_explore, o_v, o_q, o_s, o_r, o_setshare, o_apiurl, o_l, o_i,
 	o_delete, o_f, o_fd, o_ptext, o_ctext, o_p, o_e, o_d, o_c, o_m, o_z, o_k, o_force, o_token, o_priv, o_pub, o_u, o_g,
-	o_keyalgo, o_lock, o_pri, o_new, o_rekey, o_propagate, o_manual, o_keystore, o_wwwurl } op = o_null;
+	o_keyalgo, o_lock, o_pri, o_new, o_rekey, o_propagate, o_manual, o_keystore, o_wwwurl, o_watch } op = o_null;
     const struct { char op; char *argw; } argwords[] = {
 	{o_a, "account"}, {o_o, "vault-item"}, {o_o, "object"}, {o_x, "debug"}, {o_help, "help"}, {o_p, "print"}, {o_v, "veskey"},
-	{o_v, "VESkey"}, {o_q, "quiet"}, {o_s, "share"}, {o_r, "unshare"}, {o_apiurl, "api-url"}, {o_wwwurl, "www-url"}, {o_l, "list"}, {o_i, "item"},
+	{o_v, "VESkey"}, {o_q, "quiet"}, {o_s, "share"}, {o_r, "unshare"}, {o_setshare, "set-share"}, {o_apiurl, "api-url"}, {o_wwwurl, "www-url"}, {o_l, "list"}, {o_i, "item"}, {o_m, "meta"},
 	{o_delete, "delete"}, {o_f, "file"}, {o_fd, "fd"}, {o_ptext, "plaintext"}, {o_ctext, "ciphertext"}, {o_explore, "explore"},
 	{o_e, "encrypt"}, {o_d, "decrypt"}, {o_c, "cipher"}, {o_z, "cipher-meta"}, {o_k, "vault-key"}, {o_u, "unlock"},
 	{o_force, "force"}, {o_token, "token"}, {o_priv, "private-key"}, {o_pub, "public-key"}, {o_g, "generate"},
 	{o_keyalgo, "key-algo"}, {o_lock, "lock"}, {o_pri, "primary-account"}, {o_new, "new"}, {o_ver, "version"},
-	{o_rekey, "rekey"}, {o_propagate, "propagate"}, {o_manual, "manual"}, {o_keystore, "keystore"}
+	{o_rekey, "rekey"}, {o_propagate, "propagate"}, {o_manual, "manual"}, {o_keystore, "keystore"},
+	{o_watch, "events"}, {o_watch, "watch"}
     };
     struct {
 	void **ptr;
@@ -208,6 +198,7 @@ int main(int argc, char **argv) {
 	    case 'T': op = o_token; break;
 	    case 'U': op = o_force; break;
 	    case 'V': op = o_ver; break;
+	    case 'W': op = o_watch; break;
 	    case 'X': op = o_explore; break;
 	    case 'Y': op = o_pub; break;
 	    case '-': break;
@@ -262,7 +253,7 @@ int main(int argc, char **argv) {
 		}
 		break;
 	    default:
-		if (in.ptr == (void *)&params.ks_flags) switch (op) {
+		if (in.ptr == (void *)&params.ks_flags || in.ptr == (void *)&params.watch) switch (op) {
 		    case o_data:
 		    case o_l:
 			break;
@@ -346,8 +337,12 @@ int main(int argc, char **argv) {
 			else params.debug++;
 			break;
 		    case o_explore:
-			params.flags |= PF_RD;
-			set_out(&out_explore);
+			params.flags |= PF_RD | PF_EXPLORE;
+			break;
+		    case o_watch:
+			params.flags |= PF_RD | PF_WATCH;
+			in.ptr = (void **) &params.watch;
+			in.putfn = &put_watch;
 			break;
 		    case o_l:
 			params.flags |= PF_RD;
@@ -490,7 +485,7 @@ int main(int argc, char **argv) {
 	if (op == o_error) break;
     }
     if (op == o_error) return E_PARAM;
-    if (in.ptr && in.ptr != (void *)&params.ks_flags) {
+    if (in.ptr && in.ptr != (void *)&params.ks_flags && in.ptr != (void *)&params.watch) {
 	fprintf(stderr, "Unexpeted end of argument list\n");
 	return E_PARAM;
     }
@@ -520,16 +515,6 @@ int main(int argc, char **argv) {
 	.domain = NULL
     };
     libVES_init(VESUTIL_VERSION_SHORT);
-#ifdef libVES_KeyStore_default
-    if (params.wwwUrl) {
-	libVES_KeyStore *ks = libVES_KeyStore_default;
-	ks_api.locker = rebase_url(params.wwwUrl, libVES_KeyStore_api_default.locker);
-	ks_api.msg = rebase_url(params.wwwUrl, libVES_KeyStore_api_default.msg);
-	ks_api.exportkey = rebase_url(params.wwwUrl, libVES_KeyStore_api_default.exportkey);
-	ks_api.importdone = rebase_url(params.wwwUrl, libVES_KeyStore_api_default.importdone);
-	ks->api = &ks_api;
-    }
-#endif
     ctx.ves = libVES_new(params.user);
     if (!ctx.ves) {
 	if (params.debug >= 0) fprintf(stderr, "Invalid app key reference: %s\n", params.user);
@@ -538,7 +523,8 @@ int main(int argc, char **argv) {
     if (ctx.ves->external && !ctx.ves->external->externalId[0]) ctx.domain = ctx.ves->external->domain;
     ctx.ves->httpInitFn = &hook_httpInitFn;
     if (params.debug > 0) ctx.ves->debug = params.debug;
-    if (params.apiUrl) ctx.ves->apiUrl = params.apiUrl;
+    if (params.apiUrl) libVES_setOption(ctx.ves, LIBVES_O_APIURL, params.apiUrl);
+    if (params.wwwUrl) libVES_setOption(ctx.ves, LIBVES_O_WWWURL, params.wwwUrl);
     ctx.ves->genVaultKeyFn = &hook_genVaultKey;
     if (params.token) libVES_setSessionToken(ctx.ves, params.token);
     if (params.primary) {
@@ -574,9 +560,13 @@ int main(int argc, char **argv) {
     }
     if (params.flags & PF_LCK) libVES_lock(ctx.ves);
 
-    if (params.debug >= 0 && !params.out && !(params.flags & (PF_VK_RD | PF_VK_WR | PF_VI_RD | PF_VI_WR | PF_CI_RD | PF_CI_WR | PF_DEL))) {
-	set_out(&out_explore);
-	params.flags |= PF_RD;
+    if (params.debug >= 0 && !params.out) {
+	if (params.flags & PF_WATCH) {
+	    set_out(&out_events);
+	} else if ((params.flags & PF_EXPLORE) || !(params.flags & (PF_VK_RD | PF_VK_WR | PF_VI_RD | PF_VI_WR | PF_CI_RD | PF_CI_WR | PF_DEL))) {
+	    set_out(&out_explore);
+	}
+	if (params.out) params.flags |= PF_RD;
     }
     
     if (params.object) {
@@ -761,11 +751,5 @@ int main(int argc, char **argv) {
     libVES_VaultKey_free(ctx.vkey);
     libVES_VaultItem_free(ctx.vitem);
     libVES_free(ctx.ves);
-#ifdef libVES_KeyStore_default
-    free((void *) ks_api.locker);
-    free((void *) ks_api.msg);
-    free((void *) ks_api.exportkey);
-    free((void *) ks_api.importdone);
-#endif
     return 0;
 }

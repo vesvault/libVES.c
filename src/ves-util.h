@@ -17,18 +17,23 @@
  * (c) 2018 VESvault Corp
  * Jim Zubov <jz@vesvault.com>
  *
- * GNU General Public License v3
- * You may opt to use, copy, modify, merge, publish, distribute and/or sell
- * copies of the Software, and permit persons to whom the Software is
- * furnished to do so, under the terms of the COPYING file.
+ * SPDX-License-Identifier: Apache-2.0
  *
- * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
- * KIND, either express or implied.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License in the accompanying LICENSE
+ * file, or at http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+ * implied.  See the License for the specific language governing
+ * permissions and limitations under the License.
  *
  * ves-util.h                 VES Utility Main Header
  *
  ***************************************************************************/
-#define VESUTIL_VERSION_CODE	"1.07"
+#define VESUTIL_VERSION_CODE	"1.08"
 #define VESUTIL_VERSION_STR	"VES CLI " VESUTIL_VERSION_CODE " (libVES.c " LIBVES_VERSION_CODE ") (c) 2018 - 2026 VESvault Corp (https://vesvault.com)"
 #define VESUTIL_VERSION_SHORT	"ves/" VESUTIL_VERSION_CODE
 #define	E_PARAM		64
@@ -104,6 +109,12 @@ extern struct param_st {
     char *wwwUrl;
     char *priv;
     const char *keyAlgo;
+    struct {
+	long long startId;
+	int count;
+	int follow;
+	int timeout;
+    } watch;
     int flags;
     int ks_flags;
     short int itemType;
@@ -127,6 +138,8 @@ extern struct param_st {
 #define PF_LCK		0x0400
 #define PF_NEW		0x0800
 #define PF_KEYSTORE	0x00010000
+#define PF_WATCH	0x00020000
+#define PF_EXPLORE	0x00040000
 
 #define SF_WR		0x01
 

@@ -17,13 +17,18 @@
  * (c) 2018 VESvault Corp
  * Jim Zubov <jz@vesvault.com>
  *
- * GNU General Public License v3
- * You may opt to use, copy, modify, merge, publish, distribute and/or sell
- * copies of the Software, and permit persons to whom the Software is
- * furnished to do so, under the terms of the COPYING file.
+ * SPDX-License-Identifier: Apache-2.0
  *
- * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
- * KIND, either express or implied.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License in the accompanying LICENSE
+ * file, or at http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+ * implied.  See the License for the specific language governing
+ * permissions and limitations under the License.
  *
  * libVES.c                   libVES: Main file
  *
@@ -85,6 +90,7 @@ libVES *libVES_fromRef(libVES_Ref *ref) {
     if (!ves) return NULL;
     ves->external = libVES_REFUP(Ref, ref);
     ves->apiUrl = LIBVES_API_URL;
+    ves->wwwUrl = LIBVES_WWW_URL;
     ves->appName = libVES_appName;
     ves->vaultKey = NULL;
     ves->sessionToken = NULL;
@@ -132,6 +138,7 @@ libVES *libVES_child(libVES *pves) {
 static void **libVES_optionPtr(libVES *ves, int optn) {
     switch (optn) {
 	case LIBVES_O_APIURL: return (void **)&ves->apiUrl;
+	case LIBVES_O_WWWURL: return (void **)&ves->wwwUrl;
 	case LIBVES_O_POLLURL: return (void **)&ves->pollUrl;
 	case LIBVES_O_APPNAME: return (void **)&ves->appName;
 	case LIBVES_O_ATTNFN: return (void **)&ves->attnFn;
@@ -280,7 +287,7 @@ int libVES_putValue(libVES *ves, const char *uri, size_t len, const char *value,
     libVES_VaultItem *vitem = libVES_VaultItem_fromURI(&uri, ves);
     if (!vitem) return 0;
     if (value) libVES_VaultItem_setValue(vitem, len, value, -1);
-    int ok;
+    int ok = 1;
     if (shareURI) {
 	libVES_List *share = libVES_List_new(&libVES_VaultKey_ListCtl);
 	const char *s;
@@ -537,6 +544,23 @@ char *libVES_fetchVerifyToken(const char *objuri, long long int objid, libVES *v
     char *token = jVar_getString0(jVar_get(rsp, "verifyToken"));
     jVar_free(rsp);
     return token;
+}
+
+char *libVES_resolveUrl(libVES *ves, const char *url) {
+    if (!url) return NULL;
+    if (strstr(url, "://")) return strdup(url);
+    const char *base = (ves && ves->wwwUrl) ? ves->wwwUrl : NULL;
+    if (!base) return strdup(url);
+    size_t blen = strlen(base);
+    while (blen > 0 && base[blen - 1] == '/') blen--;
+    int needslash = (url[0] != '/');
+    size_t ulen = strlen(url);
+    char *out = malloc(blen + needslash + ulen + 1);
+    if (!out) return NULL;
+    memcpy(out, base, blen);
+    if (needslash) out[blen] = '/';
+    memcpy(out + blen + needslash, url, ulen + 1);
+    return out;
 }
 
 void libVES_free(libVES *ves) {

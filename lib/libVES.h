@@ -17,19 +17,27 @@
  * (c) 2018 VESvault Corp
  * Jim Zubov <jz@vesvault.com>
  *
- * GNU General Public License v3
- * You may opt to use, copy, modify, merge, publish, distribute and/or sell
- * copies of the Software, and permit persons to whom the Software is
- * furnished to do so, under the terms of the COPYING file.
+ * SPDX-License-Identifier: Apache-2.0
  *
- * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
- * KIND, either express or implied.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License in the accompanying LICENSE
+ * file, or at http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+ * implied.  See the License for the specific language governing
+ * permissions and limitations under the License.
  *
  * libVES.h                   libVES: Main header
  *
  ***************************************************************************/
-#define LIBVES_VERSION_NUMBER	0x01030300L
-#define LIBVES_VERSION_CODE	"1.33"
+
+#include <stddef.h>	/* size_t, used in the declarations below */
+
+#define LIBVES_VERSION_NUMBER	0x01030400L
+#define LIBVES_VERSION_CODE	"1.34"
 #define LIBVES_VERSION_STR	"libVES.c " LIBVES_VERSION_CODE " (c) 2018 - 2026 VESvault Corp"
 #define LIBVES_VERSION_SHORT	"libVES/" LIBVES_VERSION_CODE
 
@@ -62,12 +70,14 @@ typedef struct libVES {
     const char *pollUrl;
     void *ref;
     struct libVES_List *propagators;
+    /* New fields go at the end to preserve binary compatibility. */
+    const char *wwwUrl;
 } libVES;
 
 
 enum { LIBVES_O_APIURL, LIBVES_O_APPNAME, LIBVES_O_ATTNFN, LIBVES_O_CURL, LIBVES_O_HTTPINITFN,
     LIBVES_O_GENFN, LIBVES_O_CIPHERALGO, LIBVES_O_KEYALGO, LIBVES_O_POLLURL, LIBVES_O_VESKEYLEN,
-    LIBVES_O_SESSTMOUT, LIBVES_O_DEBUG, LIBVES_O_REF, LIBVES_O_PROPAGATORS };
+    LIBVES_O_SESSTMOUT, LIBVES_O_DEBUG, LIBVES_O_REF, LIBVES_O_PROPAGATORS, LIBVES_O_WWWURL };
 
 #define LIBVES_E_OK		0
 #define LIBVES_E_PARAM		1
@@ -95,6 +105,10 @@ enum { LIBVES_O_APIURL, LIBVES_O_APPNAME, LIBVES_O_ATTNFN, LIBVES_O_CURL, LIBVES
 
 #ifndef LIBVES_API_URL
 #define LIBVES_API_URL		"https://api.ves.host/v1/"
+#endif
+
+#ifndef LIBVES_WWW_URL
+#define LIBVES_WWW_URL		"https://www.vesvault.com/"
 #endif
 
 #ifndef LIBVES_POLL_URL
@@ -152,6 +166,16 @@ void *libVES_getOption(libVES *ves, int optn);
  * Set an option value, optn = LIBVES_O_*, returns true on success
  ***************************************************************************/
 int libVES_setOption(libVES *ves, int optn, void *val);
+
+/***************************************************************************
+ * Resolve a URL against ves->wwwUrl.
+ * - Absolute URLs (containing "://") are returned as a heap-allocated copy.
+ * - Relative URLs are concatenated with ves->wwwUrl (trailing slashes on
+ *   the base and a single leading slash on the result are normalized).
+ * - If ves is NULL or wwwUrl is NULL, a copy of the input is returned.
+ * The caller owns the returned string and must free() it.
+ ***************************************************************************/
+char *libVES_resolveUrl(libVES *ves, const char *url);
 
 /***************************************************************************
  * Return the code of the last error, LIBVES_E_*.

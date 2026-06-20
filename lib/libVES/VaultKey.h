@@ -17,13 +17,18 @@
  * (c) 2018 VESvault Corp
  * Jim Zubov <jz@vesvault.com>
  *
- * GNU General Public License v3
- * You may opt to use, copy, modify, merge, publish, distribute and/or sell
- * copies of the Software, and permit persons to whom the Software is
- * furnished to do so, under the terms of the COPYING file.
+ * SPDX-License-Identifier: Apache-2.0
  *
- * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
- * KIND, either express or implied.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License in the accompanying LICENSE
+ * file, or at http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+ * implied.  See the License for the specific language governing
+ * permissions and limitations under the License.
  *
  * libVES/VaultKey.h          libVES: Vault Key object header
  *
@@ -203,6 +208,20 @@ int libVES_VaultKey_rekey(libVES_VaultKey *vkey);
  ***************************************************************************/
 int libVES_VaultKey_apply(libVES_VaultKey *vkey);
 
+/***************************************************************************
+ * Elevate ves->sessionToken to the SHORT-LIVED per-vault-key session
+ * (as opposed to the persistent /me-level session): GET
+ *   vaultKeys/{vkey->id}?fields=encSessionToken
+ * decrypt with vkey's private key, store on ves->sessionToken,
+ * install libVES_defaultAttn if not already set.
+ * vkey must be unlocked. ves may differ from vkey->ves (e.g. a child
+ * libVES that REFUPped vkey from its parent); the elevated token is
+ * written to the ves argument so a Vault opened as a libVES_child can
+ * elevate using the parent's vault key while writing only to its own
+ * session slot. Returns 1 on success, 0 on failure.
+ ***************************************************************************/
+int libVES_VaultKey_elevate(libVES_VaultKey *vkey, struct libVES *ves);
+
 int libVES_VaultKey_post(libVES_VaultKey *vkey);
 int libVES_VaultKey_typeFromStr(const char *str);
 const char *libVES_VaultKey_typeStr(int type);
@@ -224,6 +243,16 @@ char *libVES_VaultKey_getPrivateKey(libVES_VaultKey *vkey);
  * encrypted otherwise. Use free() to deallocate.
  ***************************************************************************/
 char *libVES_VaultKey_getPrivateKey1(libVES_VaultKey *vkey);
+
+/***************************************************************************
+ * The associated password Vault Item (vkey->vitem), loaded from the API
+ * if not loaded yet. Loads via libVES_VaultKey_getPrivateKey as a side
+ * effect, which fetches the vault key plus its vaultItems(id,type,...)
+ * in a single request. The returned vitem has id/type/entries populated
+ * but no value; libVES_VaultKey_getVESkey will fetch the value on demand.
+ * Do not deallocate.
+ ***************************************************************************/
+struct libVES_VaultItem *libVES_VaultKey_getVaultItem(libVES_VaultKey *vkey);
 
 #define libVES_VaultKey_getExternal(vkey)	((vkey) ? (vkey)->external : NULL)
 struct libVES_User *libVES_VaultKey_getUser(libVES_VaultKey *vkey);

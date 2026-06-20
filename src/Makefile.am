@@ -22,7 +22,13 @@ ves-util/keystore_flags.h
 
 bin_PROGRAMS = ves
 
+dist_man_MANS = ves.1
+
 AM_CPPFLAGS = -I $(top_builddir)/lib
 
 ves_SOURCES = $(VESUTIL_CFILES) $(VESUTIL_HFILES)
 ves_LDADD = -lcrypto -lcurl $(top_builddir)/lib/libVES.la
+
+# Platform tty source fragments: #included by ves-util/tty.c (not compiled
+# directly), so ship them in the tarball but don't add them to the build.
+EXTRA_DIST = ves-util/tty_u.c ves-util/tty_w.c

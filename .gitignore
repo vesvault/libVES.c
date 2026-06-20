@@ -2,6 +2,7 @@
 /Makefile
 /lib/Makefile
 /src/Makefile
+/libVES.pc
 autom4te.cache/
 config.log
 config.status
@@ -25,3 +26,4 @@ configure~
 
 # Built CLI executable
 /src/ves
+/src/ves.exe

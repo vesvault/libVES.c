@@ -7,6 +7,9 @@ CLI_OBJS_WIN = KeyStore_cli.obj KeyStore_cli_locale.obj ../keydir.obj
 CLI_LIB_WIN=libVES_KeyStore_cli.lib
 AR_WIN=lib
 
+KeyStore_cli.o: KeyStore_cli.c ../keydir.h ../../libVES/KeyStore.h KeyStore_cli_locale.h
+KeyStore_cli_locale.o: KeyStore_cli_locale.c KeyStore_cli_locale.h
+
 $(CLI_LIB): $(CLI_OBJS)
 	$(AR) cru $(CLI_LIB) $(CLI_OBJS)
 
@@ -23,4 +26,8 @@ install:
 
 clean:
 	rm -f $(CLI_LIB) $(CLI_OBJS)
+
+distdir:
+	mkdir -p $(distdir)
+	cp -p KeyStore_cli.c KeyStore_cli_locale.c KeyStore_cli_locale.h Makefile $(distdir)
 

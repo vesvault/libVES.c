@@ -17,13 +17,18 @@
  * (c) 2023 VESvault Corp
  * Jim Zubov <jz@vesvault.com>
  *
- * GNU General Public License v3
- * You may opt to use, copy, modify, merge, publish, distribute and/or sell
- * copies of the Software, and permit persons to whom the Software is
- * furnished to do so, under the terms of the COPYING file.
+ * SPDX-License-Identifier: Apache-2.0
  *
- * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
- * KIND, either express or implied.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License in the accompanying LICENSE
+ * file, or at http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+ * implied.  See the License for the specific language governing
+ * permissions and limitations under the License.
  *
  * KeyStore.h                    libVES: Local key storage
  *
@@ -42,6 +47,7 @@
 
 struct libVES_KeyStore_dialog;
 struct libVES_Ref;
+struct libVES_KeyAlgo;
 
 typedef struct libVES_KeyStore {
     int (* getfn)(struct libVES_KeyStore *ks, const char *domain, const char *extid, char *val, int maxlen, int flags);
@@ -52,6 +58,8 @@ typedef struct libVES_KeyStore {
     const struct libVES_KeyStore_api *api;
     void *store;
     void *ctl;
+    /* Key algo for the ephemeral e2ee exchange key. NULL = ECDH default. */
+    const struct libVES_KeyAlgo *keyAlgo;
 } libVES_KeyStore;
 
 #define	LIBVES_KSD_INIT		0

@@ -17,13 +17,18 @@
  * (c) 2018 VESvault Corp
  * Jim Zubov <jz@vesvault.com>
  *
- * GNU General Public License v3
- * You may opt to use, copy, modify, merge, publish, distribute and/or sell
- * copies of the Software, and permit persons to whom the Software is
- * furnished to do so, under the terms of the COPYING file.
+ * SPDX-License-Identifier: Apache-2.0
  *
- * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
- * KIND, either express or implied.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License in the accompanying LICENSE
+ * file, or at http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+ * implied.  See the License for the specific language governing
+ * permissions and limitations under the License.
  *
  * ves-util/help.c            VES Utility: Help message
  *
@@ -63,7 +68,8 @@ const char *VEShelp =
        "  -u VESKEY, --unlock=VESKEY    Unlock the App Vault using VESKEY\n"
        "        -uf FILE                Unlock the App Vault using VESkey read from FILE\n"
        "        -up, -upf FILE          Print the App Vault VESkey (-A required)\n"
-       "  -A EMAIL, --primary=...       Select a VES Account / Primary Vault,\n"
+       "  -A EMAIL, --primary-account=...\n"
+       "                                Select a VES Account / Primary Vault,\n"
        "                                EMAIL = \"email\" | \"ves:////email\"\n"
        "  -T TOKEN, --token=...         Apply a Session Token\n"
        "        -Tp, -Tpf FILE          Print the current Session Token\n"
@@ -74,7 +80,7 @@ const char *VEShelp =
        "Vault Item Operations:\n"
        "  -o URI, --vault-item=...      Select a Vault Item,\n"
        "                                URI = \"[ves:][//domain/]externalId\"\n"
-       "  -i DATA, item=...             Set the raw content of the Vault Item\n"
+       "  -i DATA, --item=...           Set the raw content of the Vault Item\n"
        "        -if FILE                Content for the Vault Item from FILE\n"
        "                                (size limits apply, use -P & -C for large files)\n"
        "        -ip, -ipf FILE          Print the raw content of the Vaut Item\n"
@@ -132,9 +138,27 @@ const char *VEShelp =
        "                                active key for the matching Vault\n"
        "  -K, --propagate               Share the VESkey vault item with the owner's\n"
        "                                respective Primary and/or App Vault\n"
-       "  -M, --manual                  Disable automatic propagation and rekeying for\n"
+       "  --manual                      Disable automatic propagation and rekeying for\n"
        "                                Temporary Vault Keys\n"
        "  -X, --explore                 Print human readable info about the Vault Key\n"
+       "\n"
+       "Event Tracking:\n"
+       "  -W [SPEC], --events[=SPEC]    Track events; the scope follows the selected\n"
+       "                                object: -o item, -k key, -A user, or -a App\n"
+       "                                Vault (//domain// for domain-wide events).\n"
+       "                                SPEC = [COUNT | =ID[:COUNT]][+[SECONDS]]\n"
+       "                                  (none)     the last 16 events\n"
+       "                                  COUNT      the last COUNT events\n"
+       "                                  =ID        events from event id ID (up to 16)\n"
+       "                                  =ID:COUNT  COUNT events from event id ID\n"
+       "                                  +          follow: keep streaming new events\n"
+       "                                  +SECONDS   follow, but stop after SECONDS\n"
+       "                                  COUNT+     the last COUNT events, then follow\n"
+       "                                Output: id <TAB> time <TAB> type <TAB> key_id\n"
+       "                                    <TAB> item_id <TAB> actor <TAB> vault_uri\n"
+       "                                    <TAB> item_uri <TAB> ref_id <LF>\n"
+       "                                  ref_id = the session id, when available\n"
+       "                                Combine with -X for verbose, human-readable output\n"
        "\n"
        "Action Modifiers:\n"
        "  -p, --print                   Print the current value of the preceding option.\n"

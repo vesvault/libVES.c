@@ -1,0 +1,12 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: libVES
+Description: VESvault end-to-end encryption library — encrypt everything without fear of losing the key
+URL: https://ves.host
+Version: @VERSION@
+Libs: -L${libdir} -lVES
+Libs.private: -lcrypto -lcurl @LIBOQS@
+Cflags: -I${includedir}

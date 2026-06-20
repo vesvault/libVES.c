@@ -17,17 +17,24 @@
  * (c) 2023 VESvault Corp
  * Jim Zubov <jz@vesvault.com>
  *
- * GNU General Public License v3
- * You may opt to use, copy, modify, merge, publish, distribute and/or sell
- * copies of the Software, and permit persons to whom the Software is
- * furnished to do so, under the terms of the COPYING file.
+ * SPDX-License-Identifier: Apache-2.0
  *
- * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
- * KIND, either express or implied.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License in the accompanying LICENSE
+ * file, or at http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+ * implied.  See the License for the specific language governing
+ * permissions and limitations under the License.
  *
  * VESlocker.h                   libVES: Secure key storage
  *
  ***************************************************************************/
+
+#include <stddef.h>
 
 #define	VESLOCKER_E_OK		0
 #define	VESLOCKER_E_LIB		-1
@@ -78,6 +85,7 @@ struct VESlocker *VESlocker_new(const char *url);
 struct VESlocker_entry *VESlocker_entry_parse(const char *vlentry);
 #define	VESlocker_entry_free(e)		free(e)
 int VESlocker_getkey(struct VESlocker *vl, const char *entryid, const char *seed, const char *pin, char *key);
+int VESlocker_getkey_n(struct VESlocker *vl, const char *entryid, const char *seed, size_t seedlen, const char *pin, char *key);
 int VESlocker_encval(struct VESlocker *vl, const char *val, size_t len, char *ctext);
 int VESlocker_decval(struct VESlocker *vl, const char *ctext, char *val);
 char *VESlocker_encrypt(struct VESlocker *vl, const char *data, size_t len, const char *pin, char *vlentry);

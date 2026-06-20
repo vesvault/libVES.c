@@ -17,13 +17,18 @@
  * (c) 2018 VESvault Corp
  * Jim Zubov <jz@vesvault.com>
  *
- * GNU General Public License v3
- * You may opt to use, copy, modify, merge, publish, distribute and/or sell
- * copies of the Software, and permit persons to whom the Software is
- * furnished to do so, under the terms of the COPYING file.
+ * SPDX-License-Identifier: Apache-2.0
  *
- * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
- * KIND, either express or implied.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License in the accompanying LICENSE
+ * file, or at http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+ * implied.  See the License for the specific language governing
+ * permissions and limitations under the License.
  *
  * ves-util/put.c             VES Utility: Parameter value handlers
  *
@@ -80,6 +85,39 @@ void *put_jvarobj(const char *str, size_t len, void **ptr) {
 
 void *put_keyalgo(const char *str, size_t len, void **ptr) {
     return *ptr = libVES_VaultKey_algoFromStr(str) ? (void *)strdup(str) : NULL;
+}
+
+void *put_watch(const char *str, size_t len, void **ptr) {
+    struct param_watch { long long startId; int count; int follow; int timeout; } *w = (void *) ptr;
+    const char *s = str;
+    char *end;
+    if (*s == '=') {
+	long long id = strtoll(++s, &end, 10);
+	if (end == s || id <= 0) VES_throw("[put_watch]", "Expected an event id after '='", str, NULL);
+	w->startId = id;
+	s = end;
+	if (*s == ':') {
+	    long n = strtol(++s, &end, 10);
+	    if (end == s || n <= 0) VES_throw("[put_watch]", "Expected a positive count after ':'", str, NULL);
+	    w->count = (int) n;
+	    s = end;
+	}
+    } else if (*s >= '0' && *s <= '9') {
+	w->count = (int) strtol(s, &end, 10);
+	s = end;
+    }
+    if (*s == '+') {
+	w->follow = 1;
+	s++;
+	if (*s >= '0' && *s <= '9') {
+	    long t = strtol(s, &end, 10);
+	    if (t <= 0) VES_throw("[put_watch]", "Expected a positive timeout after '+'", str, NULL);
+	    w->timeout = (int) t;
+	    s = end;
+	}
+    }
+    if (*s) VES_throw("[put_watch]", "Invalid watch spec, use [COUNT|=ID[:COUNT]][+[SECONDS]]", str, NULL);
+    return ptr;
 }
 
 void *put_keystore(const char *str, size_t len, void **ptr) {

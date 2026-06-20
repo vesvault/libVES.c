@@ -54,11 +54,23 @@ VF_HFILES = VESflow.h
 
 lib_LTLIBRARIES = libVES.la
 nobase_include_HEADERS = $(LIBVES_HFILES) $(JVAR_HFILES) $(VL_HFILES)
+# Internal headers: shipped in the source tarball so the library builds, but
+# NOT installed to includedir (libVES.Util etc. are private to libVES).
+noinst_HEADERS = libVES/Util.h
 
 libVES_la_SOURCES = $(LIBVES_CFILES) $(JVAR_CFILES) $(VL_CFILES) $(VF_CFILES) $(LIBVES_HFILES) $(JVAR_HFILES) $(VL_HFILES) $(VF_HFILES)
 libVES_la_LIBADD = -lcrypto -lcurl $(LIBOQS)
-libVES_la_LDFLAGS = -version-info 1:0:0
+# -no-undefined is required for libtool to build a shared library (DLL) on
+# Windows/PE, where shared objects may not contain unresolved symbols. Without
+# it libtool silently builds static-only, and the --whole-archive keystore fold
+# below (a shared-link step) never runs -> libVES_KeyStore_cli stays undefined.
+libVES_la_LDFLAGS = -version-info 1:0:0 -no-undefined
 if LIBVES_KEYSTORE
 libVES_la_LDFLAGS += -Wl,--whole-archive,KeyStore/$(LIBVES_KEYSTORE)/libVES_KeyStore_$(LIBVES_KEYSTORE).a,--no-whole-archive
 EXTRA_libVES_la_DEPENDENCIES = KeyStore/$(LIBVES_KEYSTORE)/libVES_KeyStore_$(LIBVES_KEYSTORE).a
 endif
+
+# KeyStore/cli has its own cross-platform Makefile (not automake); ship the
+# shared keydir sources here so `make dist` produces a buildable tarball.
+# (KeyStore/cli/* are shipped by that subdir's own distdir target.)
+EXTRA_DIST = KeyStore/keydir.c KeyStore/keydir.h

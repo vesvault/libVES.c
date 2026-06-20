@@ -17,13 +17,18 @@
  * (c) 2023 VESvault Corp
  * Jim Zubov <jz@vesvault.com>
  *
- * GNU General Public License v3
- * You may opt to use, copy, modify, merge, publish, distribute and/or sell
- * copies of the Software, and permit persons to whom the Software is
- * furnished to do so, under the terms of the COPYING file.
+ * SPDX-License-Identifier: Apache-2.0
  *
- * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
- * KIND, either express or implied.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License in the accompanying LICENSE
+ * file, or at http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+ * implied.  See the License for the specific language governing
+ * permissions and limitations under the License.
  *
  * VESlocker.c                   libVES: Secure key storage
  *
@@ -71,7 +76,7 @@ static size_t VESlocker_hdr_callbk(char* buffer, size_t size, size_t nitems, voi
     return nitems;
 }
 
-int VESlocker_getkey(VESlocker *vl, const char *entryid, const char *seed, const char *pin, char *key) {
+int VESlocker_getkey_n(VESlocker *vl, const char *entryid, const char *seed, size_t seedlen, const char *pin, char *key) {
     char post[128];
     char *d = post;
     strcpy(d, "id=");
@@ -81,7 +86,7 @@ int VESlocker_getkey(VESlocker *vl, const char *entryid, const char *seed, const
     unsigned int shalen = VESlocker_chsize;
     unsigned char *sha = (unsigned char*)post + sizeof(post) - VESlocker_chsize;
     if (EVP_DigestInit_ex(mdctx, EVP_sha256(), NULL) > 0
-	&& EVP_DigestUpdate(mdctx, seed, VESlocker_seedsize) > 0
+	&& EVP_DigestUpdate(mdctx, seed, seedlen) > 0
 	&& EVP_DigestUpdate(mdctx, pin, strlen(pin)) > 0
 	&& EVP_DigestFinal_ex(mdctx, sha, &shalen) > 0) {
 	strcpy(d, "&challenge=");
@@ -120,6 +125,21 @@ int VESlocker_getkey(VESlocker *vl, const char *entryid, const char *seed, const
 	default:
 	    return vl->error = VESLOCKER_E_API;
     }
+}
+
+/**
+ * Legacy/compatibility entry point: assumes the seed is the full
+ * VESlocker_seedsize (32 bytes). Suitable for entries libVES.c
+ * created itself, where vl->enc.seed is RAND_bytes(32). For
+ * server-issued entries with a shorter seed (e.g. ves-www's
+ * otp.php uses openssl_random_pseudo_bytes(12)), call
+ * VESlocker_getkey_n with the actual decoded length — hashing the
+ * full 32-byte buffer (zero-padded by the decrypt path) produces
+ * a different SHA-256 input than the issuer used and AES-GCM auth
+ * fails on decrypt with VESLOCKER_E_CRYPTO.
+ */
+int VESlocker_getkey(VESlocker *vl, const char *entryid, const char *seed, const char *pin, char *key) {
+    return VESlocker_getkey_n(vl, entryid, seed, VESlocker_seedsize, pin, key);
 }
 
 VESlocker_entry *VESlocker_entry_parse(const char *vlentry) {
@@ -211,9 +231,13 @@ int VESlocker_decrypt(VESlocker *vl, const VESlocker_entry *e, const char *pin, 
     if (e->url) VESlocker_seturl(vl, e->url);
     int l = libVES_b64decode(e->entryid, &pentryid);
     if (l < VESlocker_idsize) memset(entryid + l, 0, VESlocker_idsize - l);
-    l = libVES_b64decode(e->seed, &pseed);
-    if (l < VESlocker_seedsize) memset(vl->dec.seed + l, 0, VESlocker_seedsize - l);
-    int r = VESlocker_getkey(vl, entryid, vl->dec.seed, pin, vl->dec.key);
+    int seedlen = libVES_b64decode(e->seed, &pseed);
+    if (seedlen < VESlocker_seedsize) memset(vl->dec.seed + seedlen, 0, VESlocker_seedsize - seedlen);
+    // Hash only the bytes the issuer actually emitted — server flows
+    // (otp.php) use a 12-byte seed; libVES.c-created entries use 32.
+    // Using the buffer size hashes zero-padding the issuer never saw,
+    // producing the wrong ckey and failing the AES-GCM auth tag.
+    int r = VESlocker_getkey_n(vl, entryid, vl->dec.seed, seedlen, pin, vl->dec.key);
     if (r < 0) return r;
     return VESlocker_decval(vl, e->value, *pval);
 }

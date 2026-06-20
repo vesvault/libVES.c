@@ -3,16 +3,18 @@
 
 
 AC_PREREQ([2.69])
-# Version is not tracked here to avoid noise in generated configure/config.h.in
-# on every bump. Source of truth: LIBVES_VERSION_CODE in lib/libVES.h and
-# VESUTIL_VERSION_CODE in src/ves-util.h.
-AC_INIT([VES], [0], [bugs@vesvault.com])
+# Version is read from LIBVES_VERSION_CODE in lib/libVES.h (single source of
+# truth) so the release/tarball/.pc version never drifts from the library.
+# VESUTIL_VERSION_CODE in src/ves-util.h tracks the ves(1) CLI separately.
+AC_INIT([libVES],
+    m4_esyscmd_s([awk '$2=="LIBVES_VERSION_CODE"{gsub(/"/,"",$3);print $3}' lib/libVES.h]),
+    [bugs@vesvault.com])
 AC_CONFIG_SRCDIR([src/ves-util.c])
 AC_CONFIG_HEADERS([src/config.h])
 
 AC_CONFIG_AUX_DIR([build-aux])
 
-AM_INIT_AUTOMAKE([1.0 subdir-objects])
+AM_INIT_AUTOMAKE([foreign 1.0 subdir-objects])
 
 AM_MAINTAINER_MODE([disable])
 
@@ -29,6 +31,7 @@ AC_ARG_WITH([oqs],
     [],
     [])
 LIBOQS=
+AC_SUBST([LIBOQS])
     AS_IF([test "x$with_oqs" != xno],
         [AC_CHECK_LIB([oqs], [OQS_KEM_new],
             [AC_SUBST([LIBOQS], ["-loqs"])
@@ -74,6 +77,6 @@ AC_CHECK_FUNCS([strdup strndup memmove memset strerror])
 
 AC_PREFIX_DEFAULT(/usr)
 
-AC_CONFIG_FILES([Makefile lib/Makefile src/Makefile])
+AC_CONFIG_FILES([Makefile lib/Makefile src/Makefile libVES.pc])
 AC_OUTPUT
 

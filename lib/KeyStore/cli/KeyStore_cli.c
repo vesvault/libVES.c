@@ -17,13 +17,18 @@
  * (c) 2023 VESvault Corp
  * Jim Zubov <jz@vesvault.com>
  *
- * GNU General Public License v3
- * You may opt to use, copy, modify, merge, publish, distribute and/or sell
- * copies of the Software, and permit persons to whom the Software is
- * furnished to do so, under the terms of the COPYING file.
+ * SPDX-License-Identifier: Apache-2.0
  *
- * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
- * KIND, either express or implied.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License in the accompanying LICENSE
+ * file, or at http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+ * implied.  See the License for the specific language governing
+ * permissions and limitations under the License.
  *
  * KeyStore_cli.c                   libVES: CLI key store module
  *
@@ -159,19 +164,19 @@ int libVES_KeyStore_cli_open(struct cli_ctl *ctl) {
     if (ctl->tty_in == INVALID_HANDLE_VALUE) ctl->tty_in = CreateFile( "CONIN$", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0 );
     if (ctl->tty_out == INVALID_HANDLE_VALUE) ctl->tty_out = CreateFile( "CONOUT$", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_WRITE, 0, OPEN_EXISTING, 0, 0 );
     if (ctl->tty_in == INVALID_HANDLE_VALUE || ctl->tty_out == INVALID_HANDLE_VALUE) return libVES_KeyStore_cli_close(ctl), 0;
-    int mode;
+    DWORD mode;
     if (GetConsoleMode(ctl->tty_out, &mode) && (mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING) && SetConsoleMode(ctl->tty_out, mode)) ctl->flags |= CLI_ANSI;
     return 1;
 }
 
 static char *libVES_KeyStore_cli_in(struct cli_ctl *ctl, char *buf, int len) {
-    int mode;
+    DWORD mode;
     if (!GetConsoleMode(ctl->tty_in, &mode)) return NULL;
     mode &= ~ENABLE_ECHO_INPUT;
     if (!SetConsoleMode(ctl->tty_in, mode)) return NULL;
     char *bufp = buf;
     char *tail = buf + len - 1;
-    int r = -1;
+    DWORD r = 0;
     while (bufp < tail && (ReadConsole(ctl->tty_in, bufp, 1, &r, 0))) {
 	if (*bufp == 0x0d || *bufp == 0x0a) break;
 	bufp++;
