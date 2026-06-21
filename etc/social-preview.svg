@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  GitHub social preview card for libVES.c (1280x640).
+  Export to PNG and upload via Settings > General > Social preview.
+    rsvg-convert -w 1280 -h 640 etc/social-preview.svg -o social-preview.png
+  (or open in a browser / Inkscape / resvg and export at 1280x640)
+
+  Brand mark: the VESvault node-graph "V" — a chain of trust whose one red
+  branch is the recoverable key path. Green #00E676 sampled from the ves.host
+  logo (https://ves.host/assets/img/vv-logo-green.png).
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
+  <rect width="1280" height="640" fill="#000000"/>
+
+  <!-- node-graph mark -->
+  <g stroke-linecap="round" fill="none" stroke-width="34">
+    <line x1="300" y1="150" x2="385" y2="330" stroke="#FF1A1A"/>
+    <line x1="470" y1="130" x2="385" y2="330" stroke="#00E676"/>
+    <line x1="385" y1="330" x2="300" y2="540" stroke="#00E676"/>
+    <line x1="210" y1="360" x2="300" y2="540" stroke="#00E676"/>
+  </g>
+  <g>
+    <circle cx="300" cy="150" r="30" fill="#FF1A1A"/>
+    <circle cx="470" cy="130" r="30" fill="#00E676"/>
+    <circle cx="385" cy="330" r="30" fill="#00E676"/>
+    <circle cx="210" cy="360" r="30" fill="#00E676"/>
+    <circle cx="300" cy="540" r="30" fill="#00E676"/>
+  </g>
+
+  <!-- text -->
+  <g font-family="'DejaVu Sans', 'Helvetica Neue', Arial, sans-serif">
+    <text x="560" y="250" fill="#00E676" font-size="92" font-weight="700"
+          font-family="'DejaVu Sans Mono', 'Consolas', monospace">libVES.c</text>
+
+    <text x="562" y="330" fill="#FFFFFF" font-size="40" font-weight="600">End-to-end encryption</text>
+    <text x="562" y="380" fill="#FFFFFF" font-size="40" font-weight="600">you can actually recover from.</text>
+
+    <text x="562" y="452" fill="#9AA0A6" font-size="27">C library + CLI &#183; key management, sharing,</text>
+    <text x="562" y="488" fill="#9AA0A6" font-size="27">streams &#183; post-quantum (ML-KEM)</text>
+
+    <text x="562" y="560" fill="#00E676" font-size="26" font-weight="600">vesvault.com</text>
+    <text x="745" y="560" fill="#5F6368" font-size="26">&#183;&#160;&#160;ves.host</text>
+  </g>
+</svg>

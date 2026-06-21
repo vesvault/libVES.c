@@ -44,6 +44,10 @@ typedef struct libVES_KeyAlgo_OQS_Key {
 } libVES_KeyAlgo_OQS_Key;
 
 extern const struct libVES_KeyAlgo libVES_KeyAlgo_OQS;
-#define libVES_KeyAlgo_OQS_defaultAlgo		"Kyber768"
+/* FIPS 203 standardized parameter set. Must match a libOQS algorithm
+ * identifier; "Kyber768" was removed in libOQS 0.12 in favor of "ML-KEM-768".
+ * Existing keys carry their own algorithm in the stored method string, so this
+ * default only affects newly generated keys. */
+#define libVES_KeyAlgo_OQS_defaultAlgo		"ML-KEM-768"
 
 #define libVES_KeyAlgo_OQS_OID			"1.3.6.1.4.1.53675.3.5"

@@ -1,0 +1,4 @@
+# Adds a "Sponsor" button to the repo. The library and CLI are free and open
+# source; VES is the hosted service that backs them. Adjust or delete to taste.
+# To use GitHub Sponsors instead, set: github: [ your-org ]
+custom: ["https://ves.host", "https://vesvault.com"]

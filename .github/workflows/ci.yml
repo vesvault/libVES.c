@@ -1,0 +1,105 @@
+name: CI
+
+# Build-only CI across the three platforms the README advertises (Linux, macOS,
+# Windows/MSYS2). The tests/ suite is intentionally NOT run here: it exercises the
+# live VES API and needs two real, synced VES accounts (see tests/vestest.conf),
+# which can't be provisioned from public CI. This workflow guards that the library
+# and the `ves` CLI still configure and compile everywhere.
+#
+# Post-quantum (liboqs) is required by default, so each job provides liboqs. The
+# `linux-classical` job builds with --without-oqs to guard the opt-out path.
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Linux (gcc, post-quantum)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev libcurl4-openssl-dev cmake ninja-build
+      - name: Build & install liboqs (not packaged on Debian/Ubuntu)
+        run: |
+          git clone --depth 1 https://github.com/open-quantum-safe/liboqs
+          cmake -S liboqs -B liboqs/build -GNinja \
+            -DBUILD_SHARED_LIBS=ON -DOQS_BUILD_ONLY_LIB=ON \
+            -DCMAKE_INSTALL_PREFIX=/usr/local
+          sudo cmake --build liboqs/build --target install
+          sudo ldconfig
+      - name: Configure
+        run: ./configure
+      - name: Build
+        run: make
+      - name: Verify ves built
+        run: test -x src/ves && echo "ves built OK"
+
+  linux-classical:
+    name: Linux (classical, --without-oqs)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev libcurl4-openssl-dev
+      - name: Configure
+        run: ./configure --without-oqs
+      - name: Build
+        run: make
+      - name: Verify ves built
+        run: test -x src/ves && echo "ves built OK"
+
+  macos:
+    name: macOS (clang, post-quantum)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: brew install openssl@3 liboqs
+      - name: Configure
+        run: |
+          OPENSSL_PREFIX="$(brew --prefix openssl@3)"
+          OQS_PREFIX="$(brew --prefix liboqs)"
+          ./configure \
+            CPPFLAGS="-I$OPENSSL_PREFIX/include -I$OQS_PREFIX/include" \
+            LDFLAGS="-L$OPENSSL_PREFIX/lib -L$OQS_PREFIX/lib"
+      - name: Build
+        run: make
+      - name: Verify ves built
+        run: test -x src/ves && echo "ves built OK"
+
+  windows:
+    name: Windows (MSYS2/MinGW, post-quantum)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-openssl
+            mingw-w64-x86_64-curl
+            mingw-w64-x86_64-liboqs
+            autoconf automake libtool make
+      - name: Configure
+        run: ./configure
+      - name: Build
+        run: make
+      - name: Verify ves.exe built
+        run: test -x src/ves.exe && echo "ves.exe built OK"

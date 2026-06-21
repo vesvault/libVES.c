@@ -1,0 +1,13 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 🔒 Security vulnerability — do NOT open a public issue
+    url: https://github.com/vesvault/libVES.c/security/policy
+    about: >-
+      libVES.c is end-to-end encryption software. Report vulnerabilities privately
+      per SECURITY.md (email security@vesvault.com). Please do not file them here.
+  - name: 📖 Documentation & API reference
+    url: https://ves.host
+    about: VES docs, the libVES.c C API reference, and the ves(1) CLI reference.
+  - name: 💬 Hosted VESvault service — pricing, terms, domains, accounts
+    url: https://vesvault.com
+    about: Questions about the hosted service rather than the library or CLI.

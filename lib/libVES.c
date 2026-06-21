@@ -101,7 +101,7 @@ libVES *libVES_fromRef(libVES_Ref *ref) {
     ves->curl = NULL;
     ves->httpInitFn = NULL;
     ves->cipherAlgo = &libVES_CiAlgo_AES256GCM1K;
-    ves->keyAlgo = &libVES_KeyAlgo_ECDH;
+    ves->keyAlgo = libVES_VaultKey_defaultAlgo();
     ves->veskeyLen = LIBVES_VESKEY_LEN;
     ves->genVaultKeyFn = &libVES_defaultGenVaultKey;
     ves->attnFn = NULL;

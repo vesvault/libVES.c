@@ -6,3 +6,29 @@
 
 [10/20/2022] jz@vesvault.com:
     Experimental libOQS Post-quantum support
+
+[04/29/2026] jz@vesvault.com:
+    libVES.c 1.32 - deep key lookup in libVES_VaultKey_getVESkey()
+
+[05/29/2026] jz@vesvault.com:
+    libVES.c 1.33 / ves 1.07 - Post-quantum end to end: ML-KEM (FIPS 203)
+    key exchange via liboqs, autoPEM OQS detection, standard PEM/DER for
+    ML-KEM-512/768/1024, expanded testing suite
+
+[06/17/2026] jz@vesvault.com:
+    Relicensed the library and CLI from GPLv3 to Apache-2.0; added SECURITY.md
+    and the VESrecovery design / threat-model documentation (doc/VESrecovery.md,
+    doc/org-key-custody.md)
+
+[06/20/2026] jz@vesvault.com:
+    libVES.c 1.34 / ves 1.08 - Windows build support (MSYS2/MinGW); pkg-config
+    (libVES.pc); version derived from libVES.h; real-time event tracking in the
+    CLI (ves -W) and the libVES_Event C API
+
+[06/21/2026] jz@vesvault.com:
+    libVES.c 1.35 / ves 1.09 - Post-quantum by default. liboqs is now required
+    (configure fails without it; build --without-oqs to opt out), and newly
+    generated vault keys default to ML-KEM-768 (FIPS 203) instead of ECDH.
+    The default OQS parameter set moved from Kyber768 to ML-KEM-768 (Kyber768
+    was removed in libOQS 0.12). Classical-only builds default to ECDH.
+    Existing keys keep their own algorithm.

@@ -67,6 +67,14 @@ libVES_List_STATIC(libVES_VaultKey_algos, &libVES_algoListCtl, 3, &libVES_KeyAlg
 libVES_List_STATIC(libVES_VaultKey_algos, &libVES_algoListCtl, 2, &libVES_KeyAlgo_RSA, &libVES_KeyAlgo_ECDH);
 #endif
 
+const libVES_KeyAlgo *libVES_VaultKey_defaultAlgo() {
+#ifdef HAVE_LIBOQS
+    return &libVES_KeyAlgo_OQS;
+#else
+    return &libVES_KeyAlgo_ECDH;
+#endif
+}
+
 libVES_VaultKey *libVES_VaultKey_new(int type, const libVES_KeyAlgo *algo, void *pkey, libVES_veskey *veskey, libVES *ves) {
     if (!ves) return NULL;
     if (!algo || !algo->newfn) libVES_throw(ves, LIBVES_E_PARAM, "Invalid key algo", NULL);

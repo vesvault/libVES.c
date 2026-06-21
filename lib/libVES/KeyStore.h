@@ -58,7 +58,8 @@ typedef struct libVES_KeyStore {
     const struct libVES_KeyStore_api *api;
     void *store;
     void *ctl;
-    /* Key algo for the ephemeral e2ee exchange key. NULL = ECDH default. */
+    /* Key algo for the ephemeral e2ee exchange key. NULL = library default
+     * (ML-KEM if built with liboqs, else ECDH; libVES_VaultKey_defaultAlgo). */
     const struct libVES_KeyAlgo *keyAlgo;
 } libVES_KeyStore;
 

@@ -223,7 +223,7 @@ static int libVES_KeyStore_dialog_urlencode(const char *src, char *dst) {
 
 int libVES_KeyStore_dialog_import(libVES_KeyStore_dialog *dlg, long long key_id, char *sess, libVES_veskey *veskey, int maxlen, char *newentry) {
     if (!dlg->ks->dialogfn || !dlg->ks->dialogfn(dlg)) return 0;
-    const libVES_KeyAlgo *algo = dlg->ks->keyAlgo ? dlg->ks->keyAlgo : &libVES_KeyAlgo_ECDH;
+    const libVES_KeyAlgo *algo = dlg->ks->keyAlgo ? dlg->ks->keyAlgo : libVES_VaultKey_defaultAlgo();
     libVES_VaultKey *ekey = libVES_VaultKey_new(LIBVES_VK_TEMP, algo, NULL, NULL, dlg->ves);
     if (!ekey) return 0;
     char *pub = libVES_VaultKey_getPublicKey(ekey);

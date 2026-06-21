@@ -226,6 +226,9 @@ int libVES_VaultKey_post(libVES_VaultKey *vkey);
 int libVES_VaultKey_typeFromStr(const char *str);
 const char *libVES_VaultKey_typeStr(int type);
 const libVES_KeyAlgo *libVES_VaultKey_algoFromStr(const char *str);
+/* The library default key algorithm for newly generated vault keys:
+ * post-quantum ML-KEM when built with liboqs, otherwise ECDH. */
+const libVES_KeyAlgo *libVES_VaultKey_defaultAlgo(void);
 #define libVES_VaultKey_algoStr(algo)		((algo) ? (algo)->str : NULL)
 #define libVES_VaultKey_getId(vkey)		((vkey) ? (vkey)->id : 0)
 #define libVES_VaultKey_getType(vkey)		((vkey) ? (vkey)->type : -1)

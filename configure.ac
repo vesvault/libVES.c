@@ -25,11 +25,15 @@ AC_PROG_LIBTOOL
 AC_PROG_RANLIB
 
 # Checks for libraries.
+# Post-quantum support via liboqs (ML-KEM / FIPS 203) is REQUIRED by default:
+# configure fails if liboqs is not found. Pass --without-oqs to build a
+# classical-only library (not recommended; loses harvest-now-decrypt-later
+# protection for newly generated keys).
 AC_ARG_WITH([oqs],
-    [AS_HELP_STRING([--with-oqs],
-          [enable support for liboqs])],
+    [AS_HELP_STRING([--without-oqs],
+          [build without post-quantum support (liboqs); not recommended])],
     [],
-    [])
+    [with_oqs=yes])
 LIBOQS=
 AC_SUBST([LIBOQS])
     AS_IF([test "x$with_oqs" != xno],
@@ -39,8 +43,11 @@ AC_SUBST([LIBOQS])
                     [Define if you have liboqs])
 		AM_CONDITIONAL([HAVE_LIBOQS], [test 1])
             ],
-            [AS_IF([test "x$with_oqs" == x], [AM_CONDITIONAL([HAVE_LIBOQS], [test])], [AC_MSG_FAILURE(
-                [--with-oqs was given, but test for liboqs failed])])],
+            [AC_MSG_FAILURE([
+liboqs was not found, but post-quantum support is enabled by default.
+Install liboqs from https://github.com/open-quantum-safe/liboqs -- it is also
+packaged by Homebrew, MSYS2, Fedora and Arch -- then re-run configure.
+To build a classical-only library instead, re-run with --without-oqs.])],
             [-lcrypto]
         )],
 	[AM_CONDITIONAL([HAVE_LIBOQS], [test])]

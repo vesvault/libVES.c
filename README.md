@@ -16,6 +16,11 @@
 
 # libVES.c
 
+[![CI](https://github.com/vesvault/libVES.c/actions/workflows/ci.yml/badge.svg)](https://github.com/vesvault/libVES.c/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/vesvault/libVES.c)](https://github.com/vesvault/libVES.c/releases)
+[![License](https://img.shields.io/github/license/vesvault/libVES.c)](LICENSE)
+![Platforms](https://img.shields.io/badge/platforms-Linux%20%7C%20macOS%20%7C%20Windows-blue)
+
 **End-to-end encryption you can actually recover from.**
 
 `libVES.c` is the C implementation of the VESvault API library, plus **`ves`**, a
@@ -128,12 +133,15 @@ Requirements:
 
 - **OpenSSL** — `libcrypto` + `openssl/*.h` (<https://www.openssl.org/source/>)
 - **cURL** — `libcurl` + `curl/*.h` (<https://curl.se/download.html>)
-- **liboqs** *(optional)* — post-quantum KEMs (<https://github.com/open-quantum-safe/liboqs>)
+- **liboqs** — post-quantum KEMs, **required by default** (<https://github.com/open-quantum-safe/liboqs>).
+  Packaged by Homebrew (`brew install liboqs`), MSYS2, Fedora and Arch; on Debian/Ubuntu,
+  [build it from source](https://github.com/open-quantum-safe/liboqs#quickstart). Pass
+  `--without-oqs` to build a classical-only library (not recommended — see [Post-quantum](#post-quantum)).
 
 GNU build:
 
 ```sh
-./configure [--with-oqs]
+./configure              # add --without-oqs to build without liboqs (not recommended)
 make
 sudo make install      # installs libVES.so*, libVES.a, libVES.h, libVES/*.h, and ves
 ```
@@ -143,8 +151,8 @@ From the **MSYS2 MinGW 64-bit** shell, install the dependencies and build:
 
 ```sh
 pacman -S --needed mingw-w64-x86_64-gcc mingw-w64-x86_64-openssl \
-    mingw-w64-x86_64-curl autoconf automake libtool make
-./configure [--with-oqs]
+    mingw-w64-x86_64-curl mingw-w64-x86_64-liboqs autoconf automake libtool make
+./configure
 make
 make install          # installs libVES.dll, libVES.a, libVES.h, and ves.exe
 ```
@@ -156,10 +164,15 @@ Docker: a `Dockerfile` is included. See [`INSTALL`](INSTALL) for complete instru
 
 ## Post-quantum
 
-Build with `--with-oqs` to enable post-quantum key exchange (ML-KEM / Kyber and other
-KEMs via liboqs). List the key algorithms available in your build with `ves -Gl`. This
-matters today: "harvest now, decrypt later" means data exchanged with classical-only
-keys can be captured now and broken once quantum hardware arrives.
+Post-quantum key exchange is **on by default**. libVES links liboqs and uses **ML-KEM**
+(FIPS 203) — the default parameter set is ML-KEM-768. List the key algorithms available in
+your build with `ves -Gl`. This matters today: "harvest now, decrypt later" means data
+exchanged with classical-only keys can be captured now and broken once quantum hardware
+arrives, so we'd rather you have to opt *out* than remember to opt in.
+
+You can build a classical-only library with `./configure --without-oqs` (it still
+interoperates — keys carry their own algorithm — but newly generated keys won't be
+post-quantum). Existing classical keys keep working either way.
 
 ## Real-time events
 

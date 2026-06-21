@@ -1,0 +1,65 @@
+name: Bug report
+description: A reproducible problem in the libVES.c library or the ves CLI.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. **Do not use this form for security
+        vulnerabilities** — follow [SECURITY.md](../security/policy) instead.
+  - type: checkboxes
+    id: not-security
+    attributes:
+      label: Confirmation
+      options:
+        - label: This is not a security/cryptography vulnerability (those go to security@vesvault.com).
+          required: true
+        - label: I searched existing issues and didn't find a duplicate.
+          required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what actually happened.
+      placeholder: A clear description of the bug.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Exact `ves` commands or a minimal C snippet. Redact any real VESkeys, tokens, or private keys.
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `ves -V`, or the libVES.c commit/tag you built from.
+      placeholder: "ves/1.08 (libVES.c 1.34)  —  or commit abc1234"
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Linux
+        - macOS
+        - Windows (MSYS2/MinGW)
+        - Other (describe below)
+    validations:
+      required: true
+  - type: input
+    id: build-options
+    attributes:
+      label: Build options & dependency versions
+      description: Any non-default `./configure` flags (e.g. `--without-oqs`), and OpenSSL/cURL/liboqs versions.
+      placeholder: "default build; OpenSSL 3.x; cURL 8.x; liboqs 0.15"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / output
+      description: Relevant error output. A build with DEBUG defined helps for runtime issues.
+      render: shell
