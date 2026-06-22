@@ -68,6 +68,24 @@ LIBVES_KEYSTORE=
 	[AM_CONDITIONAL([LIBVES_KEYSTORE], [test])]
     )
 
+# The keystore static archive is folded whole into the shared library so its
+# symbols (libVES_KeyStore_cli etc.) get exported. GNU ld spells this
+# --whole-archive/--no-whole-archive; the macOS (ld64/cctools) linker does not
+# understand those options and uses -force_load <archive> instead.
+AC_CANONICAL_HOST
+case "$host_os" in
+    darwin*)
+	WHOLE_ARCHIVE_BEGIN="-Wl,-force_load,"
+	WHOLE_ARCHIVE_END=""
+	;;
+    *)
+	WHOLE_ARCHIVE_BEGIN="-Wl,--whole-archive,"
+	WHOLE_ARCHIVE_END=",--no-whole-archive"
+	;;
+esac
+AC_SUBST([WHOLE_ARCHIVE_BEGIN])
+AC_SUBST([WHOLE_ARCHIVE_END])
+
 
 
 # Checks for header files.

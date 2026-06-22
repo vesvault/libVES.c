@@ -66,7 +66,9 @@ libVES_la_LIBADD = -lcrypto -lcurl $(LIBOQS)
 # below (a shared-link step) never runs -> libVES_KeyStore_cli stays undefined.
 libVES_la_LDFLAGS = -version-info 1:0:0 -no-undefined
 if LIBVES_KEYSTORE
-libVES_la_LDFLAGS += -Wl,--whole-archive,KeyStore/$(LIBVES_KEYSTORE)/libVES_KeyStore_$(LIBVES_KEYSTORE).a,--no-whole-archive
+# WHOLE_ARCHIVE_BEGIN/END are set by configure per host: GNU ld uses
+# --whole-archive/--no-whole-archive, the macOS ld64 linker uses -force_load.
+libVES_la_LDFLAGS += $(WHOLE_ARCHIVE_BEGIN)KeyStore/$(LIBVES_KEYSTORE)/libVES_KeyStore_$(LIBVES_KEYSTORE).a$(WHOLE_ARCHIVE_END)
 EXTRA_libVES_la_DEPENDENCIES = KeyStore/$(LIBVES_KEYSTORE)/libVES_KeyStore_$(LIBVES_KEYSTORE).a
 endif
 

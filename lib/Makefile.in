@@ -93,7 +93,9 @@ build_triplet = @build@
 host_triplet = @host@
 @HAVE_LIBOQS_TRUE@am__append_1 = libVES/KeyAlgo_OQS.c
 @HAVE_LIBOQS_TRUE@am__append_2 = libVES/KeyAlgo_OQS.h
-@LIBVES_KEYSTORE_TRUE@am__append_3 = -Wl,--whole-archive,KeyStore/$(LIBVES_KEYSTORE)/libVES_KeyStore_$(LIBVES_KEYSTORE).a,--no-whole-archive
+# WHOLE_ARCHIVE_BEGIN/END are set by configure per host: GNU ld uses
+# --whole-archive/--no-whole-archive, the macOS ld64 linker uses -force_load.
+@LIBVES_KEYSTORE_TRUE@am__append_3 = $(WHOLE_ARCHIVE_BEGIN)KeyStore/$(LIBVES_KEYSTORE)/libVES_KeyStore_$(LIBVES_KEYSTORE).a$(WHOLE_ARCHIVE_END)
 subdir = lib
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.ac
@@ -362,6 +364,8 @@ SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
 VERSION = @VERSION@
+WHOLE_ARCHIVE_BEGIN = @WHOLE_ARCHIVE_BEGIN@
+WHOLE_ARCHIVE_END = @WHOLE_ARCHIVE_END@
 abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
