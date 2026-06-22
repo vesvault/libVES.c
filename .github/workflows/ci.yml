@@ -71,7 +71,13 @@ jobs:
         run: |
           OPENSSL_PREFIX="$(brew --prefix openssl@3)"
           OQS_PREFIX="$(brew --prefix liboqs)"
+          # Install into /usr/local, not the autoconf default /usr (a Linux
+          # packaging default). A dylib whose install_name is under /usr/lib is
+          # treated as dyld-shared-cache eligible by recent ld and then refuses
+          # to link against Homebrew's (ineligible) libcrypto/liboqs. Nobody
+          # installs to /usr on macOS anyway (SIP); Homebrew uses its own prefix.
           ./configure \
+            --prefix=/usr/local \
             CPPFLAGS="-I$OPENSSL_PREFIX/include -I$OQS_PREFIX/include" \
             LDFLAGS="-L$OPENSSL_PREFIX/lib -L$OQS_PREFIX/lib"
       - name: Build
