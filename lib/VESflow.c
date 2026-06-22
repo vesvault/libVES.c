@@ -199,15 +199,16 @@ static VESflow_KeyAlgo *VESflow_algos[] = { &VESflow_KeyAlgo_EC, NULL };
 
 VESflow *VESflow_new(const char *name, const char *url) {
     if (!name) name = VESFLOW_DEFAULTNAME;
-    VESflow *flow = malloc(sizeof(VESflow) + strlen(name) + (url ? strlen(url) + 1 : 0));
-    strcpy(flow->name, name);
+    size_t namel = strlen(name);
+    VESflow *flow = malloc(sizeof(VESflow) + namel + (url ? strlen(url) + 1 : 0));
+    memcpy(flow->name, name, namel + 1);
     flow->ks = NULL;
     flow->keys = NULL;
     flow->defaultAlgo = VESFLOW_DEFAULTALGO;
     flow->escapemap = VESflow_escapemap;
     if (url) {
-        char *d = flow->name + strlen(flow->name) + 1;
-        strcpy(d, url);
+        char *d = flow->name + namel + 1;
+        memcpy(d, url, strlen(url) + 1);
         flow->url = d;
     } else flow->url = NULL;
     return flow;
@@ -263,8 +264,9 @@ static jVar *VESflow_priv2pub(jVar *jpriv) {
 }
 
 static jVar *VESflow_appendKey(VESflow *flow, const char *ref, int type, jVar *jkey) {
-    struct VESflow_KeyEntry *k = malloc(sizeof(struct VESflow_KeyEntry) + strlen(ref) + 1);
-    strcpy(k->ref, ref);
+    size_t refl = strlen(ref);
+    struct VESflow_KeyEntry *k = malloc(sizeof(struct VESflow_KeyEntry) + refl + 1);
+    memcpy(k->ref, ref, refl + 1);
     k->key = jkey;
     k->type = type;
     k->chain = flow->keys;
@@ -429,16 +431,18 @@ int VESflow_send(VESflow *flow, const char *url, char **rwurl, jVar *data) {
     if (flow->url) jVar_put(msg, "url", jVar_string(flow->url));
     char *json = jVar_toJSON(msg);
     jVar_free(msg);
-    int urll = strlen(url);
-    int jsonl = strlen(json);
-    if (!*rwurl) *rwurl = malloc(3 * jsonl + urll + strlen(flow->name) + 16);
+    size_t urll = strlen(url);
+    size_t jsonl = strlen(json);
+    size_t namel = strlen(flow->name);
+    if (!*rwurl) *rwurl = malloc(3 * jsonl + urll + namel + 16);
     char *d = *rwurl;
-    strcpy(d, url);
+    memcpy(d, url, urll + 1);
     d += urll;
     *d++ = strchr(url, '#') ? '&' : '#';
     memcpy(d, VESflow_prefix, sizeof(VESflow_prefix));
     d += sizeof(VESflow_prefix);
-    d += strlen(strcpy(d, flow->name));
+    memcpy(d, flow->name, namel + 1);
+    d += namel;
     *d++ = '=';
     d += VESflow_urlencode(flow, json, jsonl, d);
     *d = 0;
@@ -475,7 +479,7 @@ int VESflow_recv(VESflow *flow, const char *url, char **rwurl, jVar **pdata, con
             d += (s0 - url);
             if (*e) {
                 *d++ = *s0;
-                strcpy(d, e + 1);
+                memcpy(d, e + 1, strlen(e + 1) + 1);
             } else *d = 0;
         }
         jVar *jpub = jVar_get(msg, "key");
