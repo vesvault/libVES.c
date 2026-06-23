@@ -32,7 +32,7 @@
     <text x="560" y="250" fill="#00E676" font-size="92" font-weight="700"
           font-family="'DejaVu Sans Mono', 'Consolas', monospace">libVES.c</text>
 
-    <text x="562" y="330" fill="#FFFFFF" font-size="40" font-weight="600">End-to-end encryption</text>
+    <text x="562" y="330" fill="#FFFFFF" font-size="40" font-weight="600">End-to-end encryption at rest</text>
     <text x="562" y="380" fill="#FFFFFF" font-size="40" font-weight="600">you can actually recover from.</text>
 
     <text x="562" y="452" fill="#9AA0A6" font-size="27">C library + CLI &#183; key management, sharing,</text>

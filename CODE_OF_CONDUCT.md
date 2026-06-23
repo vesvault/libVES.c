@@ -15,7 +15,4 @@ professional in issues, pull requests, and all other project spaces.
 To report unacceptable behavior, contact the maintainers at
 **conduct@vesvault.com**. Reports will be reviewed and handled confidentially.
 
-> Maintainers: confirm this inbox is monitored, or change it to a real address
-> before publishing.
-
 Enforcement follows the Contributor Covenant's guidelines, linked above.
