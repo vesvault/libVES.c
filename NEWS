@@ -32,3 +32,14 @@
     The default OQS parameter set moved from Kyber768 to ML-KEM-768 (Kyber768
     was removed in libOQS 0.12). Classical-only builds default to ECDH.
     Existing keys keep their own algorithm.
+
+[08/04/2026] jz@vesvault.com:
+    libVES.c 1.36 / ves 1.10 - Docker images are built and published from CI
+    as vesvault/ves (the ves CLI) and vesvault/ves:dev (toolchain, headers
+    and pkg-config, for building against libVES). The image now builds liboqs
+    from a pinned source release; it used to copy it out of an abandoned 2023
+    image carrying a liboqs too old for ML-KEM, so the published image had no
+    working post-quantum path at all. configure --with-oqs-algo=ALGO selects
+    the KEM used for newly generated vault keys and verifies that the
+    installed liboqs provides it, at configure time and again at compile
+    time, instead of failing at every key generation.

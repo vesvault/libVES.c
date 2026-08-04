@@ -1,0 +1,42 @@
+# The build stage runs ./configure && make inside the image, so keep a host
+# build tree (autotools/libtool output, objects, a host-arch ves binary) out
+# of the context -- stale artifacts otherwise shadow the in-image build.
+#
+# Patterns here are matched against the whole context-relative path, so the
+# recursive ones need an explicit **/ -- a bare *.o would only match at the
+# context root and would miss lib/*.o.
+.git
+.github
+
+# Autotools generated files (the tracked configure/*.in inputs are kept)
+Makefile
+lib/Makefile
+src/Makefile
+libVES.pc
+autom4te.cache
+config.log
+config.status
+configure~
+src/config.h
+src/config.h.in~
+src/stamp-h1
+
+# Libtool
+libtool
+**/*.la
+**/*.lai
+**/*.lo
+**/.libs
+**/.deps
+**/.dirstamp
+
+# Object files and archives
+**/*.o
+**/*.a
+
+# Built CLI executable
+src/ves
+src/ves.exe
+
+# Release tarballs
+*.tar.gz

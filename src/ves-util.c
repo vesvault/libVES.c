@@ -87,6 +87,7 @@ struct param_st params = {
     .dump = {.width = 16, .col = 4, .detect = 1},
     .apiUrl = NULL,
     .wwwUrl = NULL,
+    .pollUrl = NULL,
     .itemType = -1,
     .keyAlgo = NULL,
     .watch = {.startId = 0, .count = -1, .follow = 0, .timeout = 0},
@@ -107,10 +108,10 @@ int main(int argc, char **argv) {
     char *arg = NULL;
     enum { o_null, o_error, o_data, o_help, o_ver, o_a, o_o, o_x, o_explore, o_v, o_q, o_s, o_r, o_setshare, o_apiurl, o_l, o_i,
 	o_delete, o_f, o_fd, o_ptext, o_ctext, o_p, o_e, o_d, o_c, o_m, o_z, o_k, o_force, o_token, o_priv, o_pub, o_u, o_g,
-	o_keyalgo, o_lock, o_pri, o_new, o_rekey, o_propagate, o_manual, o_keystore, o_wwwurl, o_watch } op = o_null;
+	o_keyalgo, o_lock, o_pri, o_new, o_rekey, o_propagate, o_manual, o_keystore, o_wwwurl, o_pollurl, o_watch } op = o_null;
     const struct { char op; char *argw; } argwords[] = {
 	{o_a, "account"}, {o_o, "vault-item"}, {o_o, "object"}, {o_x, "debug"}, {o_help, "help"}, {o_p, "print"}, {o_v, "veskey"},
-	{o_v, "VESkey"}, {o_q, "quiet"}, {o_s, "share"}, {o_r, "unshare"}, {o_setshare, "set-share"}, {o_apiurl, "api-url"}, {o_wwwurl, "www-url"}, {o_l, "list"}, {o_i, "item"}, {o_m, "meta"},
+	{o_v, "VESkey"}, {o_q, "quiet"}, {o_s, "share"}, {o_r, "unshare"}, {o_setshare, "set-share"}, {o_apiurl, "api-url"}, {o_wwwurl, "www-url"}, {o_pollurl, "poll-url"}, {o_l, "list"}, {o_i, "item"}, {o_m, "meta"},
 	{o_delete, "delete"}, {o_f, "file"}, {o_fd, "fd"}, {o_ptext, "plaintext"}, {o_ctext, "ciphertext"}, {o_explore, "explore"},
 	{o_e, "encrypt"}, {o_d, "decrypt"}, {o_c, "cipher"}, {o_z, "cipher-meta"}, {o_k, "vault-key"}, {o_u, "unlock"},
 	{o_force, "force"}, {o_token, "token"}, {o_priv, "private-key"}, {o_pub, "public-key"}, {o_g, "generate"},
@@ -374,6 +375,9 @@ int main(int argc, char **argv) {
 		    case o_wwwurl:
 			in.ptr = (void **) &params.wwwUrl;
 			break;
+		    case o_pollurl:
+			in.ptr = (void **) &params.pollUrl;
+			break;
 		    case o_i:
 			in.ptr = (void **) &params.value;
 			in.flags |= PF_VI_WR;
@@ -525,6 +529,7 @@ int main(int argc, char **argv) {
     if (params.debug > 0) ctx.ves->debug = params.debug;
     if (params.apiUrl) libVES_setOption(ctx.ves, LIBVES_O_APIURL, params.apiUrl);
     if (params.wwwUrl) libVES_setOption(ctx.ves, LIBVES_O_WWWURL, params.wwwUrl);
+    if (params.pollUrl) libVES_setOption(ctx.ves, LIBVES_O_POLLURL, params.pollUrl);
     ctx.ves->genVaultKeyFn = &hook_genVaultKey;
     if (params.token) libVES_setSessionToken(ctx.ves, params.token);
     if (params.primary) {

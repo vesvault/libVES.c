@@ -160,7 +160,25 @@ make install          # installs libVES.dll, libVES.a, libVES.h, and ves.exe
 > If libcurl on Windows reports an SSL peer-certificate error, copy `etc/curl-ca-bundle.crt`
 > next to `ves.exe` (or fetch the latest from <https://curl.se/ca/cacert.pem>).
 
-Docker: a `Dockerfile` is included. See [`INSTALL`](INSTALL) for complete instructions.
+Docker:
+
+```sh
+docker run --rm vesvault/ves --version          # the ves(1) CLI
+docker build -t ves .                           # or build it yourself
+docker build --target dev -t ves-dev .          # toolchain + headers, to build against libVES
+```
+
+The `dev` image carries gcc, pkg-config and both header sets, so a project built on
+top of libVES needs only `pkg-config --cflags --libs libVES`:
+
+```dockerfile
+FROM vesvault/ves:dev
+COPY . /src
+RUN cd /src && gcc -o myapp myapp.c $(pkg-config --cflags --libs libVES)
+```
+
+The `Dockerfile` builds liboqs from source at the version pinned in `LIBOQS_VERSION`,
+since liboqs is not packaged on Debian/Ubuntu.
 
 ## Post-quantum
 

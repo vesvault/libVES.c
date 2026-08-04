@@ -47,7 +47,18 @@ extern const struct libVES_KeyAlgo libVES_KeyAlgo_OQS;
 /* FIPS 203 standardized parameter set. Must match a libOQS algorithm
  * identifier; "Kyber768" was removed in libOQS 0.12 in favor of "ML-KEM-768".
  * Existing keys carry their own algorithm in the stored method string, so this
- * default only affects newly generated keys. */
+ * default only affects newly generated keys.
+ *
+ * configure --with-oqs-algo=ALGO overrides it via LIBVES_KEYALGO_OQS_DEFAULT
+ * in config.h, and verifies the choice against the installed liboqs. config.h
+ * is not installed, so a consumer including this header out of includedir sees
+ * the built-in default; the value that matters is the one KeyAlgo_OQS.c was
+ * compiled with. Keep the literal below in sync with the fallback #error in
+ * KeyAlgo_OQS.c. */
+#ifdef LIBVES_KEYALGO_OQS_DEFAULT
+#define libVES_KeyAlgo_OQS_defaultAlgo		LIBVES_KEYALGO_OQS_DEFAULT
+#else
 #define libVES_KeyAlgo_OQS_defaultAlgo		"ML-KEM-768"
+#endif
 
 #define libVES_KeyAlgo_OQS_OID			"1.3.6.1.4.1.53675.3.5"

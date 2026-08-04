@@ -53,6 +53,59 @@ To build a classical-only library instead, re-run with --without-oqs.])],
 	[AM_CONDITIONAL([HAVE_LIBOQS], [test])]
     )
 
+# The KEM used for newly generated OQS vault keys. It has to be an algorithm
+# the linked liboqs actually compiled in: liboqs before 0.10 has no ML-KEM at
+# all (it spells these sets "Kyber*"), and a trimmed liboqs can omit whole
+# families. Neither shows up until key generation fails at runtime, so fail
+# here instead -- lib/libVES/KeyAlgo_OQS.c repeats the check at compile time.
+# Existing keys carry their own algorithm in the stored method string, so this
+# only affects newly generated ones.
+AC_ARG_WITH([oqs-algo],
+    [AS_HELP_STRING([--with-oqs-algo=ALGO],
+	  [liboqs KEM for newly generated vault keys @<:@default=ML-KEM-768@:>@])],
+    [],
+    [with_oqs_algo=ML-KEM-768])
+    AS_IF([test "x$with_oqs" != xno],
+	[
+	    # liboqs pairs each algorithm's identifier macro OQS_KEM_alg_<token>
+	    # with an OQS_ENABLE_KEM_<token>, where <token> is the identifier
+	    # lowercased with '-' turned into '_' ("ML-KEM-768" -> ml_kem_768).
+	    oqs_algo_token=`echo "$with_oqs_algo" | tr 'ABCDEFGHIJKLMNOPQRSTUVWXYZ-' 'abcdefghijklmnopqrstuvwxyz_'`
+	    AC_MSG_CHECKING([whether liboqs provides $with_oqs_algo])
+	    AC_COMPILE_IFELSE(
+		[AC_LANG_SOURCE([[
+#include <oqs/oqs.h>
+#if !defined(OQS_ENABLE_KEM_]$oqs_algo_token[)
+#error algorithm not enabled in this liboqs build
+#endif
+/* Also proves the token names an algorithm this liboqs knows. */
+const char *libves_oqs_algo_check = OQS_KEM_alg_]$oqs_algo_token[;
+		]])],
+		[AC_MSG_RESULT([yes])
+		    AC_DEFINE_UNQUOTED([LIBVES_KEYALGO_OQS_DEFAULT], ["$with_oqs_algo"],
+			[liboqs KEM for newly generated vault keys])
+		    AC_DEFINE_UNQUOTED([LIBVES_KEYALGO_OQS_DEFAULT_ENABLE], [OQS_ENABLE_KEM_$oqs_algo_token],
+			[liboqs enable macro for LIBVES_KEYALGO_OQS_DEFAULT, rechecked at compile time])
+		],
+		[AC_MSG_RESULT([no])
+		    AC_MSG_FAILURE([
+The installed liboqs does not provide $with_oqs_algo -- OQS_ENABLE_KEM_$oqs_algo_token
+is not set in <oqs/oqsconfig.h>.
+
+Most often this means liboqs is too old: ML-KEM (FIPS 203) arrived in liboqs
+0.10, and libVES additionally wants 0.13 or newer for seed-based key import.
+It can also mean liboqs was built with this algorithm family switched off.
+
+Upgrade or rebuild liboqs, or pick a different set with --with-oqs-algo=ALGO,
+naming it exactly as liboqs does (see the OQS_KEM_alg_* macros in
+<oqs/kem.h>). Note that ALGO is mapped to the enable macro by lowercasing and
+turning '-' into '_', which holds for ML-KEM but not for every family.
+
+To build a classical-only library instead, re-run with --without-oqs.])]
+	    )
+	]
+    )
+
 AC_ARG_WITH([keystore],
     [AS_HELP_STRING([--with-keystore],
           [build with a keystore module from lib/KeyStore])],

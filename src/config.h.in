@@ -83,6 +83,13 @@
 /* Define to 1 if you have the <windows.h> header file. */
 #undef HAVE_WINDOWS_H
 
+/* liboqs KEM for newly generated vault keys */
+#undef LIBVES_KEYALGO_OQS_DEFAULT
+
+/* liboqs enable macro for LIBVES_KEYALGO_OQS_DEFAULT, rechecked at compile
+   time */
+#undef LIBVES_KEYALGO_OQS_DEFAULT_ENABLE
+
 /* Define the keystore module from lib/KeyStore */
 #undef LIBVES_KEYSTORE
 

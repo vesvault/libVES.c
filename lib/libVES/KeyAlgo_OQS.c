@@ -33,6 +33,10 @@
  * libVES/KeyAlgo_OQS.c       libVES: Vault Key algorithms via libOQS
  *
  ***************************************************************************/
+/* For LIBVES_KEYALGO_OQS_DEFAULT[_ENABLE] from --with-oqs-algo; must precede
+ * both the liboqs guard below and KeyAlgo_OQS.h. */
+#include "config.h"
+
 #include <sys/types.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -50,6 +54,27 @@
 #include <openssl/asn1t.h>
 #include <oqs/kem.h>
 #include <oqs/oqsconfig.h>
+
+/* The default parameter set has to be compiled into the liboqs being linked,
+ * or every newly generated vault key fails at runtime with "libOQS does not
+ * support this ML-KEM parameter set". liboqs before 0.10 has no ML-KEM at all
+ * (it spells these sets "Kyber*") and a trimmed liboqs can omit whole
+ * families, so refuse to build rather than ship that.
+ *
+ * configure checks this as well; the guard here also covers builds that never
+ * ran configure, and catches a config.h left stale against a rebuilt liboqs.
+ * LIBVES_KEYALGO_OQS_DEFAULT_ENABLE expands to liboqs' OQS_ENABLE_KEM_* macro
+ * for the configured default. liboqs defines those as 1, and an identifier
+ * that is not defined evaluates to 0 in #if, so "!= 1" catches both the
+ * disabled and the absent case. */
+#ifdef LIBVES_KEYALGO_OQS_DEFAULT_ENABLE
+#if LIBVES_KEYALGO_OQS_DEFAULT_ENABLE != 1
+#error The installed liboqs does not provide the KEM selected by --with-oqs-algo. Upgrade liboqs (ML-KEM needs 0.10+, seed import 0.13+), rebuild it with that algorithm enabled, or pick another with --with-oqs-algo.
+#endif
+#elif !defined(OQS_ENABLE_KEM_ml_kem_768)
+/* No config.h: guard the built-in default from KeyAlgo_OQS.h. */
+#error The installed liboqs does not provide ML-KEM-768, the default vault key algorithm. It is too old (ML-KEM needs liboqs 0.10+, and libVES wants 0.13+ for seed-based key import) or was built without ML-KEM. Upgrade liboqs, or run configure --with-oqs-algo=ALGO to select an algorithm it does provide.
+#endif
 
 /* OQS_KEM_keypair_derand and kem->length_keypair_seed appear in libOQS 0.13.0.
  * Older builds skip the seed CHOICE code path and return an error at runtime. */

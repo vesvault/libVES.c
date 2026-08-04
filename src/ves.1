@@ -255,6 +255,19 @@ only.  May be used with
 .B \-o
 without authentication to check whether a Vault Item exists, by exit code.
 .TP
+\fB\-\-api\-url\fP \fIURL\fP
+Override the VES API endpoint.  Default \fBhttps://api.ves.host/v1/\fP.
+.TP
+\fB\-\-poll\-url\fP \fIURL\fP
+Override the endpoint used for long\-poll requests, as issued by
+.B \-W
+in follow mode.  Requests that do not long\-poll continue to use the
+\fB\-\-api\-url\fP endpoint.  Default \fBhttps://poll.ves.host/v1/\fP.
+.TP
+\fB\-\-www\-url\fP \fIURL\fP
+Override the base URL that user\-facing links are resolved against.
+Default \fBhttps://www.vesvault.com/\fP.
+.TP
 \fB\-V\fP, \fB\-\-version\fP
 Print version information and exit.
 .TP

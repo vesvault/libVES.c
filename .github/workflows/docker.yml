@@ -1,0 +1,204 @@
+name: Docker
+
+# Builds the Dockerfile, and on a version tag publishes it as vesvault/ves --
+# the name the image has always had on Docker Hub (the CLI is `ves`; the repo
+# is libVES.c). Two images per release:
+#
+#   vesvault/ves:<version>      runtime -- the ves(1) CLI, ~107 MB
+#   vesvault/ves:<version>-dev  toolchain + headers, for building against libVES
+#
+# The `build` job runs on every push/PR and does NOT publish. That part matters
+# on its own: nothing in CI ever exercised the Dockerfile before, which is how
+# it sat for years pinned to an abandoned liboqs image (~0.8) that was too old
+# for the ML-KEM identifiers KeyAlgo_OQS.c passes to OQS_KEM_new. It built
+# fine and `ves` ran, so the dead post-quantum path never surfaced. The smoke
+# test below resolves ML-KEM through the built image so that failure mode
+# cannot come back silently.
+#
+# Registries: GHCR always (GITHUB_TOKEN covers it, no setup). Docker Hub only
+# once DOCKERHUB_USERNAME / DOCKERHUB_TOKEN exist as repository secrets --
+# until then those tags are skipped rather than failing the release.
+
+on:
+  push:
+    branches: [ master ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Single-platform on purpose. liboqs is a ~10 minute native compile, so
+  # linux/arm64 under QEMU is painfully slow; the right way to add it is a
+  # matrix over native runners (ubuntu-latest + ubuntu-24.04-arm) building by
+  # digest, then a manifest-merge job. Add "linux/arm64" here only with that.
+  PLATFORMS: linux/amd64
+
+jobs:
+  build:
+    name: Build image (no publish)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # load: true keeps the result in the local daemon so the smoke tests can
+      # run it. That requires a single platform, which is what PLATFORMS is.
+      - name: Build runtime image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: libves:ci
+          # Distinct scopes: two builds sharing the default scope would each
+          # overwrite the other's cache manifest on export.
+          cache-from: type=gha,scope=runtime
+          cache-to: type=gha,mode=max,scope=runtime
+
+      - name: Build dev image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: dev
+          load: true
+          tags: libves:ci-dev
+          cache-from: type=gha,scope=dev
+          cache-to: type=gha,mode=max,scope=dev
+
+      # A build that succeeds proves nothing about the post-quantum path -- the
+      # old liboqs pin compiled cleanly and still had no working ML-KEM. Assert
+      # the CLI runs and that libVES actually surfaces the three ML-KEM sets.
+      - name: Smoke test runtime image
+        run: |
+          docker run --rm libves:ci --version
+          docker run --rm --entrypoint ldd libves:ci /usr/bin/ves | grep -q liboqs
+
+      - name: Smoke test dev image (build against libVES via pkg-config)
+        run: |
+          cat > /tmp/probe.c <<'EOF'
+          #include <stdio.h>
+          #include <string.h>
+          #include <libVES.h>
+          #include <libVES/VaultKey.h>
+          #include <libVES/KeyAlgo_OQS.h>
+          int main(void) {
+              const libVES_KeyAlgo *algo = &libVES_KeyAlgo_OQS;
+              char buf[128];
+              int mlkem = 0;
+              for (int i = 0; i < 256; i++) {
+                  int l = libVES_KeyAlgo_methodstr(algo, buf, sizeof(buf), i);
+                  if (l < 0) break;
+                  if (l > 0 && !strncmp(buf, "ML-KEM", 6)) mlkem++;
+              }
+              printf("ML-KEM parameter sets via libVES: %d\n", mlkem);
+              return mlkem == 3 ? 0 : 1;
+          }
+          EOF
+          docker run --rm -v /tmp/probe.c:/src/probe.c:ro libves:ci-dev \
+            sh -c 'cd /src && gcc -Wall -o /tmp/probe probe.c $(pkg-config --cflags --libs libVES) && /tmp/probe'
+
+  publish:
+    name: Publish vesvault/ves
+    # Only version tags publish. master pushes and PRs stop at `build`.
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # `secrets` is not available to job-level `if:`, so the Docker Hub gate
+      # is resolved here and consumed by the steps below.
+      - name: Check whether Docker Hub is configured
+        id: hub
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          if [ -n "$DOCKERHUB_USERNAME" ] && [ -n "$DOCKERHUB_TOKEN" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::DOCKERHUB_USERNAME/DOCKERHUB_TOKEN not set -- publishing to GHCR only, docker.io/vesvault/ves will not be updated."
+          fi
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        if: steps.hub.outputs.enabled == 'true'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Tag v1.35 -> 1.35, 1.35 (major.minor), latest.
+      - name: Tags for the runtime image
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ghcr.io/${{ github.repository_owner }}/ves
+            name=docker.io/vesvault/ves,enable=${{ steps.hub.outputs.enabled == 'true' }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+          labels: |
+            org.opencontainers.image.title=ves
+            org.opencontainers.image.description=libVES + VES CLI: Simple, Safe and Secure Encryption At-rest
+
+      # Same versions, -dev suffix, plus a floating `dev`. latest=false so the
+      # dev image never claims :latest.
+      - name: Tags for the dev image
+        id: meta-dev
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ghcr.io/${{ github.repository_owner }}/ves
+            name=docker.io/vesvault/ves,enable=${{ steps.hub.outputs.enabled == 'true' }}
+          flavor: latest=false
+          tags: |
+            type=semver,pattern={{version}},suffix=-dev
+            type=semver,pattern={{major}}.{{minor}},suffix=-dev
+            type=raw,value=dev
+          labels: |
+            org.opencontainers.image.title=ves (dev)
+            org.opencontainers.image.description=libVES build environment: toolchain, headers and pkg-config for building against libVES
+
+      # provenance: false keeps a plain single-platform manifest. The default
+      # attestation manifest renders as a stray "unknown/unknown" entry in the
+      # Docker Hub tag listing.
+      - name: Build and push runtime image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: ${{ env.PLATFORMS }}
+          push: true
+          provenance: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=runtime
+
+      - name: Build and push dev image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: dev
+          platforms: ${{ env.PLATFORMS }}
+          push: true
+          provenance: false
+          tags: ${{ steps.meta-dev.outputs.tags }}
+          labels: ${{ steps.meta-dev.outputs.labels }}
+          cache-from: type=gha,scope=dev

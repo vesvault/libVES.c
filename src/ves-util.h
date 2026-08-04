@@ -33,7 +33,7 @@
  * ves-util.h                 VES Utility Main Header
  *
  ***************************************************************************/
-#define VESUTIL_VERSION_CODE	"1.09"
+#define VESUTIL_VERSION_CODE	"1.10"
 #define VESUTIL_VERSION_STR	"VES CLI " VESUTIL_VERSION_CODE " (libVES.c " LIBVES_VERSION_CODE ") (c) 2018 - 2026 VESvault Corp (https://vesvault.com)"
 #define VESUTIL_VERSION_SHORT	"ves/" VESUTIL_VERSION_CODE
 #define	E_PARAM		64
@@ -107,6 +107,7 @@ extern struct param_st {
     int (*cifn)(struct libVES_Cipher *);
     char *apiUrl;
     char *wwwUrl;
+    char *pollUrl;
     char *priv;
     const char *keyAlgo;
     struct {

@@ -33,6 +33,8 @@
  * ves-util/help.c            VES Utility: Help message
  *
  ***************************************************************************/
+/* For the LIBVES_*_URL defaults quoted in the endpoint options below. */
+#include <libVES.h>
 #include "help.h"
 
 const char *VESbanner =
@@ -173,6 +175,14 @@ const char *VEShelp =
        "                                Return error codes only\n"
        "                                (can be used with -o without authentication\n"
        "                                to check if the Vault Item exists, by exit code)\n"
+       "  --api-url URL                 Override the VES API endpoint\n"
+       "                                (default " LIBVES_API_URL ")\n"
+       "  --poll-url URL                Override the endpoint used for long-poll\n"
+       "                                requests, as issued by -W in follow mode\n"
+       "                                (default " LIBVES_POLL_URL ")\n"
+       "  --www-url URL                 Override the base URL that user-facing\n"
+       "                                links are resolved against\n"
+       "                                (default " LIBVES_WWW_URL ")\n"
        "  -V, --version                 Print version information and exit\n"
        "  -h, --help                    Print this help screen and exit\n"
 ;
