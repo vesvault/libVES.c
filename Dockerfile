@@ -80,8 +80,13 @@ RUN make install DESTDIR=/out
 # --libs libVES`. This stage is not on the default target's dependency path,
 # so a plain `docker build` skips it entirely.
 FROM debian:${DEBIAN_TAG} AS dev
+# ca-certificates is a *recommendation* of libcurl, not a dependency, so
+# --no-install-recommends drops it and libcurl's compiled-in CURLOPT_CAINFO
+# default (/etc/ssl/certs/ca-certificates.crt) has nothing behind it -- every
+# libVES API call then dies with "error setting certificate file". List it
+# explicitly rather than relaxing --no-install-recommends.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-	gcc libc6-dev make pkg-config libssl-dev libcurl4-openssl-dev \
+	ca-certificates gcc libc6-dev make pkg-config libssl-dev libcurl4-openssl-dev \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=liboqs /stage/dev/ /usr/local/
 COPY --from=build /out/ /
@@ -89,8 +94,10 @@ RUN ldconfig
 CMD ["/bin/sh"]
 
 FROM debian:${DEBIAN_TAG}
+# ca-certificates: see the note on the dev stage -- without it ves(1) cannot
+# verify api.ves.host and fails before it reaches any VES logic.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-	libssl3 libcurl4 \
+	ca-certificates libssl3 libcurl4 \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=liboqs /stage/rt/ /usr/local/
 COPY --from=build /out/ /

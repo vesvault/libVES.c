@@ -144,7 +144,19 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Tag v1.35 -> 1.35, 1.35 (major.minor), latest.
+      # Tag v1.36 -> 1.36, latest.
+      #
+      # NOT type=semver: this repo tags releases with two components (v1.34,
+      # v1.35, v1.36), which is not valid semver, so type=semver parses nothing
+      # and emits no tags at all. That is silent until the push step fails with
+      # "tag is needed when pushing to registry" (and an empty
+      # org.opencontainers.image.version label) -- which is how the v1.36
+      # release first went out. Match the ref textually instead.
+      #
+      # One pattern, because with a two-component tag {{version}} and
+      # {{major}}.{{minor}} are the same string. If patch releases ever start
+      # (v1.36.1), add type=match,pattern=v(\d+\.\d+),group=1 for a floating
+      # 1.36. `latest` comes from flavor latest=auto, which covers type=match.
       - name: Tags for the runtime image
         id: meta
         uses: docker/metadata-action@v5
@@ -153,8 +165,7 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/ves
             name=docker.io/vesvault/ves,enable=${{ steps.hub.outputs.enabled == 'true' }}
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=match,pattern=v(.*),group=1
           labels: |
             org.opencontainers.image.title=ves
             org.opencontainers.image.description=libVES + VES CLI: Simple, Safe and Secure Encryption At-rest
@@ -170,8 +181,7 @@ jobs:
             name=docker.io/vesvault/ves,enable=${{ steps.hub.outputs.enabled == 'true' }}
           flavor: latest=false
           tags: |
-            type=semver,pattern={{version}},suffix=-dev
-            type=semver,pattern={{major}}.{{minor}},suffix=-dev
+            type=match,pattern=v(.*),group=1,suffix=-dev
             type=raw,value=dev
           labels: |
             org.opencontainers.image.title=ves (dev)
