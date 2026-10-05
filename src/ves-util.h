@@ -33,7 +33,7 @@
  * ves-util.h                 VES Utility Main Header
  *
  ***************************************************************************/
-#define VESUTIL_VERSION_CODE	"1.10"
+#define VESUTIL_VERSION_CODE	"1.11"
 #define VESUTIL_VERSION_STR	"VES CLI " VESUTIL_VERSION_CODE " (libVES.c " LIBVES_VERSION_CODE ") (c) 2018 - 2026 VESvault Corp (https://vesvault.com)"
 #define VESUTIL_VERSION_SHORT	"ves/" VESUTIL_VERSION_CODE
 #define	E_PARAM		64
@@ -58,6 +58,11 @@ struct share_st {
 	int flags;
 	char *path;
     } share[];
+};
+
+struct pub_st {
+    size_t len;
+    char *pem[];
 };
 
 struct setfn_st {
@@ -109,6 +114,8 @@ extern struct param_st {
     char *wwwUrl;
     char *pollUrl;
     char *priv;
+    struct pub_st *pub;
+    char *ictext;
     const char *keyAlgo;
     struct {
 	long long startId;
@@ -141,6 +148,9 @@ extern struct param_st {
 #define PF_KEYSTORE	0x00010000
 #define PF_WATCH	0x00020000
 #define PF_EXPLORE	0x00040000
+#define PF_ICT		0x00080000
+
+#define VESUTIL_OFFLINE_URL	"offline://no-network/"
 
 #define SF_WR		0x01
 

@@ -43,3 +43,23 @@
     the KEM used for newly generated vault keys and verifies that the
     installed liboqs provides it, at configure time and again at compile
     time, instead of failing at every key generation.
+
+[10/04/2026] jz@vesvault.com:
+    libVES.c 1.37 / ves 1.11 - Offline mode in the ves CLI: stream and item
+    encryption with a key given on the command line, with no Vault and no
+    network. -Y / -y supply a PEM public / private key (-G names the public
+    key's algorithm, OQS by default), -I carries an item ciphertext, and -g
+    generates a key pair. Offline stream encryption writes the cipher key in
+    a header ahead of the ciphertext, encrypted for one or more recipients
+    and authenticated by an HMAC, so one file decrypts with -d -y KEY, also
+    through pipes. Fixes four bugs in ves 1.10: AES256GCM1K stream
+    decryption overflowed a heap buffer on streams longer than about 32K
+    (AES256GCMp likewise); a -p print followed by another option's f wrote
+    the print into that option's file, truncating it; -P FILE and -C FILE
+    (also --plaintext= / --ciphertext=) were refused as the help has them,
+    only -Pf / -Cf worked; and on Windows the
+    CLI read its input and wrote streams, item values and VESkeys in text
+    mode, so binary data was cut short at the first 0x1A byte and had its
+    line endings rewritten. Text output (PEM keys, JSON, listings) keeps
+    Windows line endings. In the library, the JSON parser no longer reads
+    past the end of its input when it converts a number.

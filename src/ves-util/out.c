@@ -420,6 +420,21 @@ int out_value(int fd, struct ctx_st *ctx) {
     return 0;
 }
 
+int out_ictext(int fd, struct ctx_st *ctx) {
+    if (!ctx->vitem || !ctx->vitem->value) VES_throw("[out_ictext]", "", "Value is not available", E_VALUE);
+    if (!ctx->vkey) VES_throw("[out_ictext]", "", "Use '-Y' or '-y' to supply the key to encrypt with", E_PARAM);
+    char *ct = libVES_VaultKey_encrypt(ctx->vkey, ctx->vitem->value, ctx->vitem->len);
+    if (!ct) {
+	const char *err, *msg;
+	int e = libVES_getErrorInfo(ctx->ves, &err, &msg);
+	VES_throw("[out_ictext]", (err ? err : ""), (msg ? msg : "Encryption failed"), (e ? e : E_VALUE));
+    }
+    int e = write(fd, ct, strlen(ct));
+    free(ct);
+    OUT_IO_assert("[out_ictext]", e);
+    return 0;
+}
+
 int out_meta(int fd, struct ctx_st *ctx) {
     if (!ctx->vitem) VES_throw("[out_meta]", params.object, "Vault Item is not available", E_VALUE);
     char *json = jVar_toJSON(ctx->vitem->meta);
@@ -477,6 +492,12 @@ int out_priv(int fd, struct ctx_st *ctx) {
     int e = write(fd, pk, strlen(pk));
     free(pk);
     OUT_IO_assert("[out_priv]", e);
+    return 0;
+}
+
+int out_privenc(int fd, struct ctx_st *ctx) {
+    if (!ctx->vkey || !ctx->vkey->privateKey) VES_throw("[out_privenc]", "", "Encrypted private key is not available", E_VALUE);
+    OUT_IO_assert("[out_privenc]", write(fd, ctx->vkey->privateKey, strlen(ctx->vkey->privateKey)));
     return 0;
 }
 

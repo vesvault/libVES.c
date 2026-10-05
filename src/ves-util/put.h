@@ -37,6 +37,7 @@ void *put_veskey(const char *str, size_t len, void **ptr);
 void *put_share(const char *str, size_t len, void **ptr);
 void *put_unshare(const char *str, size_t len, void **ptr);
 void *put_setshare(const char *str, size_t len, void **ptr);
+void *put_pub(const char *str, size_t len, void **ptr);
 void *put_jvar(const char *str, size_t len, void **ptr);
 void *put_jvarobj(const char *str, size_t len, void **ptr);
 void *put_keyalgo(const char *str, size_t len, void **ptr);

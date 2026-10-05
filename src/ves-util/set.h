@@ -35,3 +35,4 @@
  ***************************************************************************/
 int set_file(void *data, int mode);
 int set_fd(void *data, int mode);
+void set_binary(int fd, int bin);

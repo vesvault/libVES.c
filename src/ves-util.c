@@ -55,6 +55,7 @@
 #include <libVES/Cipher.h>
 #include <libVES/User.h>
 #include <libVES/KeyStore.h>
+#include <libVES/KeyAlgo_EVP.h>
 #include <openssl/crypto.h>
 #include "ves-util.h"
 #include "ves-util/put.h"
@@ -99,7 +100,276 @@ struct param_st params = {
     .meta = NULL,
     .cimeta = NULL,
     .priv = NULL,
+    .pub = NULL,
+    .ictext = NULL,
 };
+
+/* Item values and VESkeys go out as raw bytes, the rest as text */
+static int out_binary(int (*outfn)(int, struct ctx_st *)) {
+    return outfn == &out_value || outfn == &out_veskey;
+}
+
+static void offline_out(int (*outfn)(int, struct ctx_st *)) {
+    MEM_chk_list(params.out, out);
+    params.out->out[params.out->len].outfn = outfn;
+    params.out->out[params.out->len].set.mode = SF_WR;
+    params.out->out[params.out->len++].set.setfn = NULL;
+}
+
+static int offline_has_out(int (*outfn)(int, struct ctx_st *)) {
+    int i;
+    if (params.out) for (i = 0; i < params.out->len; i++) if (params.out->out[i].outfn == outfn) return 1;
+    return 0;
+}
+
+static int offline_main() {
+    static int (*const outfns[])(int, struct ctx_st *) = {
+	&out_value, &out_ictext, &out_meta, &out_cipher, &out_cimeta, &out_pub, &out_priv, &out_veskey, &out_keyalgo, &out_keyAlgos, &out_ciAlgos
+    };
+    int gen = params.flags & PF_VK_CR;
+    const char *opt = NULL;
+    int i, j;
+    if (params.user) opt = "-a";
+    else if (params.primary) opt = "-A";
+    else if (params.key) opt = "-k";
+    else if (params.token) opt = "-T";
+    else if (params.uveskey) opt = "-u";
+    else if (params.share) opt = "-s | -r | -S";
+    else if (params.flags & PF_KEYSTORE) opt = "-E";
+    else if (params.flags & PF_NEW) opt = "-n";
+    else if (params.flags & PF_VK_PROP) opt = "-K";
+    else if (params.flags & PF_VK_REKEY) opt = "-R";
+    else if (params.flags & PF_DEL) opt = "--delete";
+    else if (params.flags & PF_FRC) opt = "-U";
+    else if (params.flags & PF_LCK) opt = "-L";
+    else if (params.flags & PF_WATCH) opt = "-W";
+    else if (params.flags & PF_EXPLORE) opt = "-X";
+    if (opt) {
+	fprintf(stderr, "'%s' cannot be used in offline mode (stream or item crypto without '-o')\n", opt);
+	return E_PARAM;
+    }
+    for (i = 0; params.out && i < params.out->len; i++) {
+	for (j = 0; j < sizeof(outfns) / sizeof(*outfns); j++) if (params.out->out[i].outfn == outfns[j]) break;
+	if (j >= sizeof(outfns) / sizeof(*outfns)) {
+	    fprintf(stderr, "Only -ip, -Ip, -mp, -cp, -zp, -yp, -Yp, -vp, -Gp, -cl, -Gl can print in offline mode\n");
+	    return E_PARAM;
+	}
+    }
+    if (!!params.priv + !!params.pub + !!gen > 1) {
+	fprintf(stderr, "Use only one of '-g', '-y' and '-Y' in offline mode\n");
+	return E_PARAM;
+    }
+    if (gen && !offline_has_out(&out_priv)) {
+	fprintf(stderr, "Save the new private key with '-ypf FILE'\n");
+	return E_PARAM;
+    }
+    if (offline_has_out(&out_veskey) && !params.priv && !gen) {
+	fprintf(stderr, "'-vp' needs a private key, '-y' or '-g'\n");
+	return E_PARAM;
+    }
+    /* -yp is encrypted when a VESkey is asked for with -vp (-v, or a generated
+     * one), or given with -v for a new key; otherwise it is a plain PEM */
+    if (offline_has_out(&out_veskey) || (gen && params.veskey)) {
+	for (i = 0; i < params.out->len; i++) if (params.out->out[i].outfn == &out_priv) params.out->out[i].outfn = &out_privenc;
+    }
+    if (params.value && params.ictext) {
+	fprintf(stderr, "Use either '-i' or '-I', not both\n");
+	return E_PARAM;
+    }
+    if (params.ictext && !params.priv) {
+	fprintf(stderr, "A private key '-y' is required to decrypt '-I'\n");
+	return E_PARAM;
+    }
+    /* -e with keys to wrap the cipher key for, and no detached -Ip, puts it in
+     * the stream header; -d with no -i | -I reads it from there */
+    int hdrout = params.cifn == &ci_encrypt && (params.priv || params.pub || gen) && !offline_has_out(&out_ictext);
+    int hdrin = params.cifn == &ci_decrypt && !params.value && !params.ictext;
+    if (params.pub && params.pub->len > 1 && !hdrout) {
+	fprintf(stderr, "Several '-Y' keys go in a stream header: use '-e', without '-Ip'\n");
+	return E_PARAM;
+    }
+    if (hdrin && !params.priv) {
+	fprintf(stderr, "Use '-y' to decrypt the stream header, or '-I' with '-y' | '-i' for a detached cipher key\n");
+	return E_PARAM;
+    }
+    if (hdrin && (params.cipher || params.meta)) {
+	fprintf(stderr, "The stream header names the cipher, '-c' and '-m' don't apply\n");
+	return E_PARAM;
+    }
+
+    struct ctx_st ctx = {
+	.ves = NULL,
+	.vitem = NULL,
+	.ci = NULL,
+	.vkey = NULL,
+	.domain = NULL
+    };
+    libVES_init(VESUTIL_VERSION_SHORT);
+    ctx.ves = libVES_new(NULL);
+    if (!ctx.ves) return E_PARAM;
+    if (params.debug > 0) ctx.ves->debug = params.debug;
+    /* VaultKey getPub() and getPrivateKey() fetch missing key material from the
+     * API; nothing here leaves it missing, and an unroutable endpoint makes sure */
+    libVES_setOption(ctx.ves, LIBVES_O_APIURL, VESUTIL_OFFLINE_URL);
+    libVES_setOption(ctx.ves, LIBVES_O_POLLURL, VESUTIL_OFFLINE_URL);
+
+    /*****************************************
+     * The key: -y [-v] private, -Y public (one or more), or -g generated
+     */
+    const libVES_KeyAlgo *algo = params.keyAlgo ? libVES_VaultKey_algoFromStr(params.keyAlgo) : NULL;
+    libVES_VaultKey **rcpt = &ctx.vkey;
+    int nrcpt = 0;
+    if (params.priv) {
+	void *pkey = params.priv;
+	if (algo) {
+	    libVES_VaultKey stub = {.ves = ctx.ves, .algo = algo};
+	    if (!(pkey = algo->str2privfn(&stub, params.priv, params.veskey))) {
+		if (!params.veskey && params.debug >= 0) fprintf(stderr, "Use '-v VESKEY' if the private key is encrypted\n");
+		return_VESerror("[str2priv]");
+	    }
+	}
+	ctx.vkey = libVES_VaultKey_new(LIBVES_VK_CURRENT, (algo ? algo : &libVES_KeyAlgo_autoPEM), pkey, params.veskey, ctx.ves);
+	if (!ctx.vkey) {
+	    if (algo) libVES_KeyAlgo_pkeyfree(algo, pkey);
+	    if (!params.veskey && params.debug >= 0) fprintf(stderr, "Use '-v VESKEY' if the private key is encrypted\n");
+	    return_VESerror("[libVES_VaultKey_new]");
+	}
+	nrcpt = 1;
+    } else if (gen) {
+	if (!algo && !(algo = libVES_VaultKey_algoFromStr("OQS"))) {
+	    if (params.debug >= 0) fprintf(stderr, "Use '-G ALGO' to specify the key algorithm\n");
+	    return E_PARAM;
+	}
+	void *pkey = libVES_KeyAlgo_pkeygen(algo, params.keyAlgo);
+	if (!pkey) return_VESerror("[libVES_KeyAlgo_pkeygen]");
+	ctx.vkey = libVES_VaultKey_new(LIBVES_VK_CURRENT, algo, pkey, params.veskey, ctx.ves);
+	if (!ctx.vkey) {
+	    libVES_KeyAlgo_pkeyfree(algo, pkey);
+	    return_VESerror("[libVES_VaultKey_new]");
+	}
+	nrcpt = 1;
+    } else if (params.pub) {
+	if (!algo && !(algo = libVES_VaultKey_algoFromStr("OQS"))) {
+	    if (params.debug >= 0) fprintf(stderr, "Use '-G ALGO' to specify the public key algorithm\n");
+	    return E_PARAM;
+	}
+	if (!(rcpt = malloc(params.pub->len * sizeof(*rcpt)))) return E_PARAM;
+	for (nrcpt = 0; nrcpt < params.pub->len; nrcpt++) {
+	    jVar *jvkey = jVar_put(jVar_put(jVar_object(), "algo", jVar_string(algo->str)), "publicKey", jVar_string(params.pub->pem[nrcpt]));
+	    rcpt[nrcpt] = libVES_VaultKey_fromJVar(jvkey, ctx.ves);
+	    jVar_free(jvkey);
+	    if (!rcpt[nrcpt]) return_VESerror("[libVES_VaultKey_fromJVar]");
+	}
+	ctx.vkey = rcpt[0];
+    }
+
+    /*****************************************
+     * The dummy item: -i plaintext, or -I decrypted with -y
+     */
+    ctx.vitem = libVES_VaultItem_new();
+    if (!ctx.vitem) return E_PARAM;
+    if (params.meta) libVES_VaultItem_setMeta(ctx.vitem, params.meta);
+    if (params.value) {
+	char *v = malloc(params.value->len + 1);
+	if (!v) return E_PARAM;
+	memcpy(v, params.value->vString, params.value->len);
+	libVES_VaultItem_setValue0(ctx.vitem, params.value->len, v, -1);
+    } else if (params.ictext) {
+	char *v = NULL;
+	int l = libVES_VaultKey_decrypt(ctx.vkey, params.ictext, &v);
+	if (l < 0) return_VESerror("[libVES_VaultKey_decrypt]");
+	libVES_VaultItem_setValue0(ctx.vitem, l, v, -1);
+    }
+
+    /*****************************************
+     * -d: the stream header, read off the ciphertext before the stream
+     */
+    char *hdr = NULL;
+    size_t hdrlen = 0;
+    int ctfd = -1;
+    if (hdrin) {
+	char *v;
+	size_t vl;
+	jVar *meta;
+	int e;
+	if ((ctfd = ci_get_fd(&params.ctext, 0)) < 0) return E_PARAM;
+	if ((e = ci_read_header(ctfd, &hdr, &hdrlen))) return e;
+	e = ci_header_open(hdr, hdrlen, ctx.vkey, &v, &vl, &meta);
+	free(hdr);
+	hdr = NULL;
+	if (e) return e;
+	libVES_VaultItem_setMeta(ctx.vitem, meta);
+	libVES_VaultItem_setValue0(ctx.vitem, vl, v, -1);
+    }
+
+    if (params.cifn) {
+	/*****************************************
+	 * Stream cipher: -c, else -m {"a":...}, else the default algo
+	 */
+	const char *cistr = params.cipher ? params.cipher : jVar_getStringP(jVar_get(ctx.vitem->meta, "a"));
+	const libVES_CiAlgo *cialgo = cistr ? libVES_Cipher_algoFromStr(cistr) : ctx.ves->cipherAlgo;
+	if (!cialgo) {
+	    if (params.debug >= 0) fprintf(stderr, "Unknown cipher algorithm: %s\n", cistr);
+	    return E_PARAM;
+	}
+	if (!ctx.vitem->value && !hdrout && !offline_has_out(&out_ictext) && !offline_has_out(&out_value)) {
+	    if (params.debug >= 0) fprintf(stderr, "Save the new cipher key: '-Y' | '-y' put it in the stream header, '-ipf FILE' saves it raw\n");
+	    return E_PARAM;
+	}
+	ctx.ci = libVES_Cipher_new(cialgo, ctx.ves, (ctx.vitem->value ? ctx.vitem->len : 0), ctx.vitem->value);
+	if (!ctx.ci) return_VESerror("[libVES_Cipher_new]");
+	if (params.cimeta) libVES_Cipher_setMeta(ctx.ci, params.cimeta);
+	if (!libVES_VaultItem_setCipher(ctx.vitem, ctx.ci)) return_VESerror("[libVES_VaultItem_setCipher]");
+	if (hdrout) {
+	    int e = ci_header(ctx.vitem->value, ctx.vitem->len, ctx.vitem->meta, rcpt, nrcpt, &hdr, &hdrlen);
+	    if (e) return e;
+	}
+    } else if (!params.out) {
+	if (params.ictext) offline_out(&out_value);
+	else if (params.value && ctx.vkey) offline_out(&out_ictext);
+	else {
+	    if (params.debug >= 0) fprintf(stderr, "Use '-i' with '-Y' to encrypt, '-I' with '-y' to decrypt, or '-e' | '-d' for a stream\n");
+	    return E_PARAM;
+	}
+    }
+
+    /************************************
+     * Output before the stream, so the cipher key is saved
+     * before any ciphertext is written
+     */
+    for (i = 0; params.out && i < params.out->len; i++) {
+	int fd;
+	if (params.out->out[i].set.setfn) {
+	    if ((fd = params.out->out[i].set.setfn(params.out->out[i].set.data, params.out->out[i].set.mode)) < 0) {
+		if (params.debug >= 0) fprintf(stderr, "Invalid output option\n");
+		return E_PARAM;
+	    }
+	} else fd = 1;
+	set_binary(fd, out_binary(params.out->out[i].outfn));
+	int er = params.out->out[i].outfn(fd, &ctx);
+	if (er) return er;
+    }
+
+    if (params.cifn) {
+	int r = hdrin ? ci_decrypt_fd(ctx.ci, ctfd)
+	    : (params.cifn == &ci_encrypt ? ci_encrypt_hdr(ctx.ci, hdr, hdrlen) : params.cifn(ctx.ci));
+	free(hdr);
+	if (r < 0) {
+	    int e = libVES_getError(ctx.ves);
+	    return e ? e : E_IO;
+	}
+    }
+
+    if (rcpt != &ctx.vkey) {
+	for (i = 1; i < nrcpt; i++) libVES_VaultKey_free(rcpt[i]);
+	free(rcpt);
+    }
+    libVES_Cipher_free(ctx.ci);
+    libVES_VaultItem_free(ctx.vitem);
+    libVES_VaultKey_free(ctx.vkey);
+    libVES_free(ctx.ves);
+    return 0;
+}
 
 int main(int argc, char **argv) {
     if (argc) hook_progPath = *argv;
@@ -108,10 +378,10 @@ int main(int argc, char **argv) {
     char *arg = NULL;
     enum { o_null, o_error, o_data, o_help, o_ver, o_a, o_o, o_x, o_explore, o_v, o_q, o_s, o_r, o_setshare, o_apiurl, o_l, o_i,
 	o_delete, o_f, o_fd, o_ptext, o_ctext, o_p, o_e, o_d, o_c, o_m, o_z, o_k, o_force, o_token, o_priv, o_pub, o_u, o_g,
-	o_keyalgo, o_lock, o_pri, o_new, o_rekey, o_propagate, o_manual, o_keystore, o_wwwurl, o_pollurl, o_watch } op = o_null;
+	o_keyalgo, o_lock, o_pri, o_new, o_rekey, o_propagate, o_manual, o_keystore, o_wwwurl, o_pollurl, o_watch, o_ictext } op = o_null;
     const struct { char op; char *argw; } argwords[] = {
 	{o_a, "account"}, {o_o, "vault-item"}, {o_o, "object"}, {o_x, "debug"}, {o_help, "help"}, {o_p, "print"}, {o_v, "veskey"},
-	{o_v, "VESkey"}, {o_q, "quiet"}, {o_s, "share"}, {o_r, "unshare"}, {o_setshare, "set-share"}, {o_apiurl, "api-url"}, {o_wwwurl, "www-url"}, {o_pollurl, "poll-url"}, {o_l, "list"}, {o_i, "item"}, {o_m, "meta"},
+	{o_v, "VESkey"}, {o_q, "quiet"}, {o_s, "share"}, {o_r, "unshare"}, {o_setshare, "set-share"}, {o_apiurl, "api-url"}, {o_wwwurl, "www-url"}, {o_pollurl, "poll-url"}, {o_l, "list"}, {o_ictext, "item-ciphertext"}, {o_i, "item"}, {o_m, "meta"},
 	{o_delete, "delete"}, {o_f, "file"}, {o_fd, "fd"}, {o_ptext, "plaintext"}, {o_ctext, "ciphertext"}, {o_explore, "explore"},
 	{o_e, "encrypt"}, {o_d, "decrypt"}, {o_c, "cipher"}, {o_z, "cipher-meta"}, {o_k, "vault-key"}, {o_u, "unlock"},
 	{o_force, "force"}, {o_token, "token"}, {o_priv, "private-key"}, {o_pub, "public-key"}, {o_g, "generate"},
@@ -190,6 +460,7 @@ int main(int argc, char **argv) {
 	    case 'E': op = o_keystore; break;
 	    case 'F': op = o_fd; break;
 	    case 'G': op = o_keyalgo; break;
+	    case 'I': op = o_ictext; break;
 	    case 'K': op = o_propagate; break;
 	    case 'L': op = o_lock; break;
 	    case 'O': op = o_o; break;
@@ -263,6 +534,8 @@ int main(int argc, char **argv) {
 			in.putfn = NULL;
 			break;
 		}
+		/* A new option ends a preceding -p, so a later f | F is not its file */
+		if (!in.ptr) in.setptr = NULL;
 		if (in.ptr) switch (op) {
 		    case o_data: {
 			size_t len;
@@ -400,11 +673,14 @@ int main(int argc, char **argv) {
 			in.setptr = &params.ptext;
 			params.ptext.setfn = &set_file;
 			params.ptext.mode &= SF_WR;
+			/* The file name can follow directly, f | F are optional */
+			in.ptr = &in.setptr->data;
 			break;
 		    case o_ctext:
 			in.setptr = &params.ctext;
 			params.ctext.setfn = &set_file;
 			params.ctext.mode &= SF_WR;
+			in.ptr = &in.setptr->data;
 			break;
 		    case o_c:
 			in.ptr = (void **) &params.cipher;
@@ -439,8 +715,15 @@ int main(int argc, char **argv) {
 			in.outfn = &out_priv;
 			break;
 		    case o_pub:
+			in.ptr = (void **) &params.pub;
+			in.putfn = &put_pub;
 			in.flags |= PF_VK_WR;
 			in.outfn = &out_pub;
+			break;
+		    case o_ictext:
+			in.ptr = (void **) &params.ictext;
+			in.outfn = &out_ictext;
+			params.flags |= PF_ICT;
 			break;
 		    case o_keyalgo:
 			in.ptr = (void **) &params.keyAlgo;
@@ -493,7 +776,18 @@ int main(int argc, char **argv) {
 	fprintf(stderr, "Unexpeted end of argument list\n");
 	return E_PARAM;
     }
-    
+
+    /****************************************
+     * Stream and item crypto without -o run offline,
+     * with an explicit key and no Vault
+     */
+    if (!params.object && (params.cifn || params.pub || (params.flags & PF_ICT)
+	|| ((params.priv || (params.flags & PF_VK_CR)) && !params.user && !params.primary && !params.key))) return offline_main();
+    if (params.pub || (params.flags & PF_ICT)) {
+	fprintf(stderr, "'-I' and '-Y KEY' are used in offline mode only, without '-o'\n");
+	return E_PARAM;
+    }
+
     /****************************************
      * Validate the action
      */
@@ -747,6 +1041,7 @@ int main(int argc, char **argv) {
 		    return E_PARAM;
 		}
 	    } else fd = 1;
+	    set_binary(fd, out_binary(params.out->out[i].outfn));
 	    int er = params.out->out[i].outfn(fd, &ctx);
 	    if (er) return er;
 	}

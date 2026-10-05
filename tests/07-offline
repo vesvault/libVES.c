@@ -1,0 +1,279 @@
+#!/bin/bash
+
+# Offline item and stream crypto: no -o, one explicit key, no Vault.
+#
+# Keys come from the openssl CLI, the private keys PKCS#8-encrypted with the
+# VESkey the way libVES stores them.  ML-KEM needs openssl 3.5+ and is
+# skipped without it.  No VES account is needed, and when unprivileged user
+# namespaces are available every ves run here is cut off from the network
+# (unshare -rn), so a pass also shows that nothing tried to reach the API.
+
+DIR=$(dirname $(realpath $0))
+
+. $DIR/vestest.inc.sh
+
+ves_fails() {
+    ! $VES "$@" 2>/dev/null
+}
+
+ves_differs() {
+    ! cmp -s "$1" "$2"
+}
+
+vestest_check() {
+    local DESC=$1
+    shift
+    ((VES_STEP++))
+    if "$@"
+    then
+        echo $'[\e[1;32mPASSED\e[0m]' "$DESC"
+        ((++VES_PASS))
+    else
+        echo $'[\e[1;31mFAILED\e[0m]' "$DESC"
+        ((++VES_FAIL))
+    fi
+}
+
+if unshare -rn true 2>/dev/null
+then
+    VES="unshare -rn $VES"
+else
+    vestest_head "unshare -rn is not available, the network stays up"
+fi
+
+TMP=$(mktemp -d /tmp/vestest-offline-${NONCE}-XXXX)
+VESKEY="veskey-${NONCE}"
+SECRET="offline-secret-${NONCE}"
+head -c 3000 /dev/urandom | base64 -w0 > $TMP/long.txt
+head -c 300000 /dev/urandom > $TMP/data.bin
+head -c 32 /dev/urandom > $TMP/k32
+head -c 32 /dev/urandom > $TMP/kx
+
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out $TMP/RSA.plain.pem 2>/dev/null
+openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-384 -out $TMP/ECDH.plain.pem 2>/dev/null
+ALGOS="RSA ECDH"
+if openssl genpkey -algorithm ML-KEM-768 -out $TMP/OQS.plain.pem 2>/dev/null
+then
+    ALGOS="$ALGOS OQS"
+else
+    vestest_head "openssl cannot generate ML-KEM-768, skipping OQS"
+fi
+
+for ALGO in $ALGOS
+do
+    KEY=$TMP/$ALGO.key.pem
+    PUB=$TMP/$ALGO.pub.pem
+    openssl pkcs8 -topk8 -v2 aes-256-cbc -passout "pass:$VESKEY" -in $TMP/$ALGO.plain.pem -out $KEY
+    openssl pkey -pubout -in $TMP/$ALGO.plain.pem -out $PUB
+
+    vestest_head "[$ALGO] derive the public key from the encrypted private key"
+    vestest - -yf $KEY -v "$VESKEY" -Yp < $PUB
+
+    vestest_head "[$ALGO] item: encrypt with -Y, decrypt with -y"
+    vestest 0 -Yf $PUB -G $ALGO -i "$SECRET" -Ipf $TMP/$ALGO.item
+    vestest - -yf $KEY -v "$VESKEY" -If $TMP/$ALGO.item <<< "$SECRET"
+
+    vestest_head "[$ALGO] item: a plaintext past the public key block"
+    vestest 0 -Yf $PUB -G $ALGO -if $TMP/long.txt -Ipf $TMP/$ALGO.long
+    vestest - -yf $KEY -v "$VESKEY" -If $TMP/$ALGO.long < $TMP/long.txt
+
+    vestest_head "[$ALGO] item: -y encrypts too, with its own public key"
+    vestest 0 -yf $KEY -v "$VESKEY" -i "$SECRET" -Ipf $TMP/$ALGO.item2
+    vestest - -yf $KEY -v "$VESKEY" -If $TMP/$ALGO.item2 <<< "$SECRET"
+
+    vestest_head "[$ALGO] stream: a generated cipher key, saved encrypted"
+    vestest - -Yf $PUB -G $ALGO -e -Pf $TMP/data.bin -Cf $TMP/$ALGO.ves -Ipf $TMP/$ALGO.cikey -mp <<< '{"a":"AES256GCM1K"}'
+    vestest 0 -yf $KEY -v "$VESKEY" -If $TMP/$ALGO.cikey -d -Cf $TMP/$ALGO.ves -Pf $TMP/$ALGO.out
+    vestest_check "[$ALGO] stream round trip" cmp -s $TMP/data.bin $TMP/$ALGO.out
+
+    vestest_head "[$ALGO] stream: the cipher key in the stream header"
+    vestest 0 -Yf $PUB -G $ALGO -e -Pf $TMP/data.bin -Cf $TMP/$ALGO.hves
+    vestest_check "[$ALGO] header magic" test "$(head -1 $TMP/$ALGO.hves)" = "ves/1"
+    vestest 0 -yf $KEY -v "$VESKEY" -d -Cf $TMP/$ALGO.hves -Pf $TMP/$ALGO.hout
+    vestest_check "[$ALGO] header round trip" cmp -s $TMP/data.bin $TMP/$ALGO.hout
+done
+
+vestest_head "stream header: stdin to stdout, -mp from the header"
+$VES -Yf $TMP/RSA.pub.pem -G RSA -m '{"name":"two\nlines"}' -e < $TMP/data.bin > $TMP/pipe.ves
+$VES -yf $TMP/RSA.key.pem -v "$VESKEY" -d < $TMP/pipe.ves > $TMP/pipe.out
+vestest_check "round trip through stdin/stdout" cmp -s $TMP/data.bin $TMP/pipe.out
+vestest - -yf $TMP/RSA.key.pem -v "$VESKEY" -d -Cf $TMP/pipe.ves -Pf $TMP/pipe.out2 -mp <<< '{"name":"two\nlines","a":"AES256GCM1K"}'
+
+vestest_head "stream header: -y encrypts for its own key"
+vestest 0 -yf $TMP/ECDH.key.pem -v "$VESKEY" -e -Pf $TMP/data.bin -Cf $TMP/self.ves
+vestest 0 -yf $TMP/ECDH.key.pem -v "$VESKEY" -d -Cf $TMP/self.ves -Pf $TMP/self.out
+vestest_check "round trip, -y for itself" cmp -s $TMP/data.bin $TMP/self.out
+
+vestest_head "stream header: refused without -y, with -c, on a stream with no header, truncated"
+vestest 64 -d -Cf $TMP/RSA.hves -Pf $TMP/hdr-none.out
+vestest 64 -yf $TMP/RSA.key.pem -v "$VESKEY" -c AES256GCM1K -d -Cf $TMP/RSA.hves -Pf $TMP/hdr-none.out
+vestest 64 -yf $TMP/RSA.key.pem -v "$VESKEY" -d -Cf $TMP/RSA.ves -Pf $TMP/hdr-none.out
+head -c 100 $TMP/RSA.hves > $TMP/trunc.ves
+vestest 3 -yf $TMP/RSA.key.pem -v "$VESKEY" -d -Cf $TMP/trunc.ves -Pf $TMP/hdr-none.out
+vestest_check "no plaintext written" test ! -e $TMP/hdr-none.out
+
+vestest_head "item: the ciphertext and the plaintext go to stdout by default"
+CT=$($VES -Yf $TMP/RSA.pub.pem -G RSA -i "$SECRET")
+vestest - -yf $TMP/RSA.key.pem -v "$VESKEY" -I "$CT" <<< "$SECRET"
+
+if [[ " $ALGOS " == *" OQS "* ]]
+then
+    vestest_head "[OQS] the -Y algorithm defaults to OQS"
+    vestest 0 -Yf $TMP/OQS.pub.pem -i "$SECRET" -Ipf $TMP/dflt.item
+    vestest - -yf $TMP/OQS.key.pem -v "$VESKEY" -If $TMP/dflt.item <<< "$SECRET"
+fi
+
+for CI in AES256GCM1K AES256GCMp AES256CFB
+do
+    vestest_head "[$CI] stream: a raw cipher key, the algorithm from -m or -c on decrypt"
+    vestest 0 -c $CI -e -Pf $TMP/data.bin -Cf $TMP/$CI.ves -ipf $TMP/$CI.key
+    vestest 0 -if $TMP/$CI.key -m "{\"a\":\"$CI\"}" -d -Cf $TMP/$CI.ves -Pf $TMP/$CI.out
+    vestest_check "[$CI] round trip, -m" cmp -s $TMP/data.bin $TMP/$CI.out
+    vestest 0 -if $TMP/$CI.key -c $CI -d -Cf $TMP/$CI.ves -Pf $TMP/$CI.out2
+    vestest_check "[$CI] round trip, -c" cmp -s $TMP/data.bin $TMP/$CI.out2
+
+    vestest_head "[$CI] stream: the saved raw key encrypts again"
+    vestest 0 -if $TMP/$CI.key -c $CI -e -Pf $TMP/data.bin -Cf $TMP/$CI.ves2
+    vestest 0 -if $TMP/$CI.key -c $CI -d -Cf $TMP/$CI.ves2 -Pf $TMP/$CI.out3
+    vestest_check "[$CI] round trip, supplied key" cmp -s $TMP/data.bin $TMP/$CI.out3
+
+    vestest_head "[$CI] stream: a 32-byte raw key, stdin to stdout"
+    $VES -if $TMP/k32 -c $CI -e < $TMP/data.bin > $TMP/$CI.k32.ves
+    $VES -if $TMP/k32 -c $CI -d < $TMP/$CI.k32.ves > $TMP/$CI.k32.out
+    vestest_check "[$CI] round trip, 32-byte key, stdin/stdout" cmp -s $TMP/data.bin $TMP/$CI.k32.out
+done
+
+vestest_head "stream: an inline raw key, the default algorithm on both sides"
+INLINE=$(head -c 33 /dev/urandom | base64 -w0)
+vestest 0 -i "$INLINE" -e -Pf $TMP/data.bin -Cf $TMP/inline.ves
+vestest 0 -i "$INLINE" -d -Cf $TMP/inline.ves -Pf $TMP/inline.out
+vestest_check "round trip, inline key" cmp -s $TMP/data.bin $TMP/inline.out
+
+vestest_head "stream: -P / -C take the file name with or without f"
+vestest 0 -i "$INLINE" -e -P $TMP/data.bin -C $TMP/bare.ves
+vestest 0 -i "$INLINE" -d --ciphertext=$TMP/bare.ves --plaintext=$TMP/bare.out
+vestest_check "round trip, -P / -C and --plaintext= / --ciphertext=" cmp -s $TMP/data.bin $TMP/bare.out
+vestest 0 -i "$INLINE" -d -C -f $TMP/bare.ves --plaintext $TMP/bare.out2
+vestest_check "round trip, -C -f and --plaintext FILE" cmp -s $TMP/data.bin $TMP/bare.out2
+vestest 64 -i "$INLINE" -e -Pf $TMP/data.bin -C
+
+vestest_head "refused: a raw key shorter than 32 bytes, a wrong raw key"
+vestest 1 -i "password123" -e -Pf $TMP/data.bin -Cf $TMP/short.ves
+vestest_check "no ciphertext written" test ! -e $TMP/short.ves
+vestest_check "[AES256GCM1K] a wrong raw key is refused" ves_fails -if $TMP/kx -c AES256GCM1K -d -Cf $TMP/AES256GCM1K.k32.ves -Pf $TMP/wrong.out
+
+GALGOS="RSA ECDH"
+$VES -Gl | grep -q '^OQS' && GALGOS="$GALGOS OQS"
+for ALGO in $GALGOS
+do
+    G=$TMP/gen-$ALGO
+
+    vestest_head "[$ALGO] keygen: no VESkey asked for, a plain private key"
+    vestest 0 -g -G $ALGO -ypf $G.plain.pem -Ypf $G.pub.pem
+    vestest_check "[$ALGO] plain PEM" grep -q 'BEGIN PRIVATE KEY' $G.plain.pem
+    vestest - -yf $G.plain.pem -Yp < $G.pub.pem
+    vestest 0 -Yf $G.pub.pem -G $ALGO -i "$SECRET" -Ipf $G.item
+    vestest - -yf $G.plain.pem -If $G.item <<< "$SECRET"
+
+    vestest_head "[$ALGO] keygen: -vpf generates a VESkey and encrypts the private key"
+    vestest 0 -g -G $ALGO -ypf $G.enc.pem -Ypf $G.pub2.pem -vpf $G.veskey
+    vestest_check "[$ALGO] encrypted PEM" grep -q 'BEGIN ENCRYPTED PRIVATE KEY' $G.enc.pem
+    vestest_check "[$ALGO] VESkey saved" test -s $G.veskey
+    vestest 0 -Yf $G.pub2.pem -G $ALGO -i "$SECRET" -Ipf $G.item2
+    vestest - -yf $G.enc.pem -vf $G.veskey -If $G.item2 <<< "$SECRET"
+    vestest 4 -yf $G.enc.pem -If $G.item2
+
+    vestest_head "[$ALGO] keygen: -g -v VESKEY encrypts with VESKEY"
+    vestest 0 -g -G $ALGO -v "$VESKEY" -ypf $G.enc2.pem -Ypf $G.pub3.pem
+    vestest_check "[$ALGO] encrypted PEM" grep -q 'BEGIN ENCRYPTED PRIVATE KEY' $G.enc2.pem
+    vestest - -yf $G.enc2.pem -v "$VESKEY" -Yp < $G.pub3.pem
+
+    vestest_head "[$ALGO] an existing key: -vpf encrypts a plain one, no -vp exports it plain"
+    vestest 0 -yf $G.plain.pem -vpf $G.veskey2 -ypf $G.reenc.pem
+    vestest_check "[$ALGO] encrypted PEM" grep -q 'BEGIN ENCRYPTED PRIVATE KEY' $G.reenc.pem
+    vestest - -yf $G.reenc.pem -vf $G.veskey2 -Yp < $G.pub.pem
+    vestest 0 -yf $G.enc.pem -vf $G.veskey -ypf $G.export.pem
+    vestest_check "[$ALGO] plain PEM" grep -q 'BEGIN PRIVATE KEY' $G.export.pem
+    vestest - -yf $G.export.pem -Yp < $G.pub2.pem
+done
+
+for ALGO in RSA ECDH
+do
+    G=$TMP/gen-$ALGO
+    vestest_check "[$ALGO] openssl reads the VESkey-encrypted PEM" openssl pkey -in $G.enc.pem -passin file:$G.veskey -noout
+done
+
+if [[ " $GALGOS " == *" OQS "* ]]
+then
+    vestest_head "[OQS] keygen: -G defaults to OQS"
+    vestest_check "default key pair is OQS" grep -q '^OQS' <($VES -g -ypf $TMP/gen-dflt.pem -Gp)
+fi
+
+vestest_head "a -p print is not redirected into a later option's -f file"
+cp $TMP/RSA.key.pem $TMP/keep.pem
+vestest_check "-Gp before -yf prints the algo" grep -q '^RSA' <($VES -Gp -yf $TMP/keep.pem -v "$VESKEY")
+vestest_check "the -yf file is intact" cmp -s $TMP/RSA.key.pem $TMP/keep.pem
+echo precious > $TMP/keep.txt
+$VES -Gp -Tf $TMP/keep.txt > /dev/null 2>&1
+vestest_check "the -Tf file is intact" grep -qx precious $TMP/keep.txt
+
+vestest_head "refused: a key pair that is not saved, two keys, -vp with no private key"
+vestest 64 -g -G RSA
+vestest 64 -g -G RSA -Ypf $TMP/gen-lost.pub.pem
+vestest_check "no public key written" test ! -e $TMP/gen-lost.pub.pem
+vestest 64 -g -yf $TMP/gen-RSA.plain.pem -ypf $TMP/gen-two.pem
+vestest 64 -Yf $TMP/gen-RSA.pub.pem -G RSA -i "$SECRET" -vp
+
+vestest_head "stream header: -g generates a key pair and encrypts for it"
+vestest 0 -g -G RSA -ypf $TMP/oneshot.key.pem -e -Pf $TMP/data.bin -Cf $TMP/oneshot.ves
+vestest 0 -yf $TMP/oneshot.key.pem -d -Cf $TMP/oneshot.ves -Pf $TMP/oneshot.out
+vestest_check "round trip, -g -e" cmp -s $TMP/data.bin $TMP/oneshot.out
+
+vestest_head "stream header: two recipients, a third key refused"
+vestest 0 -Yf $TMP/RSA.pub.pem -Yf $TMP/gen-RSA.pub.pem -G RSA -e -Pf $TMP/data.bin -Cf $TMP/multi.ves
+vestest 0 -yf $TMP/RSA.key.pem -v "$VESKEY" -d -Cf $TMP/multi.ves -Pf $TMP/multi.out1
+vestest_check "recipient 1" cmp -s $TMP/data.bin $TMP/multi.out1
+vestest 0 -yf $TMP/gen-RSA.plain.pem -d -Cf $TMP/multi.ves -Pf $TMP/multi.out2
+vestest_check "recipient 2" cmp -s $TMP/data.bin $TMP/multi.out2
+vestest 4 -yf $TMP/gen-RSA.enc.pem -vf $TMP/gen-RSA.veskey -d -Cf $TMP/multi.ves -Pf $TMP/multi.out3
+vestest_check "no plaintext for a non-recipient" test ! -e $TMP/multi.out3
+if [[ " $ALGOS " == *" OQS "* ]]
+then
+    vestest 4 -yf $TMP/OQS.key.pem -v "$VESKEY" -d -Cf $TMP/multi.ves -Pf $TMP/multi.out4
+fi
+
+vestest_head "stream header: a modified header is refused before any plaintext"
+{ head -1 $TMP/multi.ves; head -2 $TMP/multi.ves | tail -1 | sed 's/{"meta":{/{"meta":{"x":1,/'; tail -n +3 $TMP/multi.ves; } > $TMP/tamper1.ves
+vestest_check "the JSON line changed" ves_differs $TMP/multi.ves $TMP/tamper1.ves
+vestest 4 -yf $TMP/RSA.key.pem -v "$VESKEY" -d -Cf $TMP/tamper1.ves -Pf $TMP/tamper1.out
+vestest_check "no plaintext written" test ! -e $TMP/tamper1.out
+{ head -2 $TMP/multi.ves; head -3 $TMP/multi.ves | tail -1 | tr 'A-Za-z' 'B-ZAb-za'; tail -n +4 $TMP/multi.ves; } > $TMP/tamper2.ves
+vestest_check "the MAC line changed" ves_differs $TMP/multi.ves $TMP/tamper2.ves
+vestest 4 -yf $TMP/RSA.key.pem -v "$VESKEY" -d -Cf $TMP/tamper2.ves -Pf $TMP/tamper2.out
+vestest_check "no plaintext written" test ! -e $TMP/tamper2.out
+
+vestest_head "refused: several -Y keys outside a stream header"
+vestest 64 -Yf $TMP/RSA.pub.pem -Yf $TMP/gen-RSA.pub.pem -G RSA -i "$SECRET"
+vestest 64 -Yf $TMP/RSA.pub.pem -Yf $TMP/gen-RSA.pub.pem -G RSA -e -Pf $TMP/data.bin -Cf $TMP/multi-ip.ves -Ipf $TMP/multi-ip.key
+
+vestest_head "refused: a generated cipher key that would be lost"
+vestest 64 -c AES256GCM1K -e -Pf $TMP/data.bin -Cf $TMP/lost.ves
+vestest_check "no ciphertext written" test ! -e $TMP/lost.ves
+
+vestest_head "refused: options that need a Vault, or a key that is not there"
+vestest 64 -a //demo/offline-${NONCE}/ -Yf $TMP/RSA.pub.pem -G RSA -i "$SECRET"
+vestest 64 -o //demo/offline-${NONCE} -yf $TMP/RSA.key.pem -v "$VESKEY" -If $TMP/RSA.item
+vestest 64 -Yf $TMP/RSA.pub.pem -G RSA -i "$SECRET" -Tp
+vestest 64 -yf $TMP/RSA.key.pem -v "$VESKEY" -Yf $TMP/RSA.pub.pem -i "$SECRET"
+vestest 64 -Yf $TMP/RSA.pub.pem -G RSA -If $TMP/RSA.item
+vestest 64 -yf $TMP/RSA.key.pem -v "$VESKEY" -i "$SECRET" -If $TMP/RSA.item
+vestest 64 -Yf $TMP/RSA.pub.pem -G RSA
+vestest 64 -d -Cf $TMP/RSA.ves -Pf $TMP/none.out
+
+vestest_head "refused: a wrong or missing VESkey, the wrong key, the wrong -G"
+vestest 4 -yf $TMP/RSA.key.pem -v "wrong-$VESKEY" -If $TMP/RSA.item
+vestest 4 -yf $TMP/RSA.key.pem -If $TMP/RSA.item
+vestest 4 -yf $TMP/ECDH.key.pem -v "$VESKEY" -If $TMP/RSA.item
+vestest 4 -Yf $TMP/RSA.pub.pem -G ECDH -i "$SECRET"
+
+rm -rf $TMP

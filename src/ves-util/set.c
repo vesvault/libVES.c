@@ -39,6 +39,9 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <stdio.h>
+#ifdef _WIN32
+#include <io.h>
+#endif
 #include "../ves-util.h"
 #include "set.h"
 
@@ -52,4 +55,12 @@ int set_fd(void *data, int mode) {
     int fd;
     if (sscanf(data, "%d", &fd) != 1) VES_throw("[set_fd]", "Numeric file descriptor expected", (char *) data, -1);
     return fd;
+}
+
+/* Windows translates line ends and stops reading at ^Z on a text mode fd:
+ * the stream, item values and VESkeys need binary, the rest is text */
+void set_binary(int fd, int bin) {
+#ifdef _WIN32
+    _setmode(fd, (bin ? _O_BINARY : _O_TEXT));
+#endif
 }

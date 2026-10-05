@@ -33,5 +33,16 @@
  * ves-util/ci.h              VES Utility: Header for stream cipher handlers
  *
  ***************************************************************************/
+struct libVES_Cipher;
+struct libVES_VaultKey;
+struct jVar;
+struct setfn_st;
+
+int ci_get_fd(struct setfn_st *st, int dflt);
 int ci_encrypt(struct libVES_Cipher *ci);
 int ci_decrypt(struct libVES_Cipher *ci);
+int ci_encrypt_hdr(struct libVES_Cipher *ci, const char *hdr, size_t hdrlen);
+int ci_decrypt_fd(struct libVES_Cipher *ci, int ctext);
+int ci_header(const char *key, size_t keylen, struct jVar *meta, struct libVES_VaultKey **rcpt, int n, char **hdr, size_t *hdrlen);
+int ci_read_header(int fd, char **hdr, size_t *hdrlen);
+int ci_header_open(const char *hdr, size_t hdrlen, struct libVES_VaultKey *vkey, char **key, size_t *keylen, struct jVar **meta);

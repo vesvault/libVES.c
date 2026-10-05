@@ -48,7 +48,12 @@
 #include <stdio.h>
 #include "../ves-util.h"
 #include "get.h"
+#include "set.h"
 #include "tty.h"
+
+#ifndef O_BINARY
+#define O_BINARY	0
+#endif
 
 void *fd_get_contents(int fd, size_t *len) {
     int bufl = 4095;
@@ -68,7 +73,7 @@ void *fd_get_contents(int fd, size_t *len) {
 }
 
 void *get_file(const char *str, size_t *len, void **ptr) {
-    int fd = open(str, O_RDONLY);
+    int fd = open(str, O_RDONLY | O_BINARY);
     if (fd < 0) IO_throw("[open]", str, NULL);
     void *res = fd_get_contents(fd, len);
     if (!res) IO_throw("[read]", str, NULL);
@@ -79,6 +84,7 @@ void *get_file(const char *str, size_t *len, void **ptr) {
 void *get_fd(const char *str, size_t *len, void **ptr) {
     int fd;
     if (sscanf(str, "%d", &fd) != 1) VES_throw("[get_fd]", "Numeric file descriptor expected", str, NULL);
+    set_binary(fd, 1);
     char *res = fd_get_contents(fd, len);
     if (!res) IO_throw("[read]", "(fd)", NULL);
     return res;

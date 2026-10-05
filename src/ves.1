@@ -1,7 +1,7 @@
 .\" Manual page for the ves command line interface to libVES.
 .\" Keep in sync with the VEShelp string in src/ves-util/help.c and with the
 .\" option parser in src/ves-util.c.  Version: VESUTIL_VERSION_CODE.
-.TH VES 1 "2026-06-17" "ves 1.08" "VES Manual"
+.TH VES 1 "2026-10-04" "ves 1.11" "VES Manual"
 .SH NAME
 ves \- command line interface to libVES (VESvault encrypt\-everything API)
 .SH SYNOPSIS
@@ -116,7 +116,10 @@ Print human\-readable information about the Vault Item.
 All stream cipher actions require a
 .B \-o
 Vault Item that stores the symmetric cipher key, and may be combined with
-the appropriate Vault Item options.
+the appropriate Vault Item options.  Without
+.B \-o
+they run offline (see
+.BR "Offline Operations" ).
 .TP
 \fB\-c\fP \fIALGO\fP, \fB\-\-cipher=\fP\fIALGO\fP
 Create a new stream cipher key for \fIALGO\fP (combine with \fB\-i\fP to
@@ -164,7 +167,8 @@ reads the private key from the PEM \fIFILE\fP; \fB\-yp\fP, \fB\-ypf\fP
 unlocked, encrypted otherwise.
 .TP
 \fB\-Y\fP[\fBp\fP], \fB\-\-public\-key\fP, \fB\-Ypf\fP \fIFILE\fP
-Print a PEM public key.
+Print a PEM public key.  In offline mode, \fB\-Y\fP \fIKEY\fP and
+\fB\-Yf\fP \fIFILE\fP supply the public key to encrypt with.
 .TP
 \fB\-G\fP \fIALGO\fP, \fB\-\-key\-algo=\fP\fIALGO\fP
 Algorithm to generate the Vault Key.  \fB\-Gp\fP, \fB\-Gpf\fP \fIFILE\fP
@@ -186,6 +190,98 @@ Disable automatic propagation and rekeying for Temporary Vault Keys.
 .TP
 \fB\-X\fP, \fB\-\-explore\fP
 Print human\-readable information about the Vault Key.
+.SS Offline Operations
+Stream encryption and decryption
+.RB ( \-e ,
+.BR \-d ),
+and item crypto
+.RB ( \-I ,
+.B \-Y
+.IR KEY ),
+without
+.BR \-o ,
+and a private key
+.RB ( \-y )
+or key pair generation
+.RB ( \-g )
+with none of \fB\-o\fP, \fB\-a\fP, \fB\-A\fP, \fB\-k\fP, run offline: they
+use the one key given on the command line, with no Vault and no network
+access.  Options that need a Vault (\fB\-a\fP, \fB\-A\fP, \fB\-k\fP,
+\fB\-T\fP, \fB\-u\fP, \fB\-E\fP, \fB\-s\fP, \fB\-r\fP, \fB\-S\fP, \fB\-l\fP,
+\fB\-n\fP, \fB\-R\fP, \fB\-K\fP, \fB\-U\fP, \fB\-L\fP, \fB\-W\fP,
+\fB\-X\fP, \fB\-\-delete\fP) are rejected.
+.TP
+\fB\-Y\fP \fIKEY\fP, \fB\-Yf\fP \fIFILE\fP
+The PEM public key to encrypt with.  For stream encryption \fB\-Y\fP may
+repeat, one per recipient; one \fB\-G\fP applies to all of them.
+.TP
+\fB\-y\fP \fIKEY\fP, \fB\-yf\fP \fIFILE\fP
+The PEM private key to decrypt with; its public key also encrypts.  Supply
+\fB\-v\fP \fIVESKEY\fP or \fB\-vf\fP \fIFILE\fP if the PEM is encrypted.
+Only one of \fB\-g\fP, \fB\-y\fP and \fB\-Y\fP may be given.
+.TP
+\fB\-g\fP
+Generate a key pair.  The private key must be saved, with \fB\-ypf\fP
+\fIFILE\fP; \fB\-Ypf\fP \fIFILE\fP saves the public key.
+.TP
+\fB\-G\fP \fIALGO\fP
+The algorithm of the \fB\-Y\fP public key or the \fB\-g\fP key pair,
+\fBOQS\fP by default; \fIALGO\fP may carry options as listed by
+\fB\-Gl\fP, such as \fBRSA:4096\fP.  The algorithm of a \fB\-y\fP private
+key is detected from the PEM unless \fB\-G\fP is given.
+.TP
+\fB\-yp\fP, \fB\-ypf\fP \fIFILE\fP, \fB\-vp\fP, \fB\-vpf\fP \fIFILE\fP
+\fB\-yp\fP prints the private key as a plain PEM, unless \fB\-vp\fP asks
+for a VESkey: then the PEM is encrypted with \fB\-v\fP \fIVESKEY\fP, or with
+a newly generated VESkey, and \fB\-vp\fP prints the VESkey.  \fB\-g\fP
+\fB\-v\fP \fIVESKEY\fP also encrypts the new private key with \fIVESKEY\fP.
+.TP
+\fB\-I\fP \fIDATA\fP, \fB\-\-item\-ciphertext=\fP\fIDATA\fP
+The item ciphertext, base64, to decrypt with \fB\-y\fP.  \fB\-If\fP
+\fIFILE\fP reads it from \fIFILE\fP; \fB\-Ip\fP, \fB\-Ipf\fP \fIFILE\fP
+encrypt the item content (from \fB\-i\fP, or the stream cipher key) with the
+key and print the item ciphertext.  It is the same encData a VES Vault Item
+stores for each share.
+.TP
+\fB\-i\fP \fIDATA\fP, \fB\-if\fP \fIFILE\fP
+The plaintext to encrypt, or a raw stream cipher key.  \fB\-ip\fP,
+\fB\-ipf\fP \fIFILE\fP print the decrypted plaintext, or the raw cipher key.
+.PP
+Item encryption, \fB\-Y\fP \fIKEY\fP \fB\-i\fP \fIDATA\fP, prints the item
+ciphertext unless other output is requested.  Item decryption, \fB\-y\fP
+\fIKEY\fP \fB\-I\fP \fIDATA\fP, prints the plaintext likewise.
+.PP
+Stream encryption, \fB\-e\fP, generates a cipher key for \fB\-c\fP
+\fIALGO\fP (default \fBAES256GCM1K\fP), unless \fB\-i\fP or \fB\-I\fP
+supplies one.  With \fB\-Y\fP, \fB\-y\fP or \fB\-g\fP, the cipher key goes
+in a stream header written ahead of the ciphertext, encrypted for each key.
+\fB\-Ipf\fP \fIFILE\fP saves it apart instead, encrypted for one key, and
+\fB\-ipf\fP \fIFILE\fP saves it raw; with neither a key nor \fB\-ipf\fP, a
+generated cipher key is refused.  The key is saved before any ciphertext is
+written.
+.PP
+Stream decryption, \fB\-d\fP \fB\-y\fP \fIKEY\fP, reads the cipher key and
+its algorithm from the stream header.  With \fB\-I\fP and \fB\-y\fP, or
+\fB\-i\fP, the key is apart and the stream has no header: the algorithm
+comes from \fB\-c\fP, else from the \fBa\fP field of \fB\-m\fP \fIJSON\fP,
+else \fBAES256GCM1K\fP.  \fB\-mp\fP prints the metadata, as a Vault Item
+would store it.
+.PP
+The stream header is three lines ahead of the ciphertext:
+.PP
+.RS
+.EX
+ves/1
+{"meta":{"a":"AES256GCM1K",...},"entries":["\fIencData\fP",...]}
+\-\-\- \fIMAC\fP
+.EE
+.RE
+.PP
+Each \fIencData\fP is the cipher key encrypted for one recipient, as
+\fB\-Ip\fP prints it; \fB\-d\fP tries each with the \fB\-y\fP key.
+\fIMAC\fP is base64 HMAC\-SHA256 over the first two lines, keyed by
+HKDF\-SHA256 of the cipher key with info "ves/1 header mac", so a modified
+header is refused before any plaintext is written.
 .SS Event Tracking
 .TP
 \fB\-W\fP [\fISPEC\fP], \fB\-\-events\fP[=\fISPEC\fP]
@@ -326,6 +422,52 @@ Stream\-encrypt and decrypt a file with a cipher key stored in a Vault Item
 ves \-a //demo/me@example.com/ \-E \-o backup \-c AES256GCM1K \e
     \-e \-Pf data.tar \-Cf data.tar.ves
 ves \-a //demo/me@example.com/ \-E \-o backup \e
+    \-d \-Cf data.tar.ves \-Pf data.tar
+.EE
+.RE
+.PP
+Generate a key pair offline, the private key encrypted with a new VESkey:
+.PP
+.RS
+.EX
+ves \-g \-ypf bob.key.pem \-Ypf bob.pub.pem \-vpf bob.veskey
+.EE
+.RE
+.PP
+Encrypt and decrypt a short secret offline, with a key pair on disk:
+.PP
+.RS
+.EX
+ves \-Yf bob.pub.pem \-i "hello" > secret.ves
+ves \-yf bob.key.pem \-vf bob.veskey \-If secret.ves
+.EE
+.RE
+.PP
+Stream\-encrypt a file offline for two recipients, the cipher key in the
+stream header, and decrypt it as one of them:
+.PP
+.RS
+.EX
+ves \-Yf bob.pub.pem \-Yf alice.pub.pem \-e \-Pf data.tar \-Cf data.tar.ves
+ves \-yf bob.key.pem \-vf bob.veskey \-d \-Cf data.tar.ves \-Pf data.tar
+.EE
+.RE
+.PP
+The same, through pipes:
+.PP
+.RS
+.EX
+tar c dir | ves \-Yf bob.pub.pem \-e | ssh host 'cat > dir.tar.ves'
+ssh host 'cat dir.tar.ves' | ves \-yf bob.key.pem \-vf bob.veskey \-d | tar x
+.EE
+.RE
+.PP
+Stream\-encrypt with the cipher key saved apart, and decrypt it:
+.PP
+.RS
+.EX
+ves \-Yf bob.pub.pem \-e \-Pf data.tar \-Cf data.tar.ves \-Ipf data.tar.key
+ves \-yf bob.key.pem \-vf bob.veskey \-If data.tar.key \e
     \-d \-Cf data.tar.ves \-Pf data.tar
 .EE
 .RE

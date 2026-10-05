@@ -87,6 +87,19 @@ ves -a //demo/me@example.com/ -E -o backup \
     -d -Cf data.tar.ves -Pf data.tar
 ```
 
+Without a vault, `ves` also works offline, with a key pair kept on disk. Nothing is
+sent anywhere; the cipher key travels in a header at the front of the file, encrypted
+for each recipient (repeat `-Y` for more than one):
+
+```sh
+ves -g -ypf me.key.pem -Ypf me.pub.pem -vpf me.veskey     # generate a key pair
+ves -Yf me.pub.pem -e -Pf data.tar -Cf data.tar.ves        # encrypt for me.pub.pem
+ves -yf me.key.pem -vf me.veskey -d -Cf data.tar.ves -Pf data.tar
+```
+
+Offline files have none of the vault's recovery, sharing or event history: the private
+key and its VESkey are the only way back in.
+
 Full option reference: `man ves`, or <https://ves.host/docs/ves-util>.
 
 ## Use it from C

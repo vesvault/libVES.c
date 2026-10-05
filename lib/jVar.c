@@ -694,7 +694,6 @@ jVarParser *jVarParser_proceed(jVarParser *p,jVarParser *child) {
 		}
 	    }
 	    size_t len = t - p->head;
-	    char fmt[32];
 	    if (p->result && p->result->type != type) {
 		jVar_free(p->result);
 		p->result = NULL;
@@ -708,8 +707,19 @@ jVarParser *jVarParser_proceed(jVarParser *p,jVarParser *child) {
 		s = p->key->vString;
 		len = p->key->len;
 	    } else s = p->head;
-	    sprintf(fmt, (type == JVAR_FLOAT ? "%%%dLg" : "%%%dlld"), (int) len);
-	    if (sscanf(s, fmt, valptr) != 1 && t < p->tail) p->state = JVAR_PARSE_ERROR;
+	    /* sscanf() strlen()s its whole input before converting, and
+	     * neither p->key nor the caller's buffer is NUL-terminated, so
+	     * convert a terminated copy of exactly the token. */
+	    char nbuf[64];
+	    char *n = len < sizeof(nbuf) ? nbuf : malloc(len + 1);
+	    int ok = 0;
+	    if (n) {
+		memcpy(n, s, len);
+		n[len] = 0;
+		ok = sscanf(n, (type == JVAR_FLOAT ? "%Lg" : "%lld"), valptr) == 1;
+		if (n != nbuf) free(n);
+	    }
+	    if (!ok && t < p->tail) p->state = JVAR_PARSE_ERROR;
 	    else {
 		p->head = t;
 		if (t < p->tail) p->state = JVAR_PARSE_COMPLETE;

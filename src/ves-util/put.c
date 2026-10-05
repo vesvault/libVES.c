@@ -70,6 +70,20 @@ void *put_setshare(const char *str, size_t len, void **ptr) {
     return put_sh(str, LIBVES_SH_ADD | LIBVES_SH_CLN, (struct share_st **) ptr);
 }
 
+void *put_pub(const char *str, size_t slen, void **ptr) {
+    struct pub_st **pub = (struct pub_st **) ptr;
+    char *pem = malloc(slen + 1);
+    if (!pem) return NULL;
+    /* PEM is text: CRLF reads as LF, so -Yp prints it back in the platform line ends */
+    const char *s, *tail = str + slen;
+    char *d = pem;
+    for (s = str; s < tail; s++) if (*s != '\r' || s + 1 >= tail || s[1] != '\n') *d++ = *s;
+    *d = 0;
+    MEM_chk_list(*pub, pem);
+    (*pub)->pem[(*pub)->len++] = pem;
+    return *pub;
+}
+
 void *put_jvar(const char *str, size_t len, void **ptr) {
     return *ptr = (void *) jVar_stringl(str, len);
 }
