@@ -148,8 +148,18 @@ Requirements:
 - **cURL** — `libcurl` + `curl/*.h` (<https://curl.se/download.html>)
 - **liboqs** — post-quantum KEMs, **required by default** (<https://github.com/open-quantum-safe/liboqs>).
   Packaged by Homebrew (`brew install liboqs`), MSYS2, Fedora and Arch; on Debian/Ubuntu,
-  [build it from source](https://github.com/open-quantum-safe/liboqs#quickstart). Pass
-  `--without-oqs` to build a classical-only library (not recommended — see [Post-quantum](#post-quantum)).
+  [build it from source](https://github.com/open-quantum-safe/liboqs#quickstart) as a
+  **shared** library, as the CI and the `Dockerfile` do (liboqs builds a static one by default,
+  which libVES would then carry inside `libVES.so`, so a liboqs fix would mean rebuilding libVES):
+
+  ```sh
+  git clone --depth 1 https://github.com/open-quantum-safe/liboqs
+  cmake -S liboqs -B liboqs/build -GNinja -DBUILD_SHARED_LIBS=ON -DOQS_BUILD_ONLY_LIB=ON
+  sudo cmake --build liboqs/build --target install && sudo ldconfig
+  ```
+
+  Pass `--without-oqs` to build a classical-only library (not recommended — see
+  [Post-quantum](#post-quantum)).
 
 GNU build:
 
