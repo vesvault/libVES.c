@@ -18,6 +18,25 @@ name: Docker
 # Registries: GHCR always (GITHUB_TOKEN covers it, no setup). Docker Hub only
 # once DOCKERHUB_USERNAME / DOCKERHUB_TOKEN exist as repository secrets --
 # until then those tags are skipped rather than failing the release.
+#
+# SBOM: etc/image-sbom.js writes the runtime image's SBOM (CycloneDX 1.6). The
+# `build` job writes one on every run, for the image it built, and keeps it as
+# a run artifact, so a change that breaks it fails an ordinary push rather
+# than the next release. After a release publishes, the `sbom` job writes it
+# for the published image, by digest, and
+#
+#   - attaches ves-<version>-image.cdx.json to the GitHub release, opening a
+#     draft release if none exists yet: add the notes and the make-dist
+#     tarball to that draft, then publish it
+#   - attests it to the image digest (actions/attest), stored with GitHub and
+#     pushed to GHCR beside the image. Docker Hub serves the same digest, so
+#     the one attestation covers both:
+#       gh attestation verify oci://docker.io/vesvault/ves:<version> --owner vesvault
+#
+# The image needs its own SBOM because no image scanner can find liboqs in it:
+# it is compiled from source into /usr/local, not installed as a package.
+# Run the workflow by hand with a version (Actions > Docker > Run workflow) to
+# write and attach the SBOM for an image already published.
 
 on:
   push:
@@ -26,6 +45,11 @@ on:
   pull_request:
     branches: [ master ]
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'A published version (e.g. 1.37): write its image SBOM, attach it to the release, attest it. Empty: build only.'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -100,6 +124,18 @@ jobs:
           EOF
           docker run --rm -v /tmp/probe.c:/src/probe.c:ro libves:ci-dev \
             sh -c 'cd /src && gcc -Wall -o /tmp/probe probe.c $(pkg-config --cflags --libs libVES) && /tmp/probe'
+
+      # The image was never pushed, so it has no digest: the SBOM names it by
+      # its image ID. The generator stops, writing nothing, if what it reads
+      # does not hold together (no ML-KEM, another liboqs than the Dockerfile
+      # pins, libVES's Debian dependencies missing).
+      - name: SBOM of the runtime image
+        run: node etc/image-sbom.js --revision "$GITHUB_SHA" libves:ci > ves-ci-image.cdx.json
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sbom-ci
+          path: ves-ci-image.cdx.json
 
   publish:
     name: Publish vesvault/ves
@@ -212,3 +248,104 @@ jobs:
           tags: ${{ steps.meta-dev.outputs.tags }}
           labels: ${{ steps.meta-dev.outputs.labels }}
           cache-from: type=gha,scope=dev
+
+  sbom:
+    name: SBOM of the published image
+    # After a release publishes, or by hand for a version already published.
+    # always(): on a manual run `publish` is skipped, and this still runs.
+    needs: publish
+    if: >-
+      always() &&
+      (needs.publish.result == 'success' ||
+       (github.event_name == 'workflow_dispatch' && inputs.version != ''))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write           # attach the SBOM to the release
+      packages: write           # push the attestation to GHCR
+      id-token: write           # sign the attestation (Sigstore, through GitHub)
+      attestations: write
+      artifact-metadata: write
+    env:
+      GHCR_IMAGE: ghcr.io/${{ github.repository_owner }}/ves
+    defaults:
+      run:
+        shell: bash
+    steps:
+      # The image's revision can be older than this checkout (a manual run
+      # from master), and the generator reads the Dockerfile at that revision.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Which release
+        id: rel
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then v=$INPUT_VERSION; else v=${GITHUB_REF_NAME#v}; fi
+          [[ $v =~ ^[0-9]+(\.[0-9]+)+$ ]] || { echo "::error::not a release version: '$v'"; exit 1; }
+          git rev-parse -q --verify "refs/tags/v$v" > /dev/null || { echo "::error::no tag v$v"; exit 1; }
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # The SBOM names one digest, so both registries must serve that image.
+      # Docker Hub's digest is the SHA-256 of its raw manifest, piped straight
+      # into the hash: a $(...) capture would drop a trailing newline.
+      # (imagetools' --format does not help: some buildx versions ignore it
+      # and print their default text.)
+      - name: Pull the image; check Docker Hub serves the same one
+        id: img
+        env:
+          V: ${{ steps.rel.outputs.version }}
+        run: |
+          docker pull -q "$GHCR_IMAGE:$V"
+          d=$(docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$GHCR_IMAGE:$V" | sed -n "s#^$GHCR_IMAGE@##p" | head -1)
+          [[ $d =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::no digest recorded for $GHCR_IMAGE:$V"; exit 1; }
+          if hub=$(docker buildx imagetools inspect --raw "docker.io/vesvault/ves:$V" 2> /dev/null | sha256sum | cut -d' ' -f1); then
+            hub=sha256:$hub
+            [ "$hub" = "$d" ] || { echo "::error::docker.io/vesvault/ves:$V is $hub and $GHCR_IMAGE:$V is $d; one SBOM cannot name both"; exit 1; }
+          else
+            echo "::warning::docker.io/vesvault/ves:$V not found; the SBOM is for the GHCR image only"
+          fi
+          echo "digest=$d" >> "$GITHUB_OUTPUT"
+
+      - name: SBOM
+        env:
+          V: ${{ steps.rel.outputs.version }}
+          D: ${{ steps.img.outputs.digest }}
+        run: node etc/image-sbom.js --digest "$D" "$GHCR_IMAGE:$V" > "ves-$V-image.cdx.json"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sbom-${{ steps.rel.outputs.version }}
+          path: ves-${{ steps.rel.outputs.version }}-image.cdx.json
+
+      # Uploaded again, same name, on every run: the SBOM is deterministic, so
+      # a re-run replaces it with the same bytes unless the image changed.
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          V: ${{ steps.rel.outputs.version }}
+        run: |
+          f=ves-$V-image.cdx.json
+          if gh release view "v$V" > /dev/null 2>&1; then
+            gh release upload "v$V" "$f" --clobber
+          else
+            gh release create "v$V" --draft --verify-tag --title "v$V" --notes "" "$f"
+            echo "::notice::opened a draft release v$V with the image SBOM: add the notes and libves-$V.tar.gz, then publish it"
+          fi
+
+      - name: Attest the SBOM to the image
+        uses: actions/attest@v4
+        with:
+          subject-name: ${{ env.GHCR_IMAGE }}
+          subject-digest: ${{ steps.img.outputs.digest }}
+          sbom-path: ves-${{ steps.rel.outputs.version }}-image.cdx.json
+          push-to-registry: true
