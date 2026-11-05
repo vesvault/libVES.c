@@ -29,9 +29,12 @@ name: Docker
 #     draft release if none exists yet: add the notes and the make-dist
 #     tarball to that draft, then publish it
 #   - attests it to the image digest (actions/attest), stored with GitHub and
-#     pushed to GHCR beside the image. Docker Hub serves the same digest, so
-#     the one attestation covers both:
-#       gh attestation verify oci://docker.io/vesvault/ves:<version> --owner vesvault
+#     pushed to GHCR beside the image (as the tag sha256-<digest>: GHCR has no
+#     referrers API). Docker Hub serves the same digest, so the one
+#     attestation covers both. `gh attestation verify` looks for build
+#     provenance unless told otherwise:
+#       gh attestation verify oci://docker.io/vesvault/ves:<version> --owner vesvault \
+#         --predicate-type https://cyclonedx.org/bom
 #
 # The image needs its own SBOM because no image scanner can find liboqs in it:
 # it is compiled from source into /usr/local, not installed as a package.

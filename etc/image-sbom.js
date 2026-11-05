@@ -153,12 +153,16 @@ const oqsRef = `pkg:github/open-quantum-safe/liboqs@${oqsVersion}`;
 const osRef = `os:${distro}`;
 const hash = (file) => [{ alg: 'SHA-256', content: sha256(file) }];
 const supplier = { name: 'VESvault Corp', url: ['https://vesvault.com'] };
+// No image ID for a published image: its digest pins it, and the ID is not a
+// property of the image but of the Docker reading it (the config digest with
+// the classic image store, the manifest digest with containerd's), so it
+// would make the same image's SBOM differ between machines.
 const imageProps = [
-    { name: 'libves:image-id', value: info.Id },
     { name: 'libves:platform', value: `${info.Os}/${info.Architecture}` },
     { name: 'libves:revision', value: revision },
     { name: 'libves:base', value: osr.PRETTY_NAME },
 ];
+if (!digest) imageProps.unshift({ name: 'libves:image-id', value: info.Id });
 const imageComponent = digest ? {
     'bom-ref': imageRef, type: 'container', name: 'vesvault/ves', version, purl: imageRef, supplier,
     hashes: [{ alg: 'SHA-256', content: digest.replace(/^sha256:/, '') }],
