@@ -276,4 +276,100 @@ vestest 4 -yf $TMP/RSA.key.pem -If $TMP/RSA.item
 vestest 4 -yf $TMP/ECDH.key.pem -v "$VESKEY" -If $TMP/RSA.item
 vestest 4 -Yf $TMP/RSA.pub.pem -G ECDH -i "$SECRET"
 
+# A public key that ends in a zero byte: i2d drops those from a BIT STRING unless told not
+# to, and libVES.c up to 1.37 did not, so it could not read such a key back. A sntrup761
+# public key ends in one about a quarter of the time, so 40 keys all but certainly have some.
+if $VES -Gl 2>/dev/null | grep -q 'OQS:sntrup761'
+then
+    vestest_head "OQS keys other than ML-KEM: a public key ending in a zero byte"
+    for MODE in plain encrypted
+    do
+        V=()
+        [ $MODE == encrypted ] && V=(-v "$VESKEY")
+        BAD=0
+        for I in $(seq 1 40)
+        do
+            rm -f $TMP/z.key $TMP/z.pub $TMP/z.item $TMP/z.out
+            $VES -g -G OQS:sntrup761 "${V[@]}" -ypf $TMP/z.key -Ypf $TMP/z.pub 2>/dev/null \
+                && $VES -Yf $TMP/z.pub -G OQS -if $TMP/k32 -Ipf $TMP/z.item 2>/dev/null \
+                && $VES "${V[@]}" -yf $TMP/z.key -If $TMP/z.item -ipf $TMP/z.out 2>/dev/null \
+                && cmp -s $TMP/k32 $TMP/z.out || ((++BAD))
+        done
+        vestest_check "40 sntrup761 keys round-trip, $MODE ($BAD failed)" test $BAD == 0
+    done
+    # A throwaway key the 1.37 writer made, its public key one byte short. It has to open, and
+    # the public key restored from it has to be the real one: a wrap to it must unwrap.
+    cat > $TMP/stripped.key <<'STRIPPED'
+-----BEGIN PRIVATE KEY-----
+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
+-----END PRIVATE KEY-----
+STRIPPED
+    rm -f $TMP/z.pub $TMP/z.item $TMP/z.out
+    $VES -yf $TMP/stripped.key -Ypf $TMP/z.pub 2>/dev/null \
+        && $VES -Yf $TMP/z.pub -G OQS -if $TMP/k32 -Ipf $TMP/z.item 2>/dev/null \
+        && $VES -yf $TMP/stripped.key -If $TMP/z.item -ipf $TMP/z.out 2>/dev/null
+    vestest_check "a key written with the zeros dropped opens, and its public key is the real one" cmp -s $TMP/k32 $TMP/z.out
+fi
+
 rm -rf $TMP

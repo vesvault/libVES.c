@@ -63,3 +63,15 @@
     line endings rewritten. Text output (PEM keys, JSON, listings) keeps
     Windows line endings. In the library, the JSON parser no longer reads
     past the end of its input when it converts a number.
+
+[11/05/2026] jz@vesvault.com:
+    libVES.c 1.38 / ves 1.11 - Fixes a key format bug: a post-quantum key of
+    any OQS algorithm other than ML-KEM could not be read back when its public
+    key ended in a zero byte, whether in a private key PEM or a stored vault
+    key. The writer dropped those bytes from the BIT STRING, and the reader
+    refused the result with "Unsupported PEM private key". That affects about
+    one sntrup761 key in four and one Kyber768 key in 256. ML-KEM, the default,
+    has its own writer and was never affected. The writer now keeps the bytes,
+    and the reader restores them, so keys already written open again, with no
+    action needed; 1.37 can read keys 1.38 writes. Also, a build that does not
+    run configure, such as Android's ndk-build, no longer fails on config.h.

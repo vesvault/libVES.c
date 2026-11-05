@@ -34,8 +34,12 @@
  *
  ***************************************************************************/
 /* For LIBVES_KEYALGO_OQS_DEFAULT[_ENABLE] from --with-oqs-algo; must precede
- * both the liboqs guard below and KeyAlgo_OQS.h. */
+ * both the liboqs guard below and KeyAlgo_OQS.h. Guarded like the other
+ * sources: a build that never ran configure (Android's ndk-build) has no
+ * config.h, and the fallback below covers it. */
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif
 
 #include <sys/types.h>
 #include <stddef.h>
@@ -645,7 +649,10 @@ void *libVES_KeyAlgo_OQS_str2priv(libVES_VaultKey *vkey, const char *priv, const
 				    libVES_setError(vkey->ves, LIBVES_E_CRYPTO, "No public key is OQS bundle");
 				} else if (priv->privateKey->length != kem->length_secret_key) {
 				    libVES_setError(vkey->ves, LIBVES_E_CRYPTO, "Incorrect OQS private key length");
-				} else if (priv->publicKey->length != kem->length_public_key) {
+				} else if (priv->publicKey->length <= 0 || (size_t) priv->publicKey->length > kem->length_public_key) {
+				    /* Shorter is allowed: up to 1.37 the writer below let i2d drop
+				     * trailing zero bytes from this BIT STRING. They are restored here,
+				     * so those keys still open. */
 				    libVES_setError(vkey->ves, LIBVES_E_CRYPTO, "Incorrect OQS public key length");
 				} else {
 				    oqs = malloc(sizeof(*oqs));
@@ -655,7 +662,8 @@ void *libVES_KeyAlgo_OQS_str2priv(libVES_VaultKey *vkey, const char *priv, const
 					if (oqs->priv && oqs->pub) {
 					    oqs->kem = kem;
 					    memcpy(oqs->priv, priv->privateKey->data, kem->length_secret_key);
-					    memcpy(oqs->pub, priv->publicKey->data, kem->length_public_key);
+					    memcpy(oqs->pub, priv->publicKey->data, priv->publicKey->length);
+					    memset(oqs->pub + priv->publicKey->length, 0, kem->length_public_key - priv->publicKey->length);
 					} else {
 					    free(oqs->priv);
 					    free(oqs->pub);
@@ -708,6 +716,10 @@ char *libVES_KeyAlgo_OQS_priv2str(libVES_VaultKey *vkey, void *pkey, const libVE
 		    if (priv->publicKey
 		    && ASN1_STRING_set(priv->privateKey, oqs->priv, oqs->kem->length_secret_key)
 		    && ASN1_STRING_set(priv->publicKey, oqs->pub, oqs->kem->length_public_key)) {
+			/* Without this i2d drops trailing zero bytes from a BIT STRING, and a
+			 * sntrup761 public key ends in one about a quarter of the time. */
+			priv->publicKey->flags &= ~0x07;
+			priv->publicKey->flags |= ASN1_STRING_FLAG_BITS_LEFT;
 			unsigned char *asn = NULL;
 			int len = i2d_libVES_KeyAlgo_OQS_PRIVATEKEY(priv, &asn);
 			if (len > 0 && PKCS8_pkey_set0(privkey, obj, 0, V_ASN1_OCTET_STRING, algo, asn, len)) {
